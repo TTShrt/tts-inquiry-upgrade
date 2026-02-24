@@ -2091,14 +2091,13 @@
           const tdBr = document.createElement('td'); tdBr.appendChild(brInp); r4.appendChild(tdBr);
 
           r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—'));
-
           ['Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee'].forEach(cF => {
             const ci = makeInput(item[cF] ?? '', cF, quote, lockedTruck, 'TRUCK');
             const tc = document.createElement('td'); tc.appendChild(ci); r4.appendChild(tc);
             r4.appendChild(tdCell('—'));
           });
 
-          const carrierInp = makeInput(item['Carrier'] || '', 'Carrier', quote, lockedTruck, 'TRUCK', true);
+          const carrierInp = makeInput(item['Carrier'] ?? '', 'Carrier', quote, lockedTruck, 'TRUCK', true);
           const tdCar = document.createElement('td'); tdCar.appendChild(carrierInp); r4.appendChild(tdCar);
 
           // ✅ Vendor Note (Column 26) — only Sourcing can edit/save

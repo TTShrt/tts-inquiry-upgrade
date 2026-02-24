@@ -2448,7 +2448,8 @@
               return;
             }
             filteredData = data;
-
+            // ✅ 加在这里
+            for (const k of Object.keys(draftCache)) delete draftCache[k];
             filteredData = applySearchFilter(filteredData, searchTerm);
 
 

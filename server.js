@@ -51,70 +51,117 @@ app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-
-const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
+const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI; // 现在这个应指向 rateinquiry_v2
 
 console.log('[BOOT] USE_MOCK=', USE_MOCK, 'MONGO_URI=', !!MONGO_URI);
 
-
-if (MONGO_URI) {
-  mongoose.connect(MONGO_URI)
-    .then(() => console.log('✅ MongoDB connected'))
-    .catch(err => console.error('❌ MongoDB connection error:', err));
+let conn = null;
+if (!USE_MOCK && MONGO_URI) {
+  conn = mongoose.createConnection(MONGO_URI);
+  conn.on('connected', () => console.log('✅ MongoDB connected (NEW ONLY)'));
+  conn.on('error', (err) => console.error('❌ MongoDB error:', err));
 } else {
-  console.log('⚠️ MongoDB skipped: MONGO_URI not set (local dev)');
+  console.log('⚠️ MongoDB skipped (USE_MOCK or missing MONGO_URI)');
 }
 
-
 const inquirySchema = new mongoose.Schema({}, { strict: false });
-const Inquiry = mongoose.model('Inquiry', inquirySchema);
-
-
+const Inquiry = conn ? conn.model('Inquiry', inquirySchema, 'inquiries') : null;
 /**
  * Passwords: made intentionally harder to guess.
  */
+
+// // ==============================
+// ✅ USERS (NEW SYSTEM - SINGLE DATABASE)
+// ==============================
+
+
 const users = [
-  // General Manager
-  { username: 'Lina Lee', password: 'ttshrt@11121', role: 'manager' },
 
-  // TEAM3 (Adam)
-  { username: 'Adam Chen', password: 'salestwn2025', role: 'sales', salesGroup: 'TEAM3' },
-  { username: 'OPM TEAM3', password: 'opm3#2025', role: 'sales', salesGroup: 'TEAM3' },
-  { username: 'OPS TEAM3', password: 'ops3#2025', role: 'ops_view', salesGroup: 'TEAM3' },
+  // ==============================
+  // 🟣 General Manager
+  // ==============================
+  {
+    username: 'Lina Lee',
+    password: 'ttshrt@11121',
+    role: 'manager'
+  },
 
-  // TEAM1 (Niurka)
-  { username: 'Niurka Guzman', password: 'pass5561hou', role: 'sales', salesGroup: 'TEAM1' },
-  { username: 'OPM TEAM1', password: 'opm1#2025', role: 'sales', salesGroup: 'TEAM1' },
-  { username: 'OPS TEAM1', password: 'ops1#2025', role: 'ops_view', salesGroup: 'TEAM1' },
+  // ==============================
+  // 🔵 TEAM3 (Adam Team)
+  // ==============================
+  {
+    username: 'Adam Chen',
+    password: 'salestwn2025',
+    role: 'sales',
+    salesGroup: 'TEAM3'
+  },
+  {
+    username: 'OPM TEAM3',
+    password: 'opm3#2025',
+    role: 'sales',
+    salesGroup: 'TEAM3'
+  },
+  {
+    username: 'OPS TEAM3',
+    password: 'ops3#2025',
+    role: 'ops_view',
+    salesGroup: 'TEAM3'
+  },
 
-  // TEAM2 (Ellen)
-  { username: 'Ellen Lin', password: 'xmnpass2808', role: 'sales', salesGroup: 'TEAM2' },
-  { username: 'OPM TEAM2', password: 'opm2#2025', role: 'sales', salesGroup: 'TEAM2' },
-  { username: 'OPS TEAM2', password: 'ops2#2025', role: 'ops_view', salesGroup: 'TEAM2' },
+  // ==============================
+  // 🟢 TEAM1 (Niurka Team)
+  // ==============================
+  {
+    username: 'Niurka Guzman',
+    password: 'pass5561hou',
+    role: 'sales',
+    salesGroup: 'TEAM1'
+  },
+  {
+    username: 'OPM TEAM1',
+    password: 'opm1#2025',
+    role: 'sales',
+    salesGroup: 'TEAM1'
+  },
+  {
+    username: 'OPS TEAM1',
+    password: 'ops1#2025',
+    role: 'ops_view',
+    salesGroup: 'TEAM1'
+  },
 
-  // Sourcing
-  { username: 'Matthew Maultsby', password: 'sourcing5544', role: 'sourcing' },
+  // ==============================
+  // 🟡 TEAM2 (Ellen Team)
+  // ==============================
+  {
+    username: 'Ellen Lin',
+    password: 'xmnpass2808',
+    role: 'sales',
+    salesGroup: 'TEAM2'
+  },
+  {
+    username: 'OPM TEAM2',
+    password: 'opm2#2025',
+    role: 'sales',
+    salesGroup: 'TEAM2'
+  },
+  {
+    username: 'OPS TEAM2',
+    password: 'ops2#2025',
+    role: 'ops_view',
+    salesGroup: 'TEAM2'
+  },
+
+  // ==============================
+  // 🟠 Sourcing
+  // ==============================
+  {
+    username: 'Matthew Maultsby',
+    password: 'sourcing5544',
+    role: 'sourcing'
+  }
+
 ];
-
-
-function opsCanSeeInquiry(role, item) {
-  const allowedOwners = OPS_TEAM_SCOPE[String(role || '').toLowerCase()];
-  if (!allowedOwners) return false;
-
-  const requestedBy = String(item['Requested By'] || '').trim();
-  const createdBy = String(item['username'] || '').trim();
-
-  // ✅ 只要该单属于该 Sales（Requested By 或 username），就可见
-  return allowedOwners.includes(requestedBy) || allowedOwners.includes(createdBy);
-}
-
-function requireRole(role) {
-  return (req, res, next) => {
-    const r = (req.cookies.role || '').toLowerCase();
-    if (r !== role) return res.status(403).send('Forbidden');
-    next();
-  };
-}
 
 
 function simulateQuoteFull(baseRate, type) {
@@ -297,10 +344,6 @@ function setIfEmpty(doc, key, value) {
   if (empty) doc[key] = value;
 }
 
-
-function getTeamAllowedSalesName(role) {
-  return TEAM_ROLE_TO_SALES_NAME[role] || '';
-}
 
 function applyTruckingUnits(doc) {
   setIfEmpty(doc, 'Base Rate Unit', 'Container');
@@ -572,18 +615,17 @@ app.post('/login', async (req, res) => {
   });
 });
 
-
-// ✅ Helper: find inquiry by Quotation # (works for Mongo + mock)
+// ✅ Helper: find inquiry by Quotation # (Mongo NEW DB only + mock fallback)
 async function findInquiryByQuote(quote) {
   const q = String(quote || '').trim();
   if (!q) return null;
 
   // mock mode
-  if (USE_MOCK && (!MONGO_URI || mongoose.connection.readyState !== 1)) {
+  if (USE_MOCK || !conn || conn.readyState !== 1 || !Inquiry) {
     return mockInquiries.find(x => String(x['Quotation #'] || '').trim() === q) || null;
   }
 
-  // mongo mode
+  // mongo mode (NEW DB only)
   return await Inquiry.findOne({ 'Quotation #': q }).lean();
 }
 
@@ -598,7 +640,7 @@ app.post('/inquiries', async (req, res) => {
     const raw = req.body || {};
 
     // ✅ Inherit salesGroup from parent (for Sourcing adding sub-lines)
-    let inheritedGroup = '';
+    let inheritedGroup = ''
     let inheritedSubmitted = '';
     const parentQ = String(raw['Parent Quotation #'] || raw.parentQuotation || '').trim();
     if (parentQ) {
@@ -652,8 +694,6 @@ app.post('/inquiries', async (req, res) => {
       'To': raw['To'] || raw.to || '',
       'QTY': raw['QTY'] || raw.qty || '',
       'Quotation #': raw['Quotation #'],
-      'Parent Quotation #': raw['Parent Quotation #'] || '',
-      'Type': raw['Type'] || '',
 
       'Parent Quotation #': raw['Parent Quotation #'] || raw.parentQuotation || '',
       'Type': raw['Type'] || raw.type || '',
@@ -839,7 +879,7 @@ app.get('/sourcing_dashboard.html', requireRole('sourcing'), (req, res) => {
 
 app.get('/inquiries', async (req, res) => {
   try {
-    const mongoReady = !!MONGO_URI && mongoose.connection.readyState === 1;
+    const mongoReady = !!conn && conn.readyState === 1 && !!Inquiry;
 
     const role = String(req.cookies?.role || '').toLowerCase();
     const salesGroup = String(req.cookies?.salesGroup || '').trim();
@@ -870,34 +910,6 @@ app.get('/inquiries', async (req, res) => {
   }
 });
 
-// ==========================
-// ✅ V2 APIs (New System)
-// ==========================
-app.get('/v2/inquiries', async (req, res) => {
-  try {
-    if (USE_MOCK) return res.json([]);
-    if (!InquiryV2) return res.status(500).json({ error: 'Mongo NEW not connected' });
-
-    const rows = await InquiryV2.find({}).sort({ _id: -1 }).lean();
-    res.json(rows);
-  } catch (e) {
-    console.error('❌ /v2/inquiries error:', e);
-    res.status(500).json({ error: String(e.message || e) });
-  }
-});
-
-app.post('/v2/inquiries', async (req, res) => {
-  try {
-    if (USE_MOCK) return res.json({ ok: true, mock: true });
-    if (!InquiryV2) return res.status(500).json({ error: 'Mongo NEW not connected' });
-
-    const doc = await InquiryV2.create(req.body);
-    res.json({ ok: true, doc });
-  } catch (e) {
-    console.error('❌ POST /v2/inquiries error:', e);
-    res.status(500).json({ error: String(e.message || e) });
-  }
-});
 
 app.post('/inquiries/update', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();
@@ -912,7 +924,6 @@ app.post('/inquiries/update', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing Quotation #' });
     }
 
-    const role = (req.cookies?.role || '').toLowerCase();
 
     if (role === 'ops_view') {
       return res.status(403).json({
@@ -1004,9 +1015,6 @@ app.post('/inquiries/update', async (req, res) => {
       if (field === 'Vendor Note') return role === 'sourcing';
 
       // Front-ends commonly include this as a generic "touch" flag.
-      if (field === 'Saved') return true;
-
-      // Front-ends commonly include this as a generic "touch" flag.
       // Allow it for all roles so we don't hard-fail saves.
       if (field === 'Saved') return true;
 
@@ -1053,7 +1061,7 @@ app.post('/inquiries/update', async (req, res) => {
 
     // ========= Load existing =========
     async function loadExisting() {
-      if (USE_MOCK && (!MONGO_URI || mongoose.connection.readyState !== 1)) {
+      if (USE_MOCK || !conn || conn.readyState !== 1 || !Inquiry) {
         const idx = mockInquiries.findIndex(x => x['Quotation #'] === quotationId);
         if (idx === -1) return { mode: 'mock', doc: null, idx: -1 };
         return { mode: 'mock', doc: mockInquiries[idx], idx };
@@ -1409,8 +1417,6 @@ app.post('/api/push-to-gofreight', async (req, res) => {
   }
 });
 
-
-
 app.post('/duplicate_inquiry', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();
   if (role === 'ops_view') {
@@ -1523,7 +1529,7 @@ app.post('/delete_inquiry', async (req, res) => {
 
   try {
     // ✅ Mock mode branch (same pattern as /inquiries/update)
-    if (USE_MOCK && (!MONGO_URI || mongoose.connection.readyState !== 1)) {
+    if (USE_MOCK || !conn || conn.readyState !== 1 || !Inquiry) {
       const before = mockInquiries.length;
       mockInquiries = mockInquiries.filter(x => String(x['Quotation #'] || '').trim() !== String(quoteId).trim());
       const after = mockInquiries.length;
@@ -1553,12 +1559,14 @@ app.post('/delete_inquiry', async (req, res) => {
   }
 });
 
-
-
 app.post('/reset_excel', async (req, res) => {
   const { role } = req.cookies;
   if (role !== 'manager') {
     return res.status(403).json({ success: false, message: 'Permission denied' });
+  }
+
+  if (!USE_MOCK && (!conn || conn.readyState !== 1 || !Inquiry)) {
+    return res.status(500).json({ success: false, message: 'Mongo not connected' });
   }
 
   try {
@@ -1570,7 +1578,6 @@ app.post('/reset_excel', async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to reset MongoDB' });
   }
 });
-
 
 app.get('/exit', async (req, res) => {
   console.log('[DEBUG] /exit called');
@@ -1589,7 +1596,6 @@ app.get('/logout', (req, res) => {
   res.clearCookie('salesGroup'); // ✅ add
   return res.redirect('/index.html');
 });
-
 
 /* =========================================================
    PUBLIC CUSTOMER PORTAL (No login required)
@@ -1731,7 +1737,7 @@ app.post('/public/inquiries', async (req, res) => {
 
     // Save
     let saved;
-    if (USE_MOCK && (!MONGO_URI || mongoose.connection.readyState !== 1)) {
+    if (USE_MOCK || !conn || conn.readyState !== 1 || !Inquiry) {
       data['_id'] = Date.now().toString();
       mockInquiries.push(data);
       saved = data;
@@ -1747,7 +1753,6 @@ app.post('/public/inquiries', async (req, res) => {
   }
 });
 
-
 // ✅ 仅 fallback 非 API 路由，避免干扰 /api/*
 app.use((req, res, next) => {
   const p = req.path || '';
@@ -1759,14 +1764,12 @@ app.use((req, res, next) => {
     p === '/logout' ||
     p.startsWith('/socket.io');
 
-
   if (req.method === 'GET' && !isApiRoute) {
     return res.sendFile(path.join(__dirname, 'public', 'sales_dashboard_v2.html'));
   }
 
   next();
 });
-
 
 server.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);

@@ -947,32 +947,26 @@ app.post('/inquiries/update', async (req, res) => {
     const incoming = req.body || {};
     const quotationId = incoming['Quotation #'];
 
-function buildSafePatch(payload) {
-  const patch = {};
-  for (const [k, v] of Object.entries(payload || {})) {
-    // 不允许改主键
-    if (k === '_id' || k === 'Quotation #' || k === 'Quotation # ') continue;
+    function buildSafePatch(payload) {
+      const patch = {};
+      for (const [k, v] of Object.entries(payload || {})) {
+        if (k === '_id' || k === 'Quotation #' || k === 'Quotation # ') continue;
 
-    // boolean 一定允许覆盖（checkbox）
-    if (typeof v === 'boolean') { patch[k] = v; continue; }
+        if (typeof v === 'boolean') { patch[k] = v; continue; }
+        if (typeof v === 'number') { patch[k] = v; continue; }
 
-    // number 允许 0
-    if (typeof v === 'number') { patch[k] = v; continue; }
+        if (typeof v === 'string') {
+          if (v.trim() === '') continue;
+          patch[k] = v;
+          continue;
+        }
 
-    // string：空字符串不更新
-    if (typeof v === 'string') {
-      if (v.trim() === '') continue;
-      patch[k] = v;
-      continue;
+        if (v === null || v === undefined) continue;
+
+        patch[k] = v;
+      }
+      return patch;
     }
-
-    // null/undefined 不更新
-    if (v === null || v === undefined) continue;
-
-    patch[k] = v;
-  }
-  return patch;
-}
 
     if (!quotationId || String(quotationId).trim() === '') {
       return res.status(400).json({ success: false, message: 'Missing Quotation #' });
@@ -1197,8 +1191,9 @@ function buildSafePatch(payload) {
     }
 
     // ========= Apply updates =========
-    Object.keys(filtered).forEach(key => {
-      existing[key] = filtered[key];
+    const patch = buildSafePatch(filtered);
+    Object.keys(patch).forEach(key => {
+      existing[key] = patch[key];
     });
 
     // Always apply units and auto rules

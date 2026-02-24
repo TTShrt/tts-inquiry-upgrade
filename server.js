@@ -78,7 +78,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI; // 现在这个应指向 rateinquiry_v2
 
-console.log('[BOOT] USE_MOCK=', USE_MOCK, 'MONGO_URI=', !!MONGO_URI);
+console.log('[BOOT] USE_MOCK=', USE_MOCK);
+console.log('[BOOT] MONGO_URI FULL =', MONGO_URI);
 
 let conn = null;
 if (!USE_MOCK && MONGO_URI) {

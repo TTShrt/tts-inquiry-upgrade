@@ -1,0 +1,2185 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manager Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family:
+        "PingFang SC",
+        "Helvetica Neue",
+        Helvetica,
+        "Segoe UI",
+        Roboto,
+        Arial,
+        "Apple Color Emoji",
+        "Segoe UI Emoji",
+        "Noto Color Emoji",
+        sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow-x: auto;
+      overflow-y: scroll;
+      height: 100%;
+    }
+
+    table,
+    tbody,
+    tr {
+      background-color: white !important;
+      transition: background-color .2s;
+    }
+
+    #fixed-scroll-wrapper {
+      overflow: auto;
+      width: 100%;
+      max-height: calc(100vh - 120px);
+      border-top: 1px solid #d1d5db;
+    }
+
+    #summaryTable {
+      width: 100%;
+      background: white;
+    }
+
+    #summaryTable td,
+    #summaryTable th {
+      padding-top: 6px !important;
+      padding-bottom: 6px !important;
+      line-height: 1.2 !important;
+      border-right: 1px solid #f3f4f6;
+    }
+
+    .row-basic-head td,
+    .row-truck-head td,
+    .row-wh-head td {
+      font-size: 11px;
+      letter-spacing: .2px;
+      font-weight: 700;
+      white-space: nowrap;
+      background: #f3f4f6 !important;
+      border-top: 5px solid #afb5bd !important;
+      text-align: center !important;
+    }
+
+    /* ===== Larger spacing between quotations ===== */
+
+    .note-preview {
+      cursor: pointer;
+      text-align: left !important;
+    }
+
+    .note-line {
+      display: block;
+      max-width: 520px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Freeze # and ACTION */
+    #summaryTable th:first-child,
+    #summaryTable td:first-child {
+      position: sticky !important;
+      left: 0 !important;
+      z-index: 999 !important;
+      box-shadow: 8px 0 12px rgba(0, 0, 0, .10);
+      width: 10ch !important;
+      min-width: 10ch !important;
+      max-width: 10ch !important;
+      text-align: center !important;
+    }
+
+    #summaryTable th:last-child,
+    #summaryTable td:last-child {
+      position: sticky !important;
+      right: 0 !important;
+      z-index: 999 !important;
+      box-shadow: -8px 0 12px rgba(0, 0, 0, .10);
+      min-width: 140px;
+      text-align: center !important;
+    }
+
+    #summaryTable .row-basic-head td:first-child,
+    #summaryTable .row-truck-head td:first-child,
+    #summaryTable .row-wh-head td:first-child,
+    #summaryTable .row-basic-head td:last-child,
+    #summaryTable .row-truck-head td:last-child,
+    #summaryTable .row-wh-head td:last-child {
+      z-index: 1000 !important;
+    }
+
+    /* Inputs */
+    #summaryTable input {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #e5e7eb;
+      padding: 2px 4px;
+      font-size: 12px;
+      background: #ffffff;
+      text-align: right;
+    }
+
+    #summaryTable input[data-field="Carrier"],
+    #summaryTable input[data-field="Vendor"] {
+      text-align: center;
+    }
+
+    /* States */
+    #summaryTable tr.cost-received.row-truck-val input,
+    #summaryTable tr.cost-received.row-wh-val input {
+      background: #fcf7eb !important;
+      border-color: #f1d6a8 !important;
+    }
+
+    /* SAVE 状态：整行极淡灰蓝 */
+
+    #summaryTable tr.saved-price td {
+      background: #f3f6fb !important;
+    }
+
+    /* input 保持透明，避免“格子感” */
+    #summaryTable tr.saved-price input {
+      background: transparent !important;
+      border-color: #e5e7eb !important;
+    }
+
+    #summaryTable tr.row-confirmed td {
+      background: #cfe8ff !important;
+    }
+
+    #summaryTable tr.row-confirmed td input {
+      background: #cfe8ff !important;
+      border-color: #b6dcff !important;
+    }
+
+    #summaryTable tr.row-confirmed td:first-child,
+    #summaryTable tr.row-confirmed td:last-child {
+      background: #e5e7eb !important;
+    }
+
+    .sub-row {
+      background-color: transparent !important;
+      font-style: normal !important;
+      color: inherit !important;
+    }
+
+    .sub-row td:first-child {
+      padding-left: 0 !important;
+      text-align: center !important;
+    }
+
+    /* Action buttons */
+    .action-button-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .action-button {
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      font-size: 18px;
+    }
+
+    .action-button:hover {
+      background: #e2e8f0;
+    }
+
+    .main-button {
+      color: white;
+      background: linear-gradient(to bottom right, #3b82f6, #2563eb);
+      padding: .5rem 1rem;
+      border-radius: 9999px;
+      font-size: .85rem;
+      font-weight: 700;
+      min-width: 6rem;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, .15);
+      transition: all .15s ease-in-out;
+    }
+
+    .main-button:hover {
+      transform: scale(1.03);
+    }
+
+    /* ===== Note Modal readability ===== */
+    #noteModal textarea#noteModalInput {
+      white-space: pre-wrap !important;
+      overflow-wrap: anywhere !important;
+      word-break: break-word !important;
+      font-family: "PingFang SC", "Helvetica Neue", Helvetica, "Segoe UI", Roboto, Arial, sans-serif !important;
+      line-height: 1.5 !important;
+      height: 60vh !important;
+      max-height: 60vh !important;
+    }
+
+    #noteModal>div {
+      max-height: 82vh !important;
+    }
+
+    /* ===== Manager UI polish overrides ===== */
+    #noteModal {
+      z-index: 99999 !important;
+    }
+
+    #noteModal textarea#noteModalInput {
+      height: 56vh !important;
+      max-height: 56vh !important;
+      resize: none !important;
+    }
+
+    #summaryTable td,
+    #summaryTable th {
+      padding-top: 4px !important;
+      padding-bottom: 4px !important;
+      line-height: 1.15 !important;
+    }
+
+    .action-button {
+      width: 26px !important;
+      height: 26px !important;
+      font-size: 16px !important;
+      line-height: 1 !important;
+    }
+
+    .action-button-row {
+      gap: 5px !important;
+    }
+
+    #summaryTable td:last-child {
+      padding-left: 6px !important;
+      padding-right: 6px !important;
+    }
+
+    #summaryTable input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+    }
+
+
+    /* ===== Mode switch (Manager) ===== */
+    body.mode-inquiry #formGroup {
+      display: block !important;
+    }
+
+    body.mode-inquiry #fixed-scroll-wrapper {
+      display: none !important;
+    }
+
+    body.mode-summary #formGroup {
+      display: none !important;
+    }
+
+    body.mode-summary #fixed-scroll-wrapper {
+      display: block !important;
+    }
+
+
+    /* ===== Make internal section lines thinner ===== */
+
+    .row-truck-head td,
+    .row-wh-head td {
+      border-top: 1px solid #d5dbe2 !important;
+      /* 原来2px或更粗 → 改为1px */
+    }
+
+    .row-basic-head td {
+      border-top: 2px solid #c9cfd6 !important;
+      /* Basic 稍微明显一点，但比现在细 */
+    }
+
+    /* ===== Compact table rows ===== */
+
+    #summaryTable td,
+    #summaryTable th {
+      padding-top: 4px !important;
+      /* 原来6px */
+      padding-bottom: 4px !important;
+      line-height: 1.1 !important;
+    }
+
+    #summaryTable input {
+      height: 20px !important;
+      /* 更紧凑 */
+      font-size: 12px !important;
+    }
+
+    /* =========================
+   RIGHT ALIGN ALL NUMERIC COLUMNS
+   ========================= */
+
+    /* 1️⃣ 纯文本数字列 */
+    #summaryTable td:nth-child(2),
+    /* Date 之后的 Base Rate */
+    #summaryTable td:nth-child(3),
+    /* Price */
+    #summaryTable td:nth-child(4),
+    /* GP */
+    #summaryTable td:nth-child(5),
+    /* Adjusted Price */
+    #summaryTable td:nth-child(6),
+    /* Adjusted GP */
+    #summaryTable td:nth-child(7),
+    /* Chassis Cost */
+    #summaryTable td:nth-child(8),
+    #summaryTable td:nth-child(9),
+    #summaryTable td:nth-child(10),
+    #summaryTable td:nth-child(11),
+    #summaryTable td:nth-child(12),
+    #summaryTable td:nth-child(13),
+    #summaryTable td:nth-child(14),
+    #summaryTable td:nth-child(15),
+    #summaryTable td:nth-child(16),
+    #summaryTable td:nth-child(17),
+    #summaryTable td:nth-child(18),
+    #summaryTable td:nth-child(19),
+    #summaryTable td:nth-child(20),
+    #summaryTable td:nth-child(21),
+    #summaryTable td:nth-child(22),
+    #summaryTable td:nth-child(23),
+    #summaryTable td:nth-child(24),
+    #summaryTable td:nth-child(25),
+    #summaryTable td:nth-child(26) {
+      text-align: right !important;
+    }
+
+    /* 2️⃣ 所有 input 数字也靠右 */
+    #summaryTable input {
+      text-align: right !important;
+    }
+
+    /* GP 百分比右对齐 */
+    #summaryTable td[data-field="GP"],
+    #summaryTable td[data-field="Adjusted GP"] {
+      text-align: right !important;
+    }
+
+    /* Hide repeated "Action" label in TRUCK/WH header rows (keep top ACTION only) */
+    #summaryTable tr.row-truck-head td:last-child,
+    #summaryTable tr.row-wh-head td:last-child {
+      color: transparent !important;
+    }
+
+
+    /* Make ACTION column consistent */
+    #summaryTable th:last-child,
+    #summaryTable td:last-child {
+      min-width: 110px !important;
+      width: 110px !important;
+      text-align: center !important;
+      padding-left: 6px !important;
+      padding-right: 6px !important;
+    }
+
+    /* Buttons stay on one line, centered */
+    .action-button-row {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      white-space: nowrap !important;
+    }
+
+    /* Uniform icon/button size */
+    .action-button {
+      width: 26px !important;
+      height: 26px !important;
+      font-size: 16px !important;
+      line-height: 1 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+
+    /* 行高 */
+    #summaryTable td,
+    #summaryTable th {
+      padding: 4px 6px;
+      line-height: 1.1;
+    }
+
+    /* 分隔线 */
+    .row-truck-head td,
+    .row-wh-head td {
+      border-top: 1px solid #d8dde3;
+    }
+
+
+
+    /* 数字右对齐 */
+    .numeric {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Action 栏 */
+    .action-cell {
+      width: 110px;
+      text-align: center;
+    }
+
+    /* ===== Make header rows slightly taller (Row 1 / 3 / 5) ===== */
+    #summaryTable tr.row-basic-head td,
+    #summaryTable tr.row-truck-head td,
+    #summaryTable tr.row-wh-head td {
+      padding-top: 7px !important;
+      padding-bottom: 7px !important;
+      line-height: 1.25 !important;
+    }
+
+    /* 可选：Basic Header 再更突出一点点 */
+    #summaryTable tr.row-basic-head td {
+      padding-top: 9px !important;
+      padding-bottom: 9px !important;
+    }
+
+    /* ===== EDITING state: same as COST received (row-level, not cell-level) ===== */
+    #summaryTable tr.editing-row td {
+      background: #fcf7eb !important;
+    }
+
+    #summaryTable tr.editing-row td input {
+      background: #fcf7eb !important;
+      border-color: #f1d6a8 !important;
+    }
+
+    /* ===== QUOTATION BLOCK: stronger depth ===== */
+    :root {
+      --quote-border: #cfd6dd;
+      --quote-shadow: rgba(0, 0, 0, 0.12);
+      --quote-highlight: rgba(255, 255, 255, 0.85);
+    }
+
+    /* 顶部：灰线 + 高光 + 更明显的阴影 */
+    #summaryTable tr.row-basic-head td {
+      border-top: 5px solid var(--quote-border) !important;
+
+      /* 关键：上方高光 + 下方阴影，形成“压边” */
+      box-shadow:
+        inset 0 1px 0 var(--quote-highlight),
+        /* 高光线 */
+        0 6px 12px -10px var(--quote-shadow) !important;
+      /* 柔和投影 */
+    }
+
+
+    /* ===== Unified quotation gap ===== */
+
+    :root {
+      --quote-gap-color: #d1d5db;
+      /* 统一灰色 */
+      --quote-gap-height: 22px;
+      /* 你想要的缝隙高度 */
+    }
+
+    /* 每个 quotation 之间的缝隙 */
+    #summaryTable tr.row-sep td {
+      height: var(--quote-gap-height) !important;
+      background: #f3f4f6 !important;
+      /* 灰色背景 */
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    /* keep top border visible on sticky cols */
+    #summaryTable tr.row-basic-head td:first-child,
+    #summaryTable tr.row-basic-head td:last-child {
+      border-top: 5px solid var(--quote-border) !important;
+    }
+
+    /* ===== Left # column styling ===== */
+    #summaryTable td:first-child,
+    #summaryTable th:first-child {
+      box-shadow:
+        inset -1px 0 0 #d1d5db,
+        /* 右侧分割线 */
+        4px 0 6px -4px rgba(0, 0, 0, 0.15);
+    }
+
+    /* ===== Right ACTION column styling ===== */
+    #summaryTable td:last-child,
+    #summaryTable th:last-child {
+      box-shadow:
+        inset 1px 0 0 #d1d5db,
+        /* 左侧分割线 */
+        -4px 0 6px -4px rgba(0, 0, 0, 0.15);
+    }
+
+    #summaryTable tr.row-sep td:first-child,
+    #summaryTable tr.row-sep td:last-child {
+      background: #e5e7eb !important;
+    }
+
+    :root {
+      --gray-1: #f3f4f6;
+      /* 最浅，用于 header */
+      --gray-2: #e5e7eb;
+      /* sticky 列 */
+      --gray-3: #d1d5db;
+      /* 分隔带 */
+    }
+
+    .row-basic-head td,
+    .row-truck-head td,
+    .row-wh-head td {
+      background: var(--gray-1) !important;
+    }
+
+    #summaryTable td:first-child,
+    #summaryTable th:first-child,
+    #summaryTable td:last-child,
+    #summaryTable th:last-child {
+      background: var(--gray-2) !important;
+    }
+
+    #summaryTable tr.row-sep td {
+      background: var(--gray-3) !important;
+    }
+
+    .sub-row {
+      background-color: #f9fafb !important;
+    }
+
+    /* =========================
+   FINAL OVERRIDE: Sticky cols always same gray
+   Paste this at the VERY END of <style>
+   ========================= */
+
+    :root {
+      --sticky-gray: #e5e7eb;
+      --sticky-divider: #d1d5db;
+    }
+
+    /* 1) 禁止任何状态/hover 改变 sticky 两侧底色 */
+    #summaryTable td:first-child,
+    #summaryTable th:first-child,
+    #summaryTable td:last-child,
+    #summaryTable th:last-child {
+      background: var(--sticky-gray) !important;
+    }
+
+    /* 2) 即使 confirmed / saved / editing / sub-row / row-sep 也不能改两侧 */
+    #summaryTable tr.row-confirmed td:first-child,
+    #summaryTable tr.row-confirmed td:last-child,
+    #summaryTable tr.saved-price td:first-child,
+    #summaryTable tr.saved-price td:last-child,
+    #summaryTable tr.editing-row td:first-child,
+    #summaryTable tr.editing-row td:last-child,
+    #summaryTable tr.cost-received td:first-child,
+    #summaryTable tr.cost-received td:last-child,
+    #summaryTable tr.sub-row td:first-child,
+    #summaryTable tr.sub-row td:last-child,
+    #summaryTable tr.row-sep td:first-child,
+    #summaryTable tr.row-sep td:last-child {
+      background: var(--sticky-gray) !important;
+    }
+
+    /* 3) sticky 两侧做统一分隔线 + 轻微立体（不变色） */
+    #summaryTable td:first-child,
+    #summaryTable th:first-child {
+      box-shadow: inset -1px 0 0 var(--sticky-divider), 6px 0 10px -10px rgba(0, 0, 0, 0.25) !important;
+    }
+
+    #summaryTable td:last-child,
+    #summaryTable th:last-child {
+      box-shadow: inset 1px 0 0 var(--sticky-divider), -6px 0 10px -10px rgba(0, 0, 0, 0.25) !important;
+    }
+
+    /* 4) hover 不允许影响 sticky 两侧 */
+    #summaryTable tr:hover td:first-child,
+    #summaryTable tr:hover td:last-child {
+      background: var(--sticky-gray) !important;
+    }
+
+    /* ===== Layout for bottom scrollbar ===== */
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    /* ===== Sticky Top Bar (Welcome + buttons + search) ===== */
+    :root {
+      --topbar-h: 74px;
+      /* 不准就改 68~88，调到刚好不遮表头 */
+    }
+
+    /* 让顶部整条固定在视窗顶端 */
+    .header-section {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 9999 !important;
+      background: #ffffff !important;
+      padding-top: 10px;
+      /* 让内容更舒服，可删 */
+      padding-bottom: 10px;
+      /* 让内容更舒服，可删 */
+      border-bottom: 1px solid #d1d5db !important;
+    }
+
+    /* 表格滚动区域：高度 = 视窗 - 顶部栏 */
+    #fixed-scroll-wrapper {
+      max-height: calc(100vh - var(--topbar-h)) !important;
+      overflow: auto !important;
+    }
+
+    /* 表头 sticky 的 top 要让出顶部栏高度 */
+    #summaryTable thead {
+      position: sticky;
+      top: var(--topbar-h) !important;
+      z-index: 50;
+    }
+
+    /* =========================
+   FINAL LAYOUT (KEEP ONLY THIS)
+   Top bar sticky + table scroll area with bottom scrollbar
+   ========================= */
+
+    :root {
+      --topbar-h: 76px;
+      /* 不准就改 70~90 */
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+      /* 页面不滚动，滚动交给表格区域 */
+    }
+
+    /* 顶部栏固定 */
+    .header-section {
+      flex: 0 0 auto !important;
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 9999 !important;
+      background: #fff !important;
+      border-bottom: 1px solid #d1d5db !important;
+    }
+
+    /* 表格滚动区域：占满剩余高度，横向滚动条在屏幕底部 */
+    #fixed-scroll-wrapper {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      /* 关键：让内部可滚动，不撑出空白 */
+      overflow: auto !important;
+      max-height: none !important;
+      /* 交给 flex 控制，不要 calc(100vh-xx) 了 */
+      width: 100% !important;
+      margin: 0 !important;
+    }
+
+    /* 表头 sticky：贴在顶部栏下面 */
+    #summaryTable thead {
+      position: sticky !important;
+      top: var(--topbar-h) !important;
+      z-index: 50 !important;
+    }
+
+    /* ===== FINAL: quotation gap thinner (row-sep) ===== */
+    #summaryTable tr.row-sep td {
+      height: 10px !important;
+      /* 你想更薄：8px；想稍微留气：12px */
+      padding: 0 !important;
+      /* 关键：清掉 td 的 padding */
+      line-height: 0 !important;
+      /* 关键：避免文字高度影响 */
+      font-size: 0 !important;
+      /* 关键：彻底压扁 */
+      background: #e5e7eb !important;
+      border: 0 !important;
+      box-shadow: none !important;
+    }
+
+    /* ===== Make row-sep a perfectly flat bar (no grid cuts) ===== */
+    #summaryTable tr.row-sep td {
+      border-right: none !important;
+      /* 取消每格竖线 */
+      border-left: none !important;
+      box-shadow: none !important;
+      /* 取消任何阴影 */
+    }
+
+    /* row-sep 左右 sticky 两侧也不要阴影（否则看起来两边鼓出来） */
+    #summaryTable tr.row-sep td:first-child,
+    #summaryTable tr.row-sep td:last-child {
+      box-shadow: none !important;
+    }
+
+    #summaryTable tr.row-sep td {
+      background: linear-gradient(to bottom, #e5e7eb, #dfe3e7) !important;
+    }
+
+    /* ===== row-sep must be ONE flat bar ===== */
+    #summaryTable tr.row-sep td {
+      height: 10px !important;
+      padding: 0 !important;
+      background: #e5e7eb !important;
+
+      border: 0 !important;
+      /* 清掉所有边框 */
+      border-right: 0 !important;
+      /* 防止被全局 td border-right 切开 */
+      outline: 0 !important;
+      box-shadow: none !important;
+      /* 清掉阴影 */
+    }
+
+    #summaryTable tr.row-sep td {
+      border: 0 !important;
+      border-right: 0 !important;
+      background: #e5e7eb !important;
+      height: 10px !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+    }
+
+    /* ===== Unified Top Bar (Sales & Manager identical) ===== */
+    :root {
+      --topbar-h: 64px;
+    }
+
+    /* 顶栏本体 */
+    .header-section {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 9999 !important;
+
+      background: #ffffff !important;
+      border-bottom: 1px solid #e5e7eb !important;
+
+      padding: 6px 16px !important;
+      /* 控制紧凑度：6~10 都可 */
+      margin: 0 !important;
+    }
+
+    /* 标题与按钮统一垂直对齐 */
+    .header-section {
+      display: flex !important;
+      align-items: center !important;
+    }
+
+    /* 不要让表格容器再加一条顶线（避免叠线） */
+    #fixed-scroll-wrapper {
+      border-top: 0 !important;
+    }
+
+    /* thead 不要顶线，只用轻阴影（更像系统） */
+    #summaryTable thead {
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    #summaryTable thead th,
+    #summaryTable thead td {
+      border-top: 0 !important;
+    }
+
+    /* =========================
+   FIX: Manager scrollbar in Inquiry mode
+   (must be at VERY END)
+   ========================= */
+
+    /* Inquiry mode -> body must scroll */
+    body.mode-inquiry {
+      display: block !important;
+      /* 关键：取消 body:flex */
+      overflow-y: auto !important;
+      /* 关键：恢复滚动条 */
+      overflow-x: auto !important;
+      height: auto !important;
+    }
+
+    /* 保险：html 也别锁死高度 */
+    html {
+      height: auto !important;
+    }
+
+    /* Inquiry 模式下：Summary 容器彻底不占空间 */
+    body.mode-inquiry #fixed-scroll-wrapper {
+      display: none !important;
+      position: static !important;
+      height: 0 !important;
+      max-height: 0 !important;
+      overflow: hidden !important;
+      border: 0 !important;
+    }
+
+    /* Inquiry 表单自己可以自然撑开（不要被 max-height 卡死） */
+    body.mode-inquiry #formGroup {
+      display: block !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+
+    /* =========================
+   FINAL: Mode-specific scroll rules (Manager)
+   Put at VERY END of <style>
+   ========================= */
+
+    /* ---------- Inquiry mode: page scrolls ---------- */
+    body.mode-inquiry {
+      display: block !important;
+      height: auto !important;
+      overflow-y: auto !important;
+      overflow-x: auto !important;
+    }
+
+    body.mode-inquiry #formGroup {
+      display: block !important;
+    }
+
+    body.mode-inquiry #fixed-scroll-wrapper {
+      display: none !important;
+      height: 0 !important;
+      overflow: hidden !important;
+      border: 0 !important;
+    }
+
+    /* ---------- Summary mode: wrapper scrolls (bottom scrollbar) ---------- */
+    html,
+    body {
+      height: 100% !important;
+    }
+
+    /* Summary 需要锁高度 */
+    body.mode-summary {
+      display: block !important;
+      height: 100% !important;
+      overflow: hidden !important;
+      /* 页面不滚 */
+    }
+
+    body.mode-summary #formGroup {
+      display: none !important;
+    }
+
+    /* 关键：Summary 的滚动容器必须固定在屏幕里 */
+    body.mode-summary #fixed-scroll-wrapper {
+      display: block !important;
+      position: fixed !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      top: var(--topbar-h, 76px) !important;
+      /* 顶部栏高度，按你实际微调 */
+      overflow: auto !important;
+      /* ✅ 纵向+横向滚动都在这里 */
+      height: auto !important;
+      max-height: none !important;
+      border-top: 1px solid #d1d5db !important;
+    }
+
+
+    /* 需要“可编辑感”的话：focus 时再给一个轻微 outline */
+    #summaryTable tr.row-truck-val input:focus,
+    #summaryTable tr.row-wh-val input:focus {
+      outline: 2px solid #bfdbfe !important;
+      outline-offset: -2px !important;
+      /* 贴在格子内，不破坏线条 */
+    }
+
+    /* ===== FORCE continuous grid lines for ALL cells ===== */
+    #summaryTable {
+      border-collapse: collapse !important;
+      /* 让线条连续 */
+    }
+
+    #summaryTable td,
+    #summaryTable th {
+      border: 1px solid #e5e7eb !important;
+      /* 强制每格都有线 */
+    }
+
+    /* ===== FIX: Column before ACTION (blank spacer) must stay tiny ===== */
+    #summaryTable th:nth-last-child(2),
+    #summaryTable td:nth-last-child(2) {
+      width: 14px !important;
+      min-width: 14px !important;
+      max-width: 14px !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      overflow: hidden !important;
+      white-space: nowrap !important;
+    }
+
+    /* spacer column right before ACTION (must stay tiny) */
+    #summaryTable td.spacer-col,
+    #summaryTable th.spacer-col {
+      width: 14px !important;
+      min-width: 14px !important;
+      max-width: 14px !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      overflow: hidden !important;
+      white-space: nowrap !important;
+    }
+
+    /* ===== FINAL FIX: table must fill the wrapper width so sticky ACTION won't "float" ===== */
+    #summaryTable {
+      width: 100% !important;
+      min-width: 100% !important;
+      table-layout: auto !important;
+    }
+
+    /* ===== FORCE NOTE header centered (override nth-child right-align) ===== */
+    #summaryTable tr.row-basic-head td.note-head,
+    #summaryTable tr.row-wh-head td.note-head {
+      text-align: center !important;
+    }
+
+    /* =========================
+   MANAGER: Excel-like thin input grid (match SALES)
+   ========================= */
+
+    #summaryTable tr.row-truck-val input,
+    #summaryTable tr.row-wh-val input {
+      border: 1px solid rgba(0, 0, 0, 0.15) !important;
+      /* 细线 */
+      background: inherit !important;
+      /* ✅ 跟随行背景 */
+      box-shadow: none !important;
+      height: 20px !important;
+      font-size: 12px !important;
+    }
+
+    /* focus 状态柔和一点 */
+    #summaryTable tr.row-truck-val input:focus,
+    #summaryTable tr.row-wh-val input:focus {
+      outline: 2px solid #bfdbfe !important;
+      outline-offset: -2px !important;
+    }
+
+    /* ===== FORCE ALL NOTE CELLS LEFT ALIGNED ===== */
+
+    #summaryTable td.note-preview,
+    #summaryTable td[data-field="Note"] {
+      text-align: left !important;
+    }
+
+    #summaryTable td.note-preview .note-line {
+      text-align: left !important;
+    }
+
+    /* Vendor Note preview only (Manager) */
+    #summaryTable td.note-preview.vendor-note-preview {
+      width: 180px !important;
+      min-width: 180px !important;
+      max-width: 180px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      text-align: left !important;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-sm">
+  <div id="main-content">
+    <div class="header-section flex justify-between items-center w-full px-4 mt-2">
+      <h1 class="text-2xl font-bold text-gray-800">Welcome, <span id="usernameDisplay">Manager</span></h1>
+      <div class="flex items-center gap-2">
+        <button id="toggleInquiry" class="main-button">📊</button>
+        <button id="prevPage" class="main-button">Previous</button>
+        <span id="pageInfo" class="text-gray-800 text-sm font-semibold">Page 1</span>
+        <button id="nextPage" class="main-button">Next</button>
+        <button id="exitBtn" class="main-button">Exit</button>
+        <input id="searchBox" class="border px-3 py-2 rounded-full text-sm w-64"
+          placeholder="Search Quotation # or ZIP..." />
+        <button id="searchBtn" class="main-button">Search</button>
+        <button id="clearSearchBtn" class="main-button">Clear</button>
+      </div>
+    </div>
+
+    <!-- Inquiry Form (Manager) -->
+    <div class="form-group" id="formGroup">
+      <form class="grid grid-cols-2 gap-2 bg-white p-4 rounded shadow" id="inquiryForm">
+        <!-- Basic -->
+        <input class="border p-2" name="customerId" placeholder="Customer ID" required />
+        <input class="border p-2 bg-gray-100" name="requestedByDisplay" placeholder="Requested By" disabled />
+        <input type="hidden" name="requestedBy" />
+
+        <select class="border p-2" name="inquiryType" required>
+          <option value="">Select Type</option>
+          <option>Drayage</option>
+          <option>Dry Van</option>
+          <option>Flat Bed</option>
+          <option>Drayage + Warehouse</option>
+          <option>Warehouse Only</option>
+        </select>
+
+        <select class="border p-2" name="containerSize">
+          <option value="">Container Size</option>
+          <option>20'</option>
+          <option>40'</option>
+          <option>40HQ</option>
+          <option>53'</option>
+        </select>
+
+        <select class="border p-2" name="dryVanType" id="dryVanTypeSelect">
+          <option value="">Dry Van Type</option>
+          <option>HOTSHOT</option>
+          <option>28'</option>
+          <option>53'</option>
+          <option>LTL</option>
+          <option>SMALL PARCEL</option>
+        </select>
+
+        <select class="border p-2" name="legalOverWeight">
+          <option value="">Legal or Over Weight</option>
+          <option value="Legal">Legal</option>
+          <option value="Over Weight">Over Weight</option>
+        </select>
+
+        <input class="border p-2" name="grossWeight" placeholder="Gross Weight" />
+        <select class="border p-2" name="liveOrDrop">
+          <option value="">Live or Drop</option>
+          <option value="Live">Live</option>
+          <option value="Drop">Drop</option>
+        </select>
+
+        <!-- Location -->
+        <input class="border p-2" name="from" placeholder="From (Port / Rail / Address)" required />
+
+        <div class="grid grid-cols-3 gap-2 col-span-1">
+          <input class="border p-2" name="toCity" placeholder="To City" required />
+          <input class="border p-2" name="toState" placeholder="To State" required />
+          <input class="border p-2" name="toZip" placeholder="To ZIP" required />
+        </div>
+
+        <input class="border p-2" name="qty" placeholder="QTY" />
+        <input class="border p-2" name="quotationId" placeholder="Quotation #" required />
+
+        <!-- Cargo Info -->
+        <div class="col-span-2">
+          <div class="section-title">Cargo Information</div>
+          <div class="grid grid-cols-2 gap-2">
+            <input class="border p-2" name="commodity" placeholder="Commodity" />
+            <select class="border p-2" name="packageType">
+              <option value="">Package Type</option>
+              <option>Pallet</option>
+              <option>Carton</option>
+              <option>Unit</option>
+              <option>Bundle</option>
+              <option>Sack</option>
+            </select>
+            <input class="border p-2" name="packagesPerContainer" placeholder="Packages Per Container" />
+            <div class="flex items-center gap-4 px-2">
+              <label class="flex items-center gap-2"><input type="checkbox" name="hazmat" /> Hazmat</label>
+              <label class="flex items-center gap-2"><input type="checkbox" name="reefer" /> Reefer</label>
+              <label class="flex items-center gap-2"><input type="checkbox" name="bonded" /> Bonded</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Warehouse Requirement -->
+        <div class="col-span-2">
+          <div class="section-title">Warehouse Requirement</div>
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-2">
+              <input type="checkbox" id="needWarehouseService" name="needWarehouseService" />
+              Need Warehouse Service
+            </label>
+            <span class="tiny-note">Check to show warehouse service request details.</span>
+          </div>
+
+          <div id="warehouseBlock" class="mt-4 hidden">
+
+            <!-- ===== Warehouse Services ===== -->
+            <div class="tiny-note font-semibold text-gray-700 mb-2">
+              Warehouse Services (multi-select)
+            </div>
+
+            <div class="grid grid-cols-3 gap-x-10 gap-y-3 text-sm">
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Order Processing" />
+                  <span>Order Processing</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Order Processing" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Order Processing" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Inbound" />
+                  <span>Inbound</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Inbound" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Inbound" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Outbound" />
+                  <span>Outbound</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Outbound" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Outbound" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Sorting" />
+                  <span>Sorting</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Sorting" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Sorting" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Palletizing" />
+                  <span>Palletizing</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Palletizing" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Palletizing" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Pallet Fee" />
+                  <span>Pallet Fee</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Pallet Fee" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Pallet Fee" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Storage" />
+                  <span>Storage</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Storage" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Storage" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Label" />
+                  <span>Label</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Label" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Label" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Cross Dock" />
+                  <span>Cross Dock</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Cross Dock" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Cross Dock" placeholder="Unit" disabled />
+              </div>
+
+            </div>
+
+
+            <!-- ===== Estimated ===== -->
+            <div class="grid grid-cols-3 gap-3 mt-4">
+              <input class="border p-2" name="estimatedPallets" placeholder="Estimated Pallets" />
+              <input class="border p-2" name="estimatedBoxes" placeholder="Estimated Boxes / Cartons" />
+              <input class="border p-2" name="estimatedSkuCount" placeholder="Estimated SKU Count" />
+            </div>
+
+            <!-- ===== Storage Duration ===== -->
+            <div class="grid grid-cols-2 gap-3 mt-3">
+              <input class="border p-2" name="storageDuration" placeholder="Storage Duration (number)" />
+              <input class="border p-2" name="storageDurationUnit" placeholder="Duration Unit (Days/Weeks/Months)" />
+            </div>
+
+            <!-- ===== Notes ===== -->
+            <textarea class="border p-2 mt-3 w-full" name="warehouseNote" placeholder="Warehouse Note"></textarea>
+            <textarea class="border p-2 mt-3 w-full" name="note" placeholder="General Note"></textarea>
+
+          </div>
+
+          <div class="col-span-2 mt-6 mb-4 flex justify-center items-center">
+            <button type="submit" id="submitInquiryBtn" class="w-full py-3 text-base font-semibold text-white rounded-full
+                   bg-gradient-to-r from-blue-500 to-blue-600
+                   shadow-md transition-all duration-200
+                   hover:from-blue-600 hover:to-blue-700 hover:shadow-lg">
+              Submit Inquiry
+            </button>
+          </div>
+
+      </form>
+    </div> <!-- / #formGroup -->
+  </div>
+  </div>
+
+
+  <div id="fixed-scroll-wrapper" class="scroll-container">
+    <table class="bg-white border text-xs" id="summaryTable">
+      <tr>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+        <th class="border px-2"></th>
+      </tr>
+      </thead>
+      <tbody id="summaryBody"></tbody>
+    </table>
+  </div>
+
+
+
+  <div id="noteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+    <div class="bg-white rounded-lg shadow-lg w-[720px] max-w-[92vw] p-4">
+      <h2 class="text-lg font-semibold mb-2">NOTE</h2>
+      <textarea id="noteModalInput" class="w-full border p-2 h-48 resize-none" readonly></textarea>
+      <div class="mt-4 flex justify-end">
+        <button id="noteModalClose" class="bg-blue-500 text-white px-4 py-1 rounded">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      window.pageSize = 100;
+      window.currentPage = 1;
+      window.filteredData = [];
+      window.currentUser = '';
+      window.userRole = '';
+      window.searchTerm = ''
+
+      // ===== Warehouse block toggle (same as Sales) =====
+      window.refreshWarehouseBlock = function () {
+        const chk = document.getElementById('needWarehouseService');
+        const block = document.getElementById('warehouseBlock');
+        if (!chk || !block) return;
+        block.classList.toggle('hidden', !chk.checked);
+      };
+
+      // ===== Mode switch (Inquiry / Summary) =====
+      window.setMode = function (mode) {
+        document.body.classList.remove('mode-inquiry', 'mode-summary');
+        document.body.classList.add(mode === 'summary' ? 'mode-summary' : 'mode-inquiry');
+        const btn = document.getElementById('toggleInquiry');
+        if (btn) btn.textContent = (mode === 'summary') ? '📝' : '📊';
+      };
+      ;
+
+      function isTruthy(v) {
+        if (v === true) return true;
+        const s = String(v || '').toLowerCase().trim();
+        return s === 'true' || s === '1' || s === 'yes' || s === 'y';
+      }
+      function num(v) {
+        const n = parseFloat(String(v ?? '').replace(/,/g, '').trim());
+        return Number.isFinite(n) ? n : null;
+      }
+      function fmt2(v) {
+        const n = num(v);
+        return n === null ? '' : n.toFixed(2);
+      }
+
+      function calcAdjGPpct(adjPrice, baseRate) {
+        const ap = num(adjPrice);
+        const br = num(baseRate);
+        if (ap === null || br === null || ap <= 0) return '—';
+        const gp = ((ap - br) / ap) * 100;
+        return Number.isFinite(gp) ? gp.toFixed(2) + '%' : '—';
+      }
+      function composeTo2(item) {
+        const t = (item['To'] || '').trim();
+        if (t) return t;
+        const city = (item['To City'] || '').trim();
+        const state = (item['To State'] || '').trim();
+        const zip = (item['To ZIP'] || '').trim();
+        return [city, [state, zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+      }
+      function tdCell(text = '', cls = '') {
+        const td = document.createElement('td');
+        td.className = `border px-2 text-xs ${cls}`;
+        td.textContent = text ?? '';
+        return td;
+      }
+      function tdHeader(text = '', cls = '') {
+        const td = tdCell(text, cls);
+        td.classList.add('font-bold', 'bg-gray-100', 'text-center');
+        return td;
+      }
+      function makeInput(value, field, quote, locked, scope) {
+        const input = document.createElement('input');
+        input.value = value ?? '';
+        input.setAttribute('data-quote', quote);
+        input.setAttribute('data-field', field);
+        input.setAttribute('data-scope', scope);
+        input.disabled = !!locked;
+        if (field === 'Carrier' || field === 'Vendor') input.style.textAlign = 'center';
+        return input;
+      }
+
+      async function postUpdate(payload) {
+        const res = await fetch('/inquiries/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          credentials: 'same-origin'
+        });
+        const raw = await res.text();
+        let j = null;
+        try { j = JSON.parse(raw); } catch { j = raw; }
+        if (!res.ok) {
+          console.error('❌ update failed', res.status, j);
+          alert('❌ Save failed: ' + (typeof j === 'string' ? j : (j.message || res.status)));
+          return { ok: false, data: j };
+        }
+        return { ok: true, data: j };
+      }
+
+      async function saveFields(quote, fields, scope) {
+        const payload = { 'Quotation #': quote, 'Saved': 'true' };
+        if (scope === 'TRUCK') payload['truckingPriceSaved'] = 'true';
+        if (scope === 'WH') payload['warehousePriceSaved'] = 'true';
+
+        const inputs = Array.from(document.querySelectorAll(`input[data-scope="${scope}"][data-quote="${quote}"]`));
+        const map = new Map();
+        inputs.forEach(el => map.set(el.getAttribute('data-field'), el.value));
+        fields.forEach(f => { if (map.has(f)) payload[f] = map.get(f); });
+        return await postUpdate(payload);
+      }
+
+      async function setConfirm(quote, field, checked) {
+        const payload = { 'Quotation #': quote, 'Saved': 'true' };
+        payload[field] = checked ? 'true' : 'false';
+        return await postUpdate(payload);
+      }
+
+      function lockRow(quote, scope, locked) {
+        document.querySelectorAll(`input[data-scope="${scope}"][data-quote="${quote}"]`).forEach(el => {
+          el.disabled = !!locked;
+        });
+      }
+
+      function applyRowState(tr, item, scope) {
+        tr.classList.remove('cost-received', 'saved-price', 'row-confirmed');
+
+        const confirmed = scope === 'WH'
+          ? (isTruthy(item['warehouseManagerConfirmed']) || isTruthy(item['warehouseSalesConfirmed']))
+          : (isTruthy(item['truckingManagerConfirmed']) || isTruthy(item['truckingSalesConfirmed']));
+
+        const saved = scope === 'WH'
+          ? isTruthy(item['warehousePriceSaved'])
+          : isTruthy(item['truckingPriceSaved']);
+
+        // Scope-specific "cost received" (avoid cross-scope pollution)
+        const hasTruckCost = ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee']
+          .some(k => String(item[k] ?? '').trim() !== '' && String(item[k]).trim() !== '0');
+
+        const hasWhCost = ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound']
+          .some(k => String(item[k] ?? '').trim() !== '' && String(item[k]).trim() !== '0');
+
+        const costReceived = scope === 'WH'
+          ? (isTruthy(item['warehouseCostSent']) || hasWhCost)
+          : (isTruthy(item['truckingCostSent']) || hasTruckCost);
+
+        if (confirmed) tr.classList.add('row-confirmed');
+        else if (saved) tr.classList.add('saved-price');
+        else if (costReceived) tr.classList.add('cost-received');
+      }
+
+      function actionCell(item, quote, scope) {
+        const td = document.createElement('td');
+        td.className = 'border px-2 text-center';
+        const wrap = document.createElement('div');
+        wrap.className = 'action-button-row';
+
+        const mgrConfirmed = scope === 'WH'
+          ? isTruthy(item['warehouseManagerConfirmed'])
+          : isTruthy(item['truckingManagerConfirmed']);
+
+        const salesConfirmed = scope === 'WH'
+          ? isTruthy(item['warehouseSalesConfirmed'])
+          : isTruthy(item['truckingSalesConfirmed']);
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'action-button';
+        editBtn.textContent = '✏️';
+        editBtn.title = 'Edit';
+        editBtn.onclick = () => {
+          // ✅ Rule 2: checked -> must UNCHECK first
+          if (mgrConfirmed || salesConfirmed) {
+            alert('Row is confirmed. Please UNCHECK first.');
+            return;
+          }
+
+          lockRow(quote, scope, false);
+
+          const tr = document.querySelector(`tr[data-quote="${quote}"][data-scope="${scope}"]`);
+          if (tr) {
+            // ✅ Rule 1: editing row should look like COST received (yellow)
+            tr.classList.remove('saved-price', 'row-confirmed');
+            tr.classList.add('editing-row');
+          }
+
+          document.querySelectorAll(`input[data-quote="${quote}"][data-scope="${scope}"]`).forEach(el => {
+            el.classList.remove('saved-input');
+          });
+        };
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'action-button';
+        saveBtn.textContent = '💾';
+        saveBtn.title = 'Save';
+        saveBtn.onclick = async () => {
+          const fields = scope === 'WH'
+            ? ['Vendor', 'Note', 'Order Processing Price', 'Inbound Price', 'Sorting Price', 'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price']
+            : ['Adjusted Price', 'Carrier', 'Note', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price', 'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price'];
+
+          const r = await saveFields(quote, fields, scope);
+          if (!r.ok) return;
+
+          lockRow(quote, scope, true);
+
+          // ✅ 只查一次 tr，统一处理
+          const tr = document.querySelector(`tr[data-quote="${quote}"][data-scope="${scope}"]`);
+          if (tr) {
+            tr.classList.remove('editing-row');
+            tr.classList.add('saved-price');
+            tr.classList.remove('row-confirmed', 'cost-received', 'new-inquiry');
+          }
+
+          // ✅ update local cache so paging/search keeps latest values
+          try {
+            const idx = (filteredData || []).findIndex(
+              x => String(x['Quotation #'] || '').trim() === String(quote || '').trim()
+            );
+            if (idx >= 0) {
+              fields.forEach(f => {
+                const el = document.querySelector(
+                  `input[data-quote="${quote}"][data-scope="${scope}"][data-field="${f}"]`
+                );
+                if (el) filteredData[idx][f] = el.value;
+              });
+
+              // set saved flags
+              if (scope === 'WH') filteredData[idx]['warehousePriceSaved'] = 'true';
+              else filteredData[idx]['truckingPriceSaved'] = 'true';
+            }
+          } catch (e) { }
+        };
+
+        // ✅ Display mapping: if Sales confirmed, Manager checkbox shows checked too.
+        // - If Sales confirmed but Manager not confirmed: checkbox is "Sales-checked" visual.
+        // - Manager cannot uncheck Sales from Manager page; only Sales can uncheck on Sales page.
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+
+        const salesOnly = salesConfirmed && !mgrConfirmed;
+        chk.checked = mgrConfirmed || salesConfirmed;
+        chk.title = salesOnly ? 'Sales confirmed (uncheck in Sales to cancel)' : 'Manager confirm';
+
+        chk.onchange = async () => {
+          const want = chk.checked;
+
+          // If Sales already confirmed and Manager is unchecking, Manager is allowed to OVERWRITE:
+          // we will clear SalesConfirmed (and ManagerConfirmed) on the server so this row becomes fully unlocked.
+          if (salesOnly && !want) {
+            const salesField = scope === 'WH' ? 'warehouseSalesConfirmed' : 'truckingSalesConfirmed';
+            const mgrField = scope === 'WH' ? 'warehouseManagerConfirmed' : 'truckingManagerConfirmed';
+            const ok1 = await setConfirm(quote, salesField, false);
+            const ok2 = await setConfirm(quote, mgrField, false);
+            if (!ok1.ok || !ok2.ok) {
+              alert('❌ Failed to overwrite Sales confirmation.');
+              chk.checked = true;
+              return;
+            }
+            // reload to reflect new state
+            await loadInquiries();
+            return;
+          }
+
+          // If manager is confirming (or upgrading sales-only to manager-confirm)
+          if (want) {
+            const fields = scope === 'WH'
+              ? ['Vendor', 'Note', 'Order Processing Price', 'Inbound Price', 'Sorting Price', 'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price']
+              : ['Adjusted Price', 'Carrier', 'Note', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price', 'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price'];
+            const rSave = await saveFields(quote, fields, scope);
+            if (!rSave.ok) { chk.checked = mgrConfirmed || salesConfirmed; return; }
+
+            const field = scope === 'WH' ? 'warehouseManagerConfirmed' : 'truckingManagerConfirmed';
+            const r = await setConfirm(quote, field, true);
+            if (!r.ok) { chk.checked = mgrConfirmed || salesConfirmed; return; }
+            await loadInquiries();
+            return;
+          }
+
+          // want === false -> only unconfirm manager confirmed
+          if (mgrConfirmed) {
+            const field = scope === 'WH' ? 'warehouseManagerConfirmed' : 'truckingManagerConfirmed';
+            const r = await setConfirm(quote, field, false);
+            if (!r.ok) { chk.checked = true; return; }
+            await loadInquiries();
+            return;
+          }
+
+          // fallback
+          chk.checked = mgrConfirmed || salesConfirmed;
+        };
+
+        // Optional: visually differentiate Sales-only checked (no layout change)
+        if (salesOnly) {
+          chk.style.outline = '2px solid #60a5fa';
+          chk.style.outlineOffset = '2px';
+        }
+
+        wrap.appendChild(editBtn);
+        wrap.appendChild(saveBtn);
+        wrap.appendChild(chk);
+        td.appendChild(wrap);
+        return td;
+      }
+
+      function naturalQuotationSort(a, b) {
+        const qa = String(a['Quotation #'] || '').trim();
+        const qb = String(b['Quotation #'] || '').trim();
+        return qb.localeCompare(qa, undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      function applySearchFilter(list, term) {
+        const t = String(term || '').trim().toLowerCase();
+        if (!t) return list;
+
+        const mains = list.filter(it => !String(it['Parent Quotation #'] || '').trim());
+        const hit = (it) => {
+          const q = String(it['Quotation #'] || '').toLowerCase();
+          const ext = String(it['External Quotation #'] || '').toLowerCase();
+          const zip = String(it['To ZIP'] || '').toLowerCase();
+          const to = String(it['To'] || '').toLowerCase();
+          return q.includes(t) || ext.includes(t) || zip.includes(t) || to.includes(t);
+        };
+        const matchedMains = mains.filter(hit);
+        const mainKeys = new Set(matchedMains.map(it => String(it['Quotation #'] || '').trim()));
+        const children = list.filter(it => {
+          const p = String(it['Parent Quotation #'] || '').trim();
+          return p && mainKeys.has(p);
+        });
+
+        const seen = new Set();
+        const merged = [];
+        [...matchedMains, ...children].forEach(it => {
+          const q = String(it['Quotation #'] || '').trim();
+          if (!q || seen.has(q)) return;
+          seen.add(q); merged.push(it);
+        });
+        return merged;
+      }
+
+      function setupNoteModal() {
+        const modal = document.getElementById('noteModal');
+        const input = document.getElementById('noteModalInput');
+        const closeBtn = document.getElementById('noteModalClose');
+        const titleEl = modal?.querySelector('h2');
+        function openModal(text, which) {
+          if (titleEl) titleEl.textContent = which || 'NOTE';
+          input.value = text || '';
+          modal.classList.remove('hidden');
+        }
+        function closeModal() {
+          modal.classList.add('hidden');
+          input.value = '';
+        }
+        closeBtn?.addEventListener('click', closeModal);
+        modal?.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+        document.addEventListener('click', (e) => {
+          const td = e.target.closest('#summaryTable td.note-preview');
+          if (!td) return;
+          openModal(td.dataset.fullNote || td.textContent || '', td.dataset.which || 'NOTE');
+        });
+      }
+
+      function renderPage() {
+        const tbody = document.getElementById('summaryBody');
+        tbody.innerHTML = '';
+        const data = (window.filteredData || []).slice().sort(naturalQuotationSort);
+        const start = (window.currentPage - 1) * window.pageSize;
+        const pageData = data.slice(start, start + window.pageSize);
+
+        const groupMap = new Map();
+        function mainKey(it) {
+          const q = String(it['Quotation #'] || '').trim();
+          const p = String(it['Parent Quotation #'] || '').trim();
+          return p || q;
+        }
+        pageData.forEach(it => {
+          const k = mainKey(it);
+          if (!groupMap.has(k)) groupMap.set(k, []);
+          groupMap.get(k).push(it);
+        });
+
+        const keys = Array.from(groupMap.keys()).sort((a, b) => naturalQuotationSort({ 'Quotation #': a }, { 'Quotation #': b }));
+
+        const BASIC_HEAD = ['#', 'Date', 'Customer ID', 'Requested By', 'Inquiry Type', 'Container Size', 'Commodity', 'Packages', 'Flags', 'Dry Van Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop', 'From', 'To', 'QTY', 'Quotation #'];
+        const TRUCK_HEADERS = ['', 'Base Rate', 'Price', 'GP', 'Adjusted Price', 'Adjusted GP', 'Chassis Cost', 'Chassis Price', 'Pre-Pull Cost', 'Pre-Pull Price', 'Yard Storage Cost', 'Yard Storage Price', 'Driver Waiting Cost', 'Driver Waiting Price', 'Over Weight Cost', 'Over Weight Price', 'Chassis Split Cost', 'Chassis Split Price', 'Toll Cost', 'Toll Price', 'Reefer Fee Cost', 'Reefer Fee Price', 'Bond Fee Cost', 'Bond Fee Price', 'Carrier', '', 'Action'];
+        const WH_LEFT_HEADERS = ['', 'WH Order Proc', 'WH Order Proc Price', 'WH Inbound', 'WH Inbound Price', 'WH Sorting', 'WH Sorting Price', 'WH Palletizing', 'WH Palletizing Price', 'WH Pallet', 'WH Pallet Price', 'WH Storage', 'WH Storage Price', 'WH Outbound', 'WH Outbound Price', 'Vendor'];
+
+        let displayIndex = start;
+
+        keys.forEach(k => {
+          const group = groupMap.get(k) || [];
+          if (!group.length) return;
+
+          const main = group.find(it => String(it['Quotation #'] || '').trim() === k) || group[0];
+
+          const truckSubs = group.filter(it => {
+            const q = String(it['Quotation #'] || '').trim();
+            return q !== k && /-\d+$/.test(q);
+          }).sort((a, b) => (parseInt(String(a['Quotation #']).split('-').pop(), 10) || 0) - (parseInt(String(b['Quotation #']).split('-').pop(), 10) || 0));
+
+          const whSubs = group.filter(it => {
+            const q = String(it['Quotation #'] || '').trim();
+            return q !== k && /-[A-Z]$/i.test(q);
+          }).sort((a, b) => String(a['Quotation #']).localeCompare(String(b['Quotation #'])));
+
+          displayIndex += 1;
+
+          const r1 = document.createElement('tr'); r1.className = 'row-basic-head';
+          BASIC_HEAD.forEach(h => r1.appendChild(tdHeader(h)));
+          const noteHead = tdHeader('NOTE');
+          noteHead.colSpan = 9;
+          noteHead.classList.add('note-head');   // ✅ 新增
+          r1.appendChild(noteHead);
+          r1.appendChild(tdHeader('ACTION'));
+          tbody.appendChild(r1);
+
+          const r2 = document.createElement('tr'); r2.className = 'row-basic-val';
+          const flags = (String(main['Hazmat'] || '').toLowerCase() === 'true' ? '☢️' : '') + (String(main['Reefer'] || '').toLowerCase() === 'true' ? '❄️' : '') + (String(main['Bonded'] || '').toLowerCase() === 'true' ? '🔒' : '');
+          const vals = [
+            String(displayIndex),
+            main['Date'] || '',
+            main['Customer ID'] || '',
+            main['Requested By'] || main.username || '',
+            main['Inquiry Type'] || '',
+            main['Container Size'] || '',
+            (main['Commodity'] || '').toString().trim(),
+            main['Packages Per Container'] || '',
+            flags,
+            main['Dry Van Type'] || '',
+            main['Legal or Over Weight'] || '',
+            main['Gross Weight'] || '',
+            main['Live or Drop'] || '',
+            main['From'] || '',
+            composeTo2(main),
+            main['QTY'] || '',
+            (main['External Quotation #'] || k)
+          ];
+          vals.forEach(v => r2.appendChild(tdCell(v, 'text-center')));
+
+          // ✅ 最终 GENERAL NOTE：客户信息在第一行，下面才是原 Note
+          const company = String(main['Customer Company'] || main['Company Name'] || '').trim();
+          const contact = String(main['Customer Contact'] || main['Contact Name'] || '').trim();
+          const email = String(main['Customer Email'] || '').trim();
+          const phone = String(main['Customer Phone'] || '').trim();
+
+          const customerInfoLine = (company || contact || email || phone)
+            ? `Customer Info: ${[
+              company ? `Company=${company}` : '',
+              contact ? `Contact=${contact}` : '',
+              email ? `Email=${email}` : '',
+              phone ? `Phone=${phone}` : ''
+            ].filter(Boolean).join(' | ')}`
+            : '';
+
+          const noteBody = String(main['Note'] || '').trim();
+
+          // ✅ 最终 GENERAL NOTE：客户信息在第一行，下面才是原 Note
+          const fullGeneralNote = [customerInfoLine, noteBody].filter(Boolean).join('\n');
+          const noteTd = tdCell('', 'note-preview'); noteTd.colSpan = 9;
+          noteTd.dataset.fullNote = fullGeneralNote; noteTd.dataset.which = 'GENERAL NOTE';
+          const line = document.createElement('div'); line.className = 'note-line'; line.textContent = fullGeneralNote.replace(/\s+/g, ' ').trim();
+          noteTd.appendChild(line);
+          r2.appendChild(noteTd);
+          r2.appendChild(tdCell('🔒', 'text-center'));
+          tbody.appendChild(r2);
+
+          const r3 = document.createElement('tr'); r3.className = 'row-truck-head';
+          TRUCK_HEADERS.forEach((h, i) => {
+            if (i === 0) r3.appendChild(tdHeader(k, 'text-left'));
+            else r3.appendChild(tdHeader(h));
+          });
+          tbody.appendChild(r3);
+
+          tbody.appendChild(renderTruckRow(main, k, false));
+          truckSubs.forEach(sub => tbody.appendChild(renderTruckRow(sub, String(sub['Quotation #'] || '').trim(), true)));
+
+          const r5 = document.createElement('tr'); r5.className = 'row-wh-head';
+          WH_LEFT_HEADERS.forEach((h, i) => {
+            if (i === 0) r5.appendChild(tdHeader(k, 'text-left'));
+            else r5.appendChild(tdHeader(h));
+          });
+
+          // ✅ NEW: EST GP column (after Vendor)
+          r5.appendChild(tdHeader('EST GP'));
+
+          const whNoteHead = tdHeader('NOTE');
+          whNoteHead.colSpan = 8;
+          whNoteHead.classList.add('note-head'); // ✅ 新增
+          r5.appendChild(whNoteHead);
+
+          r5.appendChild(tdHeader('', 'spacer-col'));
+          r5.appendChild(tdHeader('Action'));
+
+          tbody.appendChild(r5);
+
+          tbody.appendChild(renderWhRow(main, k, false));
+          whSubs.forEach(sub => tbody.appendChild(renderWhRow(sub, String(sub['Quotation #'] || '').trim(), true)));
+
+          const sep = document.createElement('tr'); sep.className = 'row-sep';
+          const tdSep = document.createElement('td'); tdSep.colSpan = 27; sep.appendChild(tdSep);
+          tbody.appendChild(sep);
+        });
+
+        document.getElementById('pageInfo').textContent = `Page ${window.currentPage}`;
+      }
+
+      function renderTruckRow(item, quote, isSub) {
+        const tr = document.createElement('tr');
+        tr.className = 'row-truck-val' + (isSub ? ' sub-row' : '');
+        tr.dataset.quote = quote;
+        tr.dataset.scope = 'TRUCK';
+
+        const locked = isTruthy(item['truckingManagerConfirmed']);
+        const parentInternal = String(item['Parent Quotation #'] || '').trim();
+        const parentDoc = parentInternal
+          ? (window.filteredData || []).find(x => String(x['Quotation #'] || '').trim() === parentInternal)
+          : null;
+        const baseExt = String((parentDoc && parentDoc['External Quotation #']) || item['External Quotation #'] || '').trim();
+        const suffixNum = String(quote || '').match(/-\d+$/)?.[0] || '';
+        const displayQuote = (isSub && baseExt) ? (baseExt + suffixNum) : (isSub ? quote : '');
+        tr.appendChild(tdCell(displayQuote, isSub ? 'text-center font-semibold' : ''));
+        tr.appendChild(tdCell(fmt2(item['Base Rate'])));
+        tr.appendChild(tdCell(item['Price'] ? Number(item['Price']).toFixed(2) : '—'));
+        const gp = Number(item['GP']);
+        tr.appendChild(tdCell(Number.isFinite(gp) ? (gp * 100).toFixed(2) + '%' : '—'));
+
+        const adj = makeInput(item['Adjusted Price'] || '', 'Adjusted Price', quote, locked, 'TRUCK');
+        const tdAdj = document.createElement('td'); tdAdj.appendChild(adj); tr.appendChild(tdAdj);
+        const tdAdjGP = tdCell(calcAdjGPpct(adj.value, item['Base Rate']), 'text-right');
+        tr.appendChild(tdAdjGP);
+
+        // live update Adjusted GP while typing Adjusted Price
+        adj.addEventListener('input', () => {
+          tdAdjGP.textContent = calcAdjGPpct(adj.value, item['Base Rate']);
+        });
+
+
+
+        const pairs = [['Chassis', 'Chassis Price'], ['Pre-Pull', 'Pre-Pull Price'], ['Yard Storage', 'Yard Storage Price'], ['Driver Waiting', 'Driver Waiting Price'], ['Over Weight', 'Over Weight Price'], ['Chassis Split', 'Chassis Split Price'], ['Toll', 'Toll Price'], ['Reefer Fee', 'Reefer Fee Price'], ['Bond Fee', 'Bond Fee Price']];
+        pairs.forEach(([cF, pF]) => {
+          tr.appendChild(tdCell(fmt2(item[cF])));
+          const pi = makeInput(item[pF] || '', pF, quote, locked, 'TRUCK');
+          const tdP = document.createElement('td'); tdP.appendChild(pi); tr.appendChild(tdP);
+        });
+
+        const car = makeInput(item['Carrier'] || '', 'Carrier', quote, locked, 'TRUCK');
+        const tdCar = document.createElement('td'); tdCar.appendChild(car); tr.appendChild(tdCar);
+
+        // ✅ Vendor Note (Column 26) — Manager view only (read-only)
+        const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();
+        const cleanNote = vendorNoteFull.replace(/\s+/g, ' ').trim();
+        const vendorNotePreview = cleanNote.length > 20 ? cleanNote.substring(0, 20) + '...' : cleanNote;
+
+        const vNoteTd = tdCell(vendorNotePreview, 'text-left note-preview vendor-note-preview');
+        vNoteTd.dataset.fullNote = vendorNoteFull;
+        vNoteTd.dataset.which = 'VENDOR NOTE';
+
+        // ❌ Manager 不允许保存 Vendor Note：不要加 dataset.field / dataset.quote
+        tr.appendChild(vNoteTd);
+        tr.appendChild(actionCell(item, quote, 'TRUCK'));
+
+        applyRowState(tr, item, 'TRUCK');
+        lockRow(quote, 'TRUCK', locked);
+        return tr;
+      }
+
+      function renderWhRow(item, quote, isSub) {
+        const parentInternal = String(item['Parent Quotation #'] || '').trim();
+        const parentDoc = parentInternal
+          ? (window.filteredData || []).find(x => String(x['Quotation #'] || '').trim() === parentInternal)
+          : null;
+        const baseExt = String((parentDoc && parentDoc['External Quotation #']) || item['External Quotation #'] || '').trim();
+        const suffixAlpha = String(quote || '').match(/-[A-Z]$/i)?.[0] || '';
+        const displayQuote = (isSub && baseExt) ? (baseExt + suffixAlpha) : (isSub ? quote : '');
+        const tr = document.createElement('tr');
+        tr.className = 'row-wh-val' + (isSub ? ' sub-row' : '');
+        tr.dataset.quote = quote;
+        tr.dataset.scope = 'WH';
+
+        const locked = isTruthy(item['warehouseManagerConfirmed']);
+
+        tr.appendChild(tdCell(displayQuote, isSub ? 'text-center font-semibold' : ''));
+        const whPairs = [['Order Processing', 'Order Processing Price'], ['Inbound', 'Inbound Price'], ['Sorting', 'Sorting Price'], ['Palletizing', 'Palletizing Price'], ['Pallet Fee', 'Pallet Fee Price'], ['Storage', 'Storage Price'], ['Outbound', 'Outbound Price']];
+        whPairs.forEach(([cF, pF]) => {
+          tr.appendChild(tdCell(fmt2(item[cF])));
+          const pi = makeInput(item[pF] || '', pF, quote, locked, 'WH');
+          const tdP = document.createElement('td'); tdP.appendChild(pi); tr.appendChild(tdP);
+        });
+
+        const ven = makeInput(item['Vendor'] || '', 'Vendor', quote, locked, 'WH');
+        const tdVen = document.createElement('td'); tdVen.appendChild(ven); tr.appendChild(tdVen);
+
+
+
+        // ✅ NEW: WH EST GP = (sumPrice - sumCost) / sumPrice
+        const whCostFields = ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'];
+        const whPriceFields = ['Order Processing Price', 'Inbound Price', 'Sorting Price', 'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price'];
+
+        let sumCost = 0;
+        let sumPrice = 0;
+
+        whCostFields.forEach(f => {
+          const n = num(item[f]);
+          if (n !== null) sumCost += n;
+        });
+        whPriceFields.forEach(f => {
+          const n = num(item[f]);
+          if (n !== null) sumPrice += n;
+        });
+
+        let estGpText = '—';
+        if (sumPrice > 0) {
+          const gp = (sumPrice - sumCost) / sumPrice;
+          estGpText = Number.isFinite(gp) ? (gp * 100).toFixed(2) + '%' : '—';
+        }
+
+        tr.appendChild(tdCell(estGpText, 'text-right'));
+
+        // ===== Icons (add this block) =====
+        const icon = (on, emoji) => (String(on || '').toLowerCase() === 'true' ? emoji : '');
+
+        const needWHIcon = icon(item['Need Warehouse Service'], '🏢'); // or 🏬
+        const haz = icon(item['Hazmat'], '☢️');                       // or ☣️
+        const ree = icon(item['Reefer'], '❄️');
+        const bon = icon(item['Bonded'], '🔒');
+
+        const iconLine = [needWHIcon, haz, ree, bon].filter(Boolean).join(' ');
+
+        const needWH = String(item['Need Warehouse Service'] || '').toLowerCase() === 'true';
+        const svcDetail = (item['Warehouse Service Detail'] || '').toString().trim();
+        const svc = (item['Warehouse Services'] || '').toString().trim();
+        const estP = (item['Estimated Pallets'] || '').toString().trim();
+        const estB = (item['Estimated Boxes'] || '').toString().trim();
+        const estSKU = (item['Estimated SKU Count'] || '').toString().trim();
+        const dur = (item['Storage Duration'] || '').toString().trim();
+        const durUnit = (item['Storage Duration Unit'] || '').toString().trim();
+        const whNote = (item['Warehouse Note'] || '').toString().trim();
+
+        // 你红圈那块汇总
+        let whReqLine = '';
+        if (needWH) {
+          const parts = [];
+          if (svcDetail) parts.push(svcDetail);
+          else if (svc) parts.push(`✅ ${svc.split(';').map(x => x.trim()).filter(Boolean).join(' ✅ ')}`); // 兼容 ; 分隔
+          if (estP || estB || estSKU) parts.push(`Est: Pallets ${estP || '-'}, Boxes ${estB || '-'}, SKU ${estSKU || '-'}`);
+          if (dur || durUnit) parts.push(`Storage: ${dur || '-'} ${durUnit || ''}`.trim());
+          whReqLine = parts.filter(Boolean).join(' | ');
+        }
+
+        // 最终显示：先红圈内容，再 Warehouse Note
+        const whFull = [
+          iconLine,
+          whReqLine,
+          whNote ? `WH Note: ${whNote}` : ''
+        ].filter(Boolean).join('\n');
+        const noteTd = tdCell('', 'note-preview'); noteTd.colSpan = 8;
+        noteTd.dataset.fullNote = whFull; noteTd.dataset.which = 'WAREHOUSE NOTE';
+        const line = document.createElement('div'); line.className = 'note-line'; line.textContent = whFull.replace(/\s+/g, ' ').trim();
+        noteTd.appendChild(line);
+        tr.appendChild(noteTd);
+
+        tr.appendChild(tdCell(''));
+        tr.appendChild(actionCell(item, quote, 'WH'));
+
+        applyRowState(tr, item, 'WH');
+        lockRow(quote, 'WH', locked);
+        return tr;
+      }
+
+      async function getCurrentUser() {
+        const res = await fetch('/user', { credentials: 'same-origin' });
+        if (!res.ok) {
+          alert('❌ Not logged in. Please login again.');
+          window.location.href = '/index.html';
+          return false;
+        }
+        const u = await res.json();
+        window.userRole = (u.role || '').toLowerCase();
+        window.currentUser = (u.username || '').trim();
+        if (window.userRole !== 'manager') {
+          alert('❌ Manager only.');
+          window.location.href = '/index.html';
+          return false;
+        }
+        document.getElementById('usernameDisplay').textContent = window.currentUser || 'Manager';
+        return true;
+      }
+
+      async function loadInquiries() {
+        try {
+          const res = await fetch('/inquiries', { credentials: 'same-origin' });
+          const raw = await res.text();
+          let data = null;
+          try { data = JSON.parse(raw); } catch (e) {
+            console.error('❌ /inquiries returned non-JSON:', raw.slice(0, 500));
+            alert('🚨 Load failed. /inquiries returned non-JSON. Check server console.');
+            return;
+          }
+          if (!res.ok) {
+            console.error('❌ /inquiries not ok', res.status, data);
+            alert('🚨 Load failed. Server returned ' + res.status);
+            return;
+          }
+          if (!Array.isArray(data)) {
+            console.error('🚨 Inquiry data invalid (not array):', data);
+            alert('🚨 Inquiry data invalid (not array).');
+            return;
+          }
+          window.filteredData = applySearchFilter(data, window.searchTerm);
+
+          const parseMDY = (s) => {
+            const m = String(s || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (!m) return 0;
+            return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2])).getTime();
+          };
+          window.filteredData.sort((a, b) => {
+            const ta = parseMDY(a['Date']);
+            const tb = parseMDY(b['Date']);
+            if (tb !== ta) return tb - ta;
+            return String(b['Quotation #'] || '').localeCompare(String(a['Quotation #'] || ''), undefined, { numeric: true, sensitivity: 'base' });
+          });
+
+          renderPage();
+        } catch (err) {
+          console.error('Failed to load inquiries:', err);
+          alert('🚨 Load failed.');
+        }
+      }
+      window.loadInquiries = loadInquiries;
+
+      document.addEventListener('DOMContentLoaded', async () => {
+        setupNoteModal();
+        const ok = await getCurrentUser();
+        if (!ok) return;
+        await loadInquiries();
+
+        document.getElementById('prevPage')?.addEventListener('click', () => {
+          if (window.currentPage > 1) { window.currentPage--; renderPage(); }
+        });
+        document.getElementById('nextPage')?.addEventListener('click', () => {
+          const maxPage = Math.ceil((window.filteredData.length || 0) / window.pageSize) || 1;
+          if (window.currentPage < maxPage) { window.currentPage++; renderPage(); }
+        });
+        document.getElementById('exitBtn')?.addEventListener('click', () => window.location.href = '/logout');
+
+        document.getElementById('searchBtn')?.addEventListener('click', async () => {
+          window.searchTerm = document.getElementById('searchBox')?.value || '';
+          window.currentPage = 1;
+          await loadInquiries();
+        });
+        document.getElementById('clearSearchBtn')?.addEventListener('click', async () => {
+          const box = document.getElementById('searchBox'); if (box) box.value = '';
+          window.searchTerm = '';
+          window.currentPage = 1;
+          await loadInquiries();
+        });
+
+
+        // Default: show Inquiry form first (same as Sales behavior)
+        window.setMode('summary');
+
+        // Toggle Inquiry / Summary
+        document.getElementById('toggleInquiry')?.addEventListener('click', () => {
+          const isSummary = document.body.classList.contains('mode-summary');
+          window.setMode(isSummary ? 'inquiry' : 'summary');
+          if (!isSummary) {
+            // entering summary
+            document.getElementById('fixed-scroll-wrapper')?.scrollTo(0, 0);
+          } else {
+            // back to inquiry
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+        });
+
+        // Warehouse checkbox bind + initial sync
+        const whChk = document.getElementById('needWarehouseService');
+        if (whChk) whChk.addEventListener('change', window.refreshWarehouseBlock);
+        window.refreshWarehouseBlock();
+
+        // Enable/disable Qty & Unit inputs for Warehouse Services
+        document.querySelectorAll('input[name="whService"]').forEach(chk => {
+          const svc = chk.value;
+          const qty = document.querySelector(`input[name="whQty_${svc}"]`);
+          const unit = document.querySelector(`input[name="whUnit_${svc}"]`);
+          if (!qty || !unit) return;
+
+          const sync = () => {
+            const on = chk.checked;
+            qty.disabled = !on;
+            unit.disabled = !on;
+            if (!on) { qty.value = ''; unit.value = ''; }
+          };
+          chk.addEventListener('change', sync);
+          sync();
+        });
+
+        // Inquiry submit (Manager)
+        document.getElementById('inquiryForm')?.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          const form = this;
+          const fd = new FormData(form);
+          const entry = Object.fromEntries(fd.entries());
+
+          const selectedServices = Array.from(form.querySelectorAll('input[name="whService"]:checked')).map(x => x.value);
+
+          const svcLines = selectedServices.map(svc => {
+            const qtyEl = form.querySelector(`input[name="whQty_${svc}"]`);
+            const unitEl = form.querySelector(`input[name="whUnit_${svc}"]`);
+            const qty = (qtyEl?.value || '').trim();
+            const unit = (unitEl?.value || '').trim();
+            if (!qty && !unit) return `✅ ${svc}`;
+            return `✅ ${svc}: ${qty || '-'} ${unit || ''}`.trim();
+          }).filter(Boolean);
+          const serviceDetail = svcLines.join(' | ');
+
+          const hazmat = form.querySelector('input[name="hazmat"]')?.checked ? 'true' : 'false';
+          const reefer = form.querySelector('input[name="reefer"]')?.checked ? 'true' : 'false';
+          const bonded = form.querySelector('input[name="bonded"]')?.checked ? 'true' : 'false';
+          const needWH = form.querySelector('input[name="needWarehouseService"]')?.checked ? 'true' : 'false';
+
+          const toCity = (entry.toCity || '').trim();
+          const toState = (entry.toState || '').trim();
+          const toZip = (entry.toZip || '').trim();
+          const composedTo = [toCity, [toState, toZip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+
+          const newInquiry = {
+            'Date': new Date().toLocaleDateString(),
+
+            'Customer ID': entry.customerId || '',
+            'Requested By': window.currentUser || '',
+            'username': window.currentUser || '',
+            'Created Role': 'manager',
+            'Created By': window.currentUser || '',
+
+            'Inquiry Type': entry.inquiryType || '',
+            'Container Size': entry.containerSize || '',
+            'Dry Van Type': entry.dryVanType || '',
+            'Legal or Over Weight': entry.legalOverWeight || '',
+            'Gross Weight': entry.grossWeight || '',
+            'Live or Drop': entry.liveOrDrop || '',
+            'From': entry.from || '',
+
+            'To City': toCity,
+            'To State': toState,
+            'To ZIP': toZip,
+            'To': composedTo,
+
+            'QTY': entry.qty || '',
+            'Quotation #': entry.quotationId || '',
+
+            'Commodity': entry.commodity || '',
+            'Package Type': entry.packageType || '',
+            'Packages Per Container': entry.packagesPerContainer || '',
+            'Hazmat': hazmat,
+            'Reefer': reefer,
+            'Bonded': bonded,
+
+            'Need Warehouse Service': needWH,
+            'Warehouse Services': selectedServices.join('; '),
+            'Warehouse Service Detail': serviceDetail,
+            'Estimated Pallets': entry.estimatedPallets || '',
+            'Estimated Boxes': entry.estimatedBoxes || '',
+            'Estimated SKU Count': entry.estimatedSkuCount || '',
+            'Storage Duration': entry.storageDuration || '',
+            'Storage Duration Unit': entry.storageDurationUnit || '',
+            'Warehouse Note': entry.warehouseNote || '',
+
+            'Note': entry.note || '',
+
+            'Saved': 'false',
+            'truckingCostSaved': 'false',
+            'truckingCostSent': 'false',
+            'warehouseCostSaved': 'false',
+            'warehouseCostSent': 'false',
+            'truckingPriceSaved': 'false',
+            'warehousePriceSaved': 'false',
+            'truckingSalesConfirmed': 'false',
+            'truckingManagerConfirmed': 'false',
+            'warehouseSalesConfirmed': 'false',
+            'warehouseManagerConfirmed': 'false'
+          };
+
+          try {
+            const res = await fetch('/inquiries', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newInquiry),
+              credentials: 'same-origin'
+            });
+            const raw = await res.text();
+            let j = null;
+            try { j = JSON.parse(raw); } catch { j = raw; }
+
+            if (!res.ok || (j && j.success === false)) {
+              alert('❌ Submit failed: ' + (j?.message || raw || res.status));
+              return;
+            }
+
+            alert('✅ Inquiry submitted successfully!');
+            form.reset();
+            window.refreshWarehouseBlock?.();
+
+            // reload summary data but keep in inquiry mode
+            await loadInquiries();
+          } catch (err) {
+            console.error(err);
+            alert('❌ Network error: ' + err.message);
+          }
+        });
+
+      });
+    })();
+  </script>
+</body>
+
+</html>

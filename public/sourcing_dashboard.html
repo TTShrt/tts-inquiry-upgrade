@@ -1,0 +1,2476 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sourcing Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    table,
+    tbody,
+    tr {
+      background-color: white !important;
+      transition: background-color 0.3s;
+    }
+
+    body {
+      font-family: "PingFang SC", "Helvetica Neue", Helvetica, "Segoe UI", Roboto, Arial, sans-serif;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow-x: auto;
+      overflow-y: scroll;
+    }
+
+    #inquiryForm {
+      font-size: 1rem;
+      line-height: 1.5rem;
+    }
+
+    #inquiryForm input,
+    #inquiryForm select,
+    #inquiryForm textarea {
+      font-size: 1rem;
+      line-height: 1.5rem;
+      padding: 0.5rem 0.75rem;
+
+    }
+
+    /* 🎯 鼠标悬停时输入框背景变化 */
+    #inquiryForm input:hover,
+    #inquiryForm select:hover,
+    #inquiryForm textarea:hover {
+      background-color: #f0f9ff;
+      transition: background-color 0.2s ease;
+    }
+
+    /* 🎯 鼠标点击时边框浮现动感 */
+    #inquiryForm input:focus,
+    #inquiryForm select:focus,
+    #inquiryForm textarea:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px #bfdbfe;
+      background-color: #fff;
+    }
+
+    /* 🎯 所有格子有平滑动画 */
+    #inquiryForm input,
+    #inquiryForm select,
+    #inquiryForm textarea {
+      transition: all 0.2s ease-in-out;
+    }
+
+    /* 🎯 Submit 按钮动效 */
+    #inquiryForm button[type="submit"] {
+      transition: all 0.2s ease-in-out;
+      transform: scale(1);
+    }
+
+    #inquiryForm button[type="submit"]:hover {
+      background-color: #2563eb;
+      transform: scale(1.03);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+
+    .row-basic-head td,
+    .row-truck-head td,
+    .row-wh-head td {
+      font-size: 11px;
+      letter-spacing: 0.2px;
+    }
+
+
+    /* BASIC 合并 NOTE 允许换行（已停用：改成一行预览 + 点击弹窗）
+.row-basic-val td[colspan="8"] {
+  white-space: normal !important;
+  word-break: break-word;
+  line-height: 1.4;
+}
+*/
+
+    /* 表头行（每票重复的那三条 header） */
+    .row-basic-head td,
+    .row-truck-head td,
+    .row-wh-head td {
+      font-weight: 700;
+      white-space: nowrap;
+      background: #f3f4f6;
+      /* 浅灰 */
+      border-top: 2px solid #9ca3af;
+      /* 每个区块上方粗线 */
+    }
+
+    /* BASIC 值行 */
+    .row-basic-val td {
+      background: #ffffff;
+    }
+
+    /* TRUCK 区块：淡蓝 */
+    .row-truck-head td {
+      background: #f0f9ff;
+    }
+
+    /* header 更蓝 */
+    .row-truck-val td {
+      background: #f0f9ff;
+    }
+
+    /* value 更淡 */
+
+    /* WH 区块：淡黄 */
+    .row-wh-head td {
+      background: #fcf9e0;
+    }
+
+    .row-wh-val td {
+      background: #fcf9e0;
+    }
+
+
+    /* 每票之间的分隔 */
+    .row-sep td {
+      border: none !important;
+      height: 14px;
+      background: transparent;
+    }
+
+
+    #fixed-scroll-wrapper {
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: calc(100vh - 350px);
+      width: 100%;
+      padding-bottom: 1rem;
+      margin: 1rem;
+      border: 1px solid #d1d5db;
+    }
+
+
+    .saved-row .saved-row .action-button,
+    .saved-row .checkbox-wrapper {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .action-button-row {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .action-button {
+      height: 1.5rem;
+      width: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.25rem;
+      background-color: #f1f5f9;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: all 0.15s ease-in-out;
+      transform: scale(1);
+      font-size: 1rem;
+    }
+
+    .action-button:hover {
+      transform: none;
+      background-color: #e2e8f0;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .checkbox-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 0.8rem;
+      width: 0.8rem;
+    }
+
+    .nowrap-limit {
+      white-space: nowrap;
+      max-width: 25ch;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .saved-input {
+      background-color: #dbeafe !important;
+      /* locked input blue */
+      border-color: #bfdbfe !important;
+      color: #374151 !important;
+    }
+
+    .low-gp {
+      color: red !important;
+    }
+
+    #scroll-inner {
+      width: fit-content;
+      min-width: 100%;
+      overflow-x: auto;
+      overflow-y: visible;
+    }
+
+    #main-content {
+      padding: 0.125rem;
+      position: relative;
+      z-index: 1000;
+    }
+
+    .header-section {
+      margin-bottom: 0;
+    }
+
+    .form-group {
+      margin-bottom: 0.25rem;
+    }
+
+    select,
+    input,
+    textarea,
+    button {
+      margin-right: 0.5rem;
+      padding: 0.25rem;
+    }
+
+    .main-button {
+      color: white;
+      background: linear-gradient(to bottom right, #3b82f6, #2563eb);
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      min-width: 6rem;
+      text-align: center;
+      transition: all 0.2s ease-in-out;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .main-button:hover {
+      background: linear-gradient(to bottom right, #2563eb, #1d4ed8);
+      transform: scale(1.05);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .price-input {
+      width: 3rem;
+      height: 1rem;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.4rem;
+      text-align: right;
+    }
+
+    .form-group {
+      max-height: 75vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      transition: max-height 0.4s ease;
+    }
+
+
+    .toggle-inquiry {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 9999px;
+      padding: 0.4rem 1rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      z-index: 100;
+    }
+
+    tr.highlighted {
+      background-color: #dbeafe !important;
+    }
+
+    tr.highlighted-sourcing {
+      background-color: #dbeafe !important;
+    }
+
+
+    tr.highlighted-sourcing td {
+      background-color: #dbeafe !important;
+    }
+
+    tr.highlighted td {
+      border: 1px solid #d1d5db;
+    }
+
+    tr.highlighted td {
+      background-color: #dbeafe !important;
+    }
+
+
+    #inquiryForm input:not([type='checkbox']),
+    #inquiryForm select,
+    #inquiryForm textarea {
+      text-align: left !important;
+    }
+
+    input[type='text'],
+    input[type='number'] {
+      padding-right: 0.4rem;
+    }
+
+    input.price-input {
+      text-align: right !important;
+    }
+
+    td[data-field='GP'],
+    td[data-field='Adjusted GP'] {
+      font-size: 0.875rem;
+      height: 2.25rem;
+      vertical-align: middle;
+      padding: 0.25rem 0.5rem;
+      text-align: right;
+    }
+
+    tr.bg-blue-100 td {
+      border: 1px solid #d1d5db;
+    }
+
+    td[data-field="Note"] {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 30ch;
+      text-align: left !important;
+      padding: 0.25rem;
+    }
+
+    #noteModalInput {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: inherit;
+      line-height: 1.5;
+      width: 100%;
+      max-width: 100%;
+    }
+
+
+    tr {
+      transition: background-color 0.3s;
+    }
+
+    table {
+      background-color: white;
+    }
+
+    th {
+      background-color: lightgray;
+    }
+
+    body.no-body-scroll {
+      overflow: hidden;
+    }
+
+    /* V2 Warehouse Requirement block */
+    .section-title {
+      font-weight: 700;
+      color: #111827;
+      margin-top: 0.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .tiny-note {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+
+    /* 固定每一行的基礎高度（你可改 44/48） */
+    #summaryBody tr {
+      height: 26px;
+    }
+
+
+    /* ===== FINAL: Auto width by content + adjustable NOTE ===== */
+    :root {
+      --noteWidth: 300px;
+    }
+
+
+    /* ===== Status colors (Sourcing) ===== */
+
+    /* 0) Default value rows: white */
+    #summaryTable tr.row-truck-val td,
+    #summaryTable tr.row-wh-val td,
+    #summaryTable tr.row-basic-val td {
+      background: #ffffff !important;
+    }
+
+    /* 1) NEW inquiry: whole row light yellow */
+    #summaryTable tr.new-inquiry td {
+      background: #fff7d6 !important;
+    }
+
+    /* 2) COST saved (but not sent): input cells blue (row stays white) */
+    #summaryTable tr.cost-saved td input {
+      background: #dbeafe !important;
+      border-color: #bfdbfe !important;
+    }
+
+
+    /* 3) COST sent by Sourcing: whole row light blue */
+    #summaryTable tr.row-sent td {
+      background: #e0f2fe !important;
+    }
+
+    /* 4) Confirmed by Sales or Manager: whole row deeper blue */
+    #summaryTable tr.row-confirmed td {
+      background: #cfe8ff !important;
+    }
+
+    /* 5) Freeze # and ACTION always gray (override any row state) */
+    #summaryTable td:first-child,
+    #summaryTable th:first-child,
+    #summaryTable td:last-child,
+    #summaryTable th:last-child {
+      background: #e5e7eb !important;
+    }
+
+    /* 强制 Note Modal 永远居中且覆盖全屏 */
+    #noteModal {
+      position: fixed !important;
+      inset: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      z-index: 99999 !important;
+    }
+
+    /* 隐藏状态仍然 hidden */
+    #noteModal.hidden {
+      display: none !important;
+    }
+
+    /* 弹窗盒子限制大小并居中 */
+    #noteModal>div {
+      max-width: min(720px, 92vw) !important;
+      max-height: 80vh !important;
+      overflow: auto !important;
+    }
+
+    .header-section {
+      position: relative;
+      z-index: 9999;
+    }
+
+    /* 统一表格行高度 */
+    #summaryTable td,
+    #summaryTable th {
+      padding-top: 6px !important;
+      padding-bottom: 6px !important;
+      line-height: 1.2 !important;
+    }
+
+
+    /* 仅用于 Commodity / From / To：根据内容自动变宽（会撑列） */
+    #summaryTable input.auto-grow {
+      width: auto !important;
+      /* 关键：不要 100% */
+      min-width: 6ch !important;
+      /* 起步宽度 */
+      box-sizing: content-box !important;
+    }
+
+    /* input 贴满格子，但不把列撑宽 */
+    #summaryTable input {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    /* Commodity / From / To 允许自动撑列 */
+    #summaryTable input.auto-grow {
+      width: auto !important;
+      max-width: none !important;
+      min-width: 6ch !important;
+      box-sizing: content-box !important;
+    }
+
+    /* ===== Alignment Reset (final override) ===== */
+
+    /* 1) 所有表头内容居中 */
+    #summaryTable th,
+    #summaryTable .row-basic-head td,
+    #summaryTable .row-truck-head td,
+    #summaryTable .row-wh-head td {
+      text-align: center !important;
+    }
+
+    /* 2) 所有填写内容默认居中（文字与输入框） */
+    #summaryTable td {
+      text-align: center !important;
+    }
+
+    #summaryTable input,
+    #summaryTable textarea,
+    #summaryTable select {
+      text-align: center !important;
+    }
+
+    /* 3) FROM & TO 填写内容靠右（仅 BASIC 第二行的 inq-field） */
+    #summaryTable input.inq-field[data-key="From"],
+    #summaryTable input.inq-field[data-key="To"] {
+      text-align: right !important;
+    }
+
+    /* 4) NOTE 内容居左（含 GENERAL NOTE / WAREHOUSE NOTE 展示格） */
+    #summaryTable td.note-preview,
+    #summaryTable td.note-block {
+      text-align: left !important;
+    }
+
+    /* 5) 所有 COST & PRICE 及 GP 靠右 */
+    /* 5.1 所有带 data-field 的输入框：Cost/Price/GP 统一靠右 */
+    #summaryTable input[data-field*="Cost"],
+    #summaryTable input[data-field*="Price"],
+    #summaryTable input[data-field*="GP"] {
+      text-align: right !important;
+    }
+
+    /* 5.2 TRUCK/WH 数字展示单元格（非 input 的纯数字）也靠右 */
+    #summaryTable tr.row-truck-val td,
+    #summaryTable tr.row-wh-val td {
+      text-align: right !important;
+    }
+
+    /* 但：TRUCK/WH 里 NOTE 仍要靠左、Action 仍居中、Carrier/Vendor 仍居中 */
+    #summaryTable tr.row-truck-val td.note-preview,
+    #summaryTable tr.row-wh-val td.note-preview,
+    #summaryTable tr.row-truck-val td.note-block,
+    #summaryTable tr.row-wh-val td.note-block {
+      text-align: left !important;
+    }
+
+    #summaryTable tr.row-truck-val td:last-child,
+    #summaryTable tr.row-wh-val td:last-child {
+      text-align: center !important;
+    }
+
+    #summaryTable input[data-field="Carrier"],
+    #summaryTable input[data-field="Vendor"] {
+      text-align: center !important;
+    }
+
+    /* BASIC 第二行 input 默认完全透明 */
+    #summaryTable tr.row-basic-val input.inq-field {
+      border: none !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    /* 让文字对齐一致 */
+    #summaryTable tr.row-basic-val input.inq-field:disabled {
+      color: inherit !important;
+      cursor: default;
+    }
+
+    /* 当解锁编辑时才显示边框 */
+    #summaryTable tr.row-basic-val input.inq-field:not(:disabled) {
+      border: 0.5px solid #60a5fa !important;
+      background: #ffffff !important;
+    }
+
+    /* ===== BASIC 第二行对齐规则 ===== */
+
+    /* 默认：全部居中 */
+    #summaryTable tr.row-basic-val td {
+      text-align: center !important;
+    }
+
+    /* Commodity：内容居中 */
+    #summaryTable tr.row-basic-val td[data-field="Commodity"] {
+      text-align: center !important;
+    }
+
+    #summaryTable tr.row-basic-val td[data-field="Commodity"] input {
+      text-align: center !important;
+    }
+
+    /* From / To：内容靠右 */
+    #summaryTable tr.row-basic-val td[data-field="From"],
+    #summaryTable tr.row-basic-val td[data-field="To"] {
+      text-align: right !important;
+    }
+
+    #summaryTable tr.row-basic-val td[data-field="From"] input,
+    #summaryTable tr.row-basic-val td[data-field="To"] input {
+      text-align: right !important;
+    }
+
+    /* ===== Freeze # (left) and ACTION (right) ===== */
+    #summaryTable th:first-child,
+    #summaryTable td:first-child {
+      position: sticky !important;
+      left: 0 !important;
+      z-index: 20 !important;
+      background: #d1d5db !important;
+      /* 深灰底 */
+    }
+
+    #summaryTable th:last-child,
+    #summaryTable td:last-child {
+      position: sticky !important;
+      right: 0 !important;
+      z-index: 20 !important;
+      background: #e5e7eb;
+      /* 深灰底 */
+      box-shadow: -6px 0 6px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    /* 让表头在冻结列上方更稳 */
+    #summaryTable .row-basic-head td:first-child,
+    #summaryTable .row-truck-head td:first-child,
+    #summaryTable .row-wh-head td:first-child,
+    #summaryTable .row-basic-head td:last-child,
+    #summaryTable .row-truck-head td:last-child,
+    #summaryTable .row-wh-head td:last-child {
+      z-index: 30 !important;
+    }
+
+    /* 只有锁定（saved-input）才给颜色；解锁编辑就白底 */
+    #summaryTable tr.row-wh-val input.saved-input {
+      background: #dbeafe !important;
+      border-color: #bfdbfe !important;
+    }
+
+    #summaryTable tr.row-wh-val input:not(.saved-input) {
+      background: #ffffff !important;
+    }
+
+
+    #summaryTable td.note-preview {
+      cursor: pointer;
+    }
+
+    .row-basic-head td {
+      border-top: 5px solid #afb5bd !important;
+    }
+
+    #summaryTable td {
+      border-right: 1px solid #f3f4f6;
+    }
+
+    /* ===== Final polish (light + clean) ===== */
+
+
+    /* 2) 冻结列灰色更柔和 */
+    #summaryTable th:first-child,
+    #summaryTable td:first-child,
+    #summaryTable th:last-child,
+    #summaryTable td:last-child {
+      background: #e5e7eb !important;
+    }
+
+    /* 3) hover 更轻（不抢色块） */
+    #summaryTable tr:hover td {
+      background-color: #f8fafc !important;
+    }
+
+    /* 4) 每个 inquiry 块之间更有呼吸感 */
+    .row-sep td {
+      height: 14px !important;
+    }
+
+    /* ===== Sourcing simplification ===== */
+    #toggleInquiry {
+      display: none !important;
+    }
+
+    /* Sourcing no top form -> table taller */
+    #fixed-scroll-wrapper {
+      max-height: calc(100vh - 120px) !important;
+    }
+
+    /* 讓 ACTION 欄有空間，不被右邊擠壓 */
+    td.action-cell,
+    th.action-header {
+      padding-right: 16px !important;
+      /* 往左拉出空間 */
+      min-width: 140px;
+      /* 確保欄寬夠用 */
+      text-align: right;
+      /* 按鈕靠右對齊，看起來更舒服 */
+    }
+
+    /* 讓 CHECK 鍵（勾選框）有足夠邊距 */
+    td.action-cell input[type="checkbox"] {
+      margin-right: 8px;
+    }
+
+    /* 如果有編輯/複製/刪除按鈕，再加一點間距 */
+    td.action-cell button {
+      margin-left: 4px;
+      margin-right: 4px;
+    }
+
+    #summaryTable td.action {
+      padding-right: 20px !important;
+    }
+
+    /* 子行縮進 + 美化 */
+    .sub-row td:first-child {
+      padding-left: 30px !important;
+      /* Quotation # 欄縮進 */
+      font-style: italic !important;
+      color: #555 !important;
+      /* 灰色文字 */
+    }
+
+    /* 可選：讓整行背景略淡或邊框區分 */
+    .sub-row {
+      background-color: #f9f9f9 !important;
+      border-top: 1px dashed #ddd;
+    }
+
+    .sub-row {
+      background-color: #f8f9fa !important;
+      font-style: italic;
+      color: #555;
+    }
+
+    .sub-row td:first-child {
+      padding-left: 40px !important;
+      /* Quotation # 欄縮進 */
+    }
+
+    /* ===== Match SALES: compact rows ===== */
+    #summaryTable td,
+    #summaryTable th {
+      padding-top: 6px !important;
+      padding-bottom: 6px !important;
+      line-height: 1.2 !important;
+    }
+
+    /* Left # column fixed width + centered */
+    #summaryTable th:first-child,
+    #summaryTable td:first-child {
+      width: 10ch !important;
+      min-width: 10ch !important;
+      max-width: 10ch !important;
+      text-align: center !important;
+    }
+
+    /* Action column roomy but not tall */
+    #summaryTable th:last-child,
+    #summaryTable td:last-child {
+      min-width: 140px !important;
+      text-align: center !important;
+    }
+
+
+    #summaryTable .row-basic-head td:first-child,
+    #summaryTable .row-truck-head td:first-child,
+    #summaryTable .row-wh-head td:first-child,
+    #summaryTable .row-basic-head td:last-child,
+    #summaryTable .row-truck-head td:last-child,
+    #summaryTable .row-wh-head td:last-child {
+      z-index: 1000 !important;
+    }
+
+    /* Action buttons (match SALES) */
+    .action-button-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      justify-content: center;
+    }
+
+    .action-button {
+      width: 24px;
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      box-shadow: none;
+      font-size: 1rem;
+    }
+
+    .action-button:hover {
+      background: #e2e8f0;
+    }
+
+    /* Sub-row Quotation # cell: centered (match SALES) */
+    #summaryTable tr.row-truck-val.sub-row td:first-child,
+    #summaryTable tr.row-wh-val.sub-row td:first-child {
+      text-align: center !important;
+      padding-left: 0 !important;
+      font-style: italic;
+      color: #555;
+    }
+
+    /* =========================
+   FIX: Status colors should NOT affect header rows
+   ========================= */
+
+    /* 1) 强制所有 header 行永远是浅灰，不吃任何状态色 */
+    #summaryTable tr.row-basic-head td,
+    #summaryTable tr.row-truck-head td,
+    #summaryTable tr.row-wh-head td {
+      background: #f3f4f6 !important;
+      font-weight: 700 !important;
+    }
+
+    /* 2) 把“状态色”限制在 value 行（只对 row-*-val 生效） */
+    #summaryTable tr.new-inquiry.row-truck-val td,
+    #summaryTable tr.new-inquiry.row-wh-val td {
+      background: #fff7d6 !important;
+    }
+
+    #summaryTable tr.new-inquiry.row-truck-val td input,
+    #summaryTable tr.new-inquiry.row-wh-val td input {
+      background: #fff7d6 !important;
+      border-color: #f1d6a8 !important;
+    }
+
+    #summaryTable tr.row-sent.row-truck-val td,
+    #summaryTable tr.row-sent.row-wh-val td {
+      background: #eaf4ff !important;
+    }
+
+    #summaryTable tr.row-sent.row-truck-val td input,
+    #summaryTable tr.row-sent.row-wh-val td input {
+      background: #eaf4ff !important;
+      border-color: #cfe3ff !important;
+    }
+
+    #summaryTable tr.row-confirmed.row-truck-val td,
+    #summaryTable tr.row-confirmed.row-wh-val td {
+      background: #cfe8ff !important;
+    }
+
+    #summaryTable tr.row-confirmed.row-truck-val td input,
+    #summaryTable tr.row-confirmed.row-wh-val td input {
+      background: #cfe8ff !important;
+      border-color: #b6dcff !important;
+    }
+
+    /* ✅ 编辑中：强制白底（覆盖 cost-saved / row-sent 等状态色） */
+    #summaryTable tr.row-editing td input {
+      background: #ffffff !important;
+      border-color: #d1d5db !important;
+    }
+
+
+    /* 3) 冻结列（# / ACTION）永远灰色（只限制在 value 行） */
+    #summaryTable tr.new-inquiry.row-truck-val td:first-child,
+    #summaryTable tr.new-inquiry.row-truck-val td:last-child,
+    #summaryTable tr.new-inquiry.row-wh-val td:first-child,
+    #summaryTable tr.new-inquiry.row-wh-val td:last-child,
+    #summaryTable tr.row-sent.row-truck-val td:first-child,
+    #summaryTable tr.row-sent.row-truck-val td:last-child,
+    #summaryTable tr.row-sent.row-wh-val td:first-child,
+    #summaryTable tr.row-sent.row-wh-val td:last-child,
+    #summaryTable tr.row-confirmed.row-truck-val td:first-child,
+    #summaryTable tr.row-confirmed.row-truck-val td:last-child,
+    #summaryTable tr.row-confirmed.row-wh-val td:first-child,
+    #summaryTable tr.row-confirmed.row-wh-val td:last-child {
+      background: #e5e7eb !important;
+    }
+
+    /* NOTE 固定宽度 + 一行省略 */
+    #summaryTable td.note-preview,
+    #summaryTable td.note-block {
+      width: var(--noteWidth) !important;
+      min-width: var(--noteWidth) !important;
+      max-width: var(--noteWidth) !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+
+    #summaryTable td.note-preview {
+      cursor: pointer;
+      padding-left: 8px !important;
+    }
+
+    /* 
+#summaryTable th:nth-child(26),
+#summaryTable td:nth-child(26) {
+  width: 10px !important;
+  min-width: 10px !important;
+  max-width: 10px !important;
+  padding: 0 !important;
+}
+*/
+
+    /* =========================
+   SOURCING: ONE TRUE STICKY STYLE (keep only this)
+   ========================= */
+    :root {
+      --sticky-gray: #e5e7eb;
+      --sticky-divider: #cfd6dd;
+      --sticky-shadow: rgba(0, 0, 0, .18);
+    }
+
+    /* both sides always same */
+    #summaryTable th:first-child,
+    #summaryTable td:first-child,
+    #summaryTable th:last-child,
+    #summaryTable td:last-child {
+      background: var(--sticky-gray) !important;
+      background-image: none !important;
+    }
+
+    /* left # */
+    #summaryTable th:first-child,
+    #summaryTable td:first-child {
+      position: sticky !important;
+      left: 0 !important;
+      z-index: 9999 !important;
+      width: 10ch !important;
+      min-width: 10ch !important;
+      max-width: 10ch !important;
+      text-align: center !important;
+      box-shadow:
+        inset -2px 0 0 var(--sticky-divider),
+        8px 0 14px -12px var(--sticky-shadow) !important;
+    }
+
+    /* right ACTION */
+    #summaryTable th:last-child,
+    #summaryTable td:last-child {
+      position: sticky !important;
+      right: 0 !important;
+      z-index: 9999 !important;
+      width: 140px !important;
+      min-width: 140px !important;
+      max-width: 140px !important;
+      text-align: center !important;
+      padding-left: 6px !important;
+      padding-right: 6px !important;
+      box-shadow:
+        inset 2px 0 0 var(--sticky-divider),
+        -8px 0 14px -12px var(--sticky-shadow) !important;
+    }
+
+    /* no state can repaint them */
+    #summaryTable tr:hover td:first-child,
+    #summaryTable tr:hover td:last-child,
+    #summaryTable tr.new-inquiry td:first-child,
+    #summaryTable tr.new-inquiry td:last-child,
+    #summaryTable tr.cost-saved td:first-child,
+    #summaryTable tr.cost-saved td:last-child,
+    #summaryTable tr.row-sent td:first-child,
+    #summaryTable tr.row-sent td:last-child,
+    #summaryTable tr.row-confirmed td:first-child,
+    #summaryTable tr.row-confirmed td:last-child,
+    #summaryTable tr.sub-row td:first-child,
+    #summaryTable tr.sub-row td:last-child,
+    #summaryTable tr.row-sep td:first-child,
+    #summaryTable tr.row-sep td:last-child {
+      background: var(--sticky-gray) !important;
+      background-image: none !important;
+    }
+
+    #summaryTable td.note-preview {
+      text-align: left !important;
+      vertical-align: middle !important;
+      max-width: 600px;
+    }
+
+    /* ===== FORCE GENERAL NOTE LEFT (BASIC ROW) ===== */
+    #summaryTable tr.row-basic-val td.note-preview {
+      text-align: left !important;
+    }
+
+    #summaryTable tr.row-basic-val td.note-preview .note-line {
+      text-align: left !important;
+    }
+
+    /* ✅ Vendor Note column: override global note-preview width */
+    #summaryTable td.note-preview.vendor-note-preview {
+      width: 180px !important;
+      min-width: 180px !important;
+      max-width: 180px !important;
+
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+
+      text-align: left !important;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-sm">
+  <div id="main-content">
+    <div class="header-section flex justify-between items-center w-full px-4 mt-2">
+      <h1 class="text-2xl font-bold text-gray-800">Welcome, <span id="usernameDisplay">Sourcing</span></h1>
+      <div class="flex items-center gap-2">
+        <button id="prevPage" class="main-button">Previous</button>
+        <span id="pageInfo" class="text-gray-800 text-sm font-semibold">Page 1</span>
+        <button id="nextPage" class="main-button">Next</button>
+        <button id="exitBtn" class="main-button">Exit</button>
+
+        <input id="searchBox" class="border px-3 py-2 rounded-full text-sm w-64"
+          placeholder="Search Quotation # or ZIP..." />
+        <button id="searchBtn" class="main-button">Search</button>
+        <button id="clearSearchBtn" class="main-button">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="fixed-scroll-wrapper" class="scroll-container">
+    <div style="width: 100%;">
+      <table class="bg-white border text-xs" id="summaryTable">
+        <thead class="bg-gray-200" style="background-color:#e0f2fe; position: sticky; top: 0; z-index: 10;">
+          <tr>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+          </tr>
+        </thead>
+        <tbody id="summaryBody"></tbody>
+      </table>
+
+      <div id="noteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+        <div class="bg-white rounded-lg shadow-lg w-96 p-4">
+          <h2 class="text-lg font-semibold mb-2">NOTE</h2>
+
+          <textarea id="noteModalInput" wrap="soft" class="w-full border p-2 h-40 resize-none"></textarea>
+
+          <div class="mt-3 flex gap-2 justify-end">
+            <button id="noteModalSave" class="bg-green-600 text-white px-4 py-1 rounded">Save</button>
+            <button id="noteModalClose" class="bg-blue-500 text-white px-4 py-1 rounded">Close</button>
+          </div>
+        </div>
+      </div>
+
+
+      <script>
+        // ===============================
+        // Sourcing Dashboard (Clean)
+        // ===============================
+
+        const pageSize = 100;
+        let currentPage = 1;
+        let filteredData = [];
+        let currentUser = '';
+        let userRole = '';
+
+        // ===== Draft Cache (防止多行未SAVE被清空) =====
+        const draftCache = {};
+        // key: ${quote}__${scope}__${field}
+
+        function draftKey(quote, scope, field) {
+          return `${String(quote || '').trim()}__${String(scope || '').trim()}__${String(field || '').trim()}`;
+        }
+
+        let searchTerm = '';
+
+        function hasAnyPriceFilled(item, scope) {
+          const fields = scope === 'WH'
+            ? [
+              'Order Processing Price', 'Inbound Price', 'Sorting Price', 'Palletizing Price',
+              'Pallet Fee Price', 'Storage Price', 'Outbound Price', 'Vendor', 'Price'
+            ]
+            : [
+              'Adjusted Price', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
+              'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price',
+              'Carrier', 'Price'
+            ];
+          return fields.some(k => String((item && item[k]) ?? '').trim() !== '');
+        }
+
+        function applySearchFilter(list, term) {
+          const t = String(term || '').trim().toLowerCase();
+          if (!t) return list;
+
+          const mains = (list || []).filter(it => !String(it['Parent Quotation #'] || '').trim());
+
+          const hit = (it) => {
+            const q = String(it['Quotation #'] || '').toLowerCase();
+            const ext = String(it['External Quotation #'] || '').toLowerCase();      // ✅ external
+            const zip = String(it['To ZIP'] || '').toLowerCase();
+            const to = String(it['To'] || '').toLowerCase();
+            return q.includes(t) || ext.includes(t) || zip.includes(t) || to.includes(t);
+          };
+
+          const matchedMains = mains.filter(hit);
+          const mainKeys = new Set(matchedMains.map(it => String(it['Quotation #'] || '').trim()).filter(Boolean));
+
+          const children = (list || []).filter(it => {
+            const p = String(it['Parent Quotation #'] || '').trim();
+            return p && mainKeys.has(p);
+          });
+
+          const seen = new Set();
+          const merged = [];
+          [...matchedMains, ...children].forEach(it => {
+            const q = String(it['Quotation #'] || '').trim();
+            if (!q || seen.has(q)) return;
+            seen.add(q);
+            merged.push(it);
+          });
+          return merged;
+        }
+        function isTruthy(v) {
+          if (v === true) return true;
+          const s = String(v || '').toLowerCase().trim();
+          return s === 'true' || s === '1' || s === 'yes' || s === 'y';
+        }
+
+        function num(v) {
+          const n = parseFloat(String(v ?? '').replace(/,/g, '').trim());
+          return Number.isFinite(n) ? n : null;
+        }
+
+        function fmt2(v) {
+          const n = num(v);
+          return n === null ? '' : n.toFixed(2);
+        }
+
+        function composeTo2(item) {
+          const t = (item['To'] || '').trim();
+          if (t) return t;
+          const city = (item['To City'] || '').trim();
+          const state = (item['To State'] || '').trim();
+          const zip = (item['To ZIP'] || '').trim();
+          return [city, [state, zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+        }
+
+        function tdCell(text = '', cls = '') {
+          const td = document.createElement('td');
+          td.className = `border px-2 text-xs ${cls}`;
+          td.textContent = text ?? '';
+          return td;
+        }
+
+        function tdHeader(text = '', cls = '') {
+          return tdCell(text, `font-bold bg-gray-100 text-center ${cls}`);
+        }
+
+        function makeInput(value, field, quote, locked, scope, alignLeft = false) {
+          const input = document.createElement('input');
+
+          const k = draftKey(quote, scope, field);
+          const cached = Object.prototype.hasOwnProperty.call(draftCache, k) ? draftCache[k] : null;
+
+          input.value = (cached !== null) ? cached : (value ?? '');
+
+          input.className = `w-full border text-xs px-1 py-0.5 ${alignLeft ? 'text-left' : 'text-right'}`;
+          input.setAttribute('data-quote', quote);
+          input.setAttribute('data-field', field);
+          input.setAttribute('data-scope', scope);
+
+          input.disabled = !!locked;
+          if (locked) input.classList.add('saved-input');
+
+          // ✅ 只要用户在输入，就写入 draftCache
+          input.addEventListener('input', () => {
+            draftCache[k] = input.value;
+          });
+
+          return input;
+        }
+
+
+        function anyConfirmed(item) {
+          return isTruthy(item['truckingManagerConfirmed']) || isTruthy(item['truckingSalesConfirmed']) ||
+            isTruthy(item['warehouseManagerConfirmed']) || isTruthy(item['warehouseSalesConfirmed']);
+        }
+
+        // ✅ Scope-specific confirm (prevents TRUCK confirm from locking WH, and vice versa)
+        function scopeConfirmed(item, scope) {
+          if (scope === 'TRUCK') {
+            return isTruthy(item['truckingManagerConfirmed']) || isTruthy(item['truckingSalesConfirmed']);
+          }
+          if (scope === 'WH') {
+            return isTruthy(item['warehouseManagerConfirmed']) || isTruthy(item['warehouseSalesConfirmed']);
+          }
+          return anyConfirmed(item);
+        }
+
+        function lockState(item, scope) {
+          // Sourcing row is locked if Sales/Manager confirmed OR if this cost scope has been saved/sent.
+          const costSentField = scope === 'TRUCK' ? 'truckingCostSent' : 'warehouseCostSent';
+          const costSavedField = scope === 'TRUCK' ? 'truckingCostSaved' : 'warehouseCostSaved';
+          return scopeConfirmed(item, scope) || isTruthy(item[costSentField]) || isTruthy(item[costSavedField]);
+        }
+
+        async function postUpdate(payload) {
+          const res = await fetch('/inquiries/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) {
+            const t = await res.text();
+            console.error('Update failed:', t);
+            return { ok: false, text: t };
+          }
+          return { ok: true };
+        }
+
+        async function saveFields(quote, fields, scope) {
+          const payload = {
+            'Quotation #': quote,
+            'Saved': 'true'
+          };
+
+          // ✅ 強制加入 Inquiry Type，讓 GP 計算能正常執行
+          // ✅ 強制加入 Inquiry Type，讓 GP 計算能正常執行
+          // Inquiry Type 在 basic val row 的第 5 個 td (index 4)
+          const basicRows = document.querySelectorAll('tr.row-basic-val');
+          for (const row of basicRows) {
+            const quoteTd = row.querySelector('td:nth-child(17)'); // Quotation # 在第 17 欄
+            if (quoteTd && quoteTd.textContent.trim() === quote) {
+              const inquiryTypeTd = row.querySelector('td:nth-child(5)'); // Inquiry Type 在第 5 欄
+              if (inquiryTypeTd) {
+                payload['Inquiry Type'] = inquiryTypeTd.textContent.trim();
+              }
+              break;
+            }
+          }
+
+          const inputs = Array.from(document.querySelectorAll(`input[data-scope="${scope}"]`))
+            .filter(el => el.getAttribute('data-quote') === quote);
+
+          const map = new Map();
+          inputs.forEach(el => {
+            const f = el.getAttribute('data-field');
+            if (f) map.set(f, el.value);
+          });
+
+          fields.forEach(f => { if (map.has(f)) payload[f] = map.get(f); });
+
+          const r = await postUpdate(payload);
+          if (!r.ok) alert('❌ Save failed: ' + (r.text || ''));
+          return r.ok;
+        }
+
+
+        async function autosaveScopeIfHasAnyValue(quote, scope) {
+          const inputs = Array.from(document.querySelectorAll(`input[data-scope="${scope}"]`))
+            .filter(el => el.getAttribute('data-quote') === quote);
+          const hasValue = inputs.some(el => String(el.value || '').trim() !== '');
+          if (!hasValue) return true;
+
+          const fields = scope === 'TRUCK'
+            ? ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier']
+            : ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound', 'Vendor'];
+
+          return await saveFields(quote, fields, scope);
+        }
+
+        async function setFlags(quote, updates) {
+          const payload = { 'Quotation #': quote, 'Saved': 'true', ...updates };
+          const r = await postUpdate(payload);
+          if (!r.ok) alert('❌ Update failed.');
+          return r.ok;
+        }
+
+        function unlockRow(quote, scope) {
+          // ✅ 给该 scope 行加 editing class（让输入框变白）
+          const rowSel = scope === 'TRUCK' ? 'tr.row-truck-val' : 'tr.row-wh-val';
+          document.querySelectorAll(rowSel).forEach(r => {
+            const qCell = r.querySelector('td:first-child');
+            // 子行 td:first-child 是 quote；主行是空，所以用 data-quote 的 input 来判断更稳
+            const hit = Array.from(r.querySelectorAll(`input[data-scope="${scope}"]`))
+              .some(el => el.getAttribute('data-quote') === quote);
+            if (hit) r.classList.add('row-editing');
+          });
+
+          document.querySelectorAll(`input[data-scope="${scope}"]`).forEach(el => {
+            if (el.getAttribute('data-quote') === quote) {
+              el.disabled = false;
+              el.classList.remove('saved-input');
+            }
+          });
+        }
+
+
+        function lockRow(quote, scope) {
+          const rowSel = scope === 'TRUCK' ? 'tr.row-truck-val' : 'tr.row-wh-val';
+          document.querySelectorAll(rowSel).forEach(r => {
+            const hit = Array.from(r.querySelectorAll(`input[data-scope="${scope}"]`))
+              .some(el => el.getAttribute('data-quote') === quote);
+            if (hit) r.classList.remove('row-editing');
+          });
+
+          document.querySelectorAll(`input[data-scope="${scope}"]`).forEach(el => {
+            if (el.getAttribute('data-quote') === quote) {
+              el.disabled = true;
+              el.classList.add('saved-input');
+            }
+          });
+        }
+
+        function findRowByQuoteScope(quote, scope) {
+          const rowSel = scope === 'TRUCK' ? 'tr.row-truck-val' : 'tr.row-wh-val';
+          const rows = Array.from(document.querySelectorAll(rowSel));
+          const q = String(quote || '').trim();
+
+          return rows.find(r => {
+            const inputs = Array.from(r.querySelectorAll(`input[data-scope="${scope}"]`));
+            return inputs.some(el => String(el.getAttribute('data-quote') || '').trim() === q);
+          }) || null;
+        }
+
+        function markRowSaved(quote, scope) {
+          const row = findRowByQuoteScope(quote, scope);
+          if (!row) return;
+
+          // 进入“已保存但未送出”的状态
+          row.classList.add('cost-saved');
+          row.classList.remove('new-inquiry');
+          row.classList.remove('row-sent');
+          row.classList.remove('row-confirmed');
+
+          // 锁定（你原本已经会 lockRow，这里保险）
+          lockRow(quote, scope);
+        }
+
+
+        // ===============================
+        // Helpers for ADD / DELETE sub-lines
+        // ===============================
+
+        // 拉全量 inquiries（用于算下一个编号）
+        async function fetchAllInquiries() {
+          const res = await fetch('/inquiries');
+          const data = await res.json();
+          return Array.isArray(data) ? data : [];
+        }
+
+        function getParentQuote(item, quote) {
+          const q = String(quote || '').trim();
+          const parent = String(item['Parent Quotation #'] || '').trim();
+
+          // 如果有 Parent Quotation #，直接用它
+          if (parent) return parent;
+
+          // 没有 Parent 的情况：
+          // 如果是 TRUCK 子行（-数字），去掉最后一个 -数字
+          if (/-\d+$/.test(q)) {
+            return q.replace(/-\d+$/, '');
+          }
+
+          // 如果是 WH 子行（-字母），去掉最后一个 -字母
+          if (/-[A-Z]$/i.test(q)) {
+            return q.replace(/-[A-Z]$/i, '');
+          }
+
+          // 否则就是主号
+          return q;
+        }
+
+        // TRUCK：主号-1, -2, -3...
+        function nextTruckQuote(parent, all) {
+          let p = String(parent || '').trim();
+
+          // ✅ 只把 TRUCK 子行后缀 (-1/-2/-3...) 剥掉；
+          // 主号的 -0001 属于主号本身，不能剥。
+          const m = p.match(/-(\d+)$/);
+          if (m && m[1].length <= 2) {   // 子行编号通常 1~2 位数
+            p = p.replace(/-\d+$/, '');
+          }
+
+          const nums = all
+            .filter(x => {
+              const qx = String(x['Quotation #'] || '').trim();
+              const px = String(x['Parent Quotation #'] || '').trim();
+              const inferred = (!px && /-\d+$/.test(qx)) ? qx.replace(/-\d+$/, '') : px;
+              return inferred === p && /-\d+$/.test(qx);
+            })
+            .map(x => {
+              const m = String(x['Quotation #'] || '').trim().match(/-(\d+)$/);
+              return m ? parseInt(m[1], 10) : 0;
+            })
+            .filter(n => Number.isFinite(n));
+
+          const next = (nums.length ? Math.max(...nums) : 0) + 1;
+          return `${p}-${next}`;
+        }
+
+        // WAREHOUSE：主号-A, -B, -C...
+        function nextWhQuote(parent, all) {
+          let p = String(parent || '').trim();
+
+          // ✅ 只剥 WH 子行字母后缀
+          p = p.replace(/-[A-Z]$/i, '');
+
+
+          const used = new Set(
+            all
+              .filter(x => {
+                const qx = String(x['Quotation #'] || '').trim();
+                const px = String(x['Parent Quotation #'] || '').trim();
+                const inferred = (!px && /-[A-Z]$/i.test(qx)) ? qx.replace(/-[A-Z]$/i, '') : px;
+                return inferred === p && /-[A-Z]$/i.test(qx);
+              })
+              .map(x => {
+                const m = String(x['Quotation #'] || '').trim().match(/-([A-Z])$/i);
+                return m ? m[1].toUpperCase() : null;
+              })
+              .filter(Boolean)
+          );
+
+          for (let i = 0; i < 26; i++) {
+            const L = String.fromCharCode(65 + i);
+            if (!used.has(L)) return `${p}-${L}`;
+          }
+          return `${p}-Z`;
+        }
+
+        function actionCellTruck(item, quote, mainKey) {
+          const td = document.createElement('td');
+          td.className = 'border px-2 text-center';
+
+          const costSentField = 'truckingCostSent';
+          const costSavedField = 'truckingCostSaved';
+
+          const hardLocked = scopeConfirmed(item, 'TRUCK') || isTruthy(item[costSentField]);
+
+          const wrap = document.createElement('div');
+          wrap.className = 'action-button-row';
+
+          // ✏️ EDIT
+          const editBtn = document.createElement('button');
+          editBtn.className = 'action-button';
+          editBtn.textContent = '✏️';
+          editBtn.title = '編輯成本';
+          editBtn.disabled = hardLocked;
+          editBtn.onclick = () => unlockRow(quote, 'TRUCK');
+          wrap.appendChild(editBtn);
+
+          // 💾 SAVE
+          const saveBtn = document.createElement('button');
+          saveBtn.className = 'action-button';
+          saveBtn.textContent = '💾';
+          saveBtn.title = '儲存成本';
+          saveBtn.disabled = hardLocked;
+          saveBtn.onclick = async () => {
+            const fields = [
+              'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
+              'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier'
+            ];
+
+            const ok = await saveFields(quote, fields, 'TRUCK');
+            if (!ok) return;
+
+            await setFlags(quote, { [costSavedField]: 'true' });
+            lockRow(quote, 'TRUCK');
+
+            // ✅ 清除该行 TRUCK 的 draft 缓存
+            fields.forEach(f => delete draftCache[draftKey(quote, 'TRUCK', f)]);
+
+            // ✅ 不要 renderPage() / 不要 loadInquiries()
+            // 只做 UI 锁定即可（锁定蓝色你已经在 lockRow() 做了）
+            markRowSaved(quote, 'TRUCK');
+
+          };
+          wrap.appendChild(saveBtn);
+
+          // ✅ CHECK (Cost Sent)
+          const chk = document.createElement('input');
+          chk.type = 'checkbox';
+          chk.title = '成本已送出';
+          chk.checked = isTruthy(item[costSentField]);
+          chk.disabled = scopeConfirmed(item, 'TRUCK');
+          chk.className = 'w-5 h-5 accent-blue-600 cursor-pointer';
+          chk.onchange = async () => {
+            const want = chk.checked;
+
+            if (want) {
+              const okSave = await autosaveScopeIfHasAnyValue(quote, 'TRUCK');
+              if (!okSave) { chk.checked = false; return; }
+              await setFlags(quote, { [costSavedField]: 'true' });
+            }
+
+            const updates = {
+              [costSentField]: want ? 'true' : 'false'
+            };
+
+
+            const ok = await setFlags(quote, updates);
+            if (!ok) chk.checked = !want;
+
+            await loadInquiries(); // ✅ CHECK 后建议重新 fetch（因为状态色/锁定要跟后端一致）
+          };
+          wrap.appendChild(chk);
+
+          // ➕ ADD (只新增 TRUCK 子行)
+          const addBtn = document.createElement('button');
+          addBtn.className = 'action-button';
+          addBtn.textContent = '➕';
+          addBtn.title = '新增 TRUCK 子行';
+          addBtn.disabled = scopeConfirmed(item, 'TRUCK'); // Confirm 后锁死
+          addBtn.onclick = async () => {
+            if (!confirm('確定新增一條 TRUCK 子行？')) return;
+
+            await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
+
+            const parent = String(mainKey || '').trim();
+            const all = await fetchAllInquiries();
+            const newQuote = nextTruckQuote(parent, all);
+
+            const newItem = {
+              'Quotation #': newQuote,
+              'Parent Quotation #': parent,
+              'Type': 'TRUCK',
+              'Date': new Date().toLocaleDateString(),
+              'Customer ID': item['Customer ID'] || '',
+              'Requested By': item['Requested By'] || '',
+              'Inquiry Type': item['Inquiry Type'] || '',
+              'Commodity': item['Commodity'] || '',
+              'Selected': 'false'
+            };
+
+            const resp = await fetch('/inquiries', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newItem)
+            });
+
+            if (!resp.ok) {
+              const t = await resp.text();
+              alert('❌ 新增 TRUCK 子行失败：' + t);
+              return;
+            }
+
+            await loadInquiries();
+          };
+          wrap.appendChild(addBtn);
+
+          // 🗑️ DELETE (只删除 TRUCK 子行)
+          const delBtn = document.createElement('button');
+          delBtn.className = 'action-button';
+          delBtn.textContent = '🗑️';
+          delBtn.title = '删除 TRUCK 子行';
+
+          const qDel = String(quote || '').trim();
+          const parentDel = String(mainKey || '').trim();
+          const isTruckSubDel = (qDel !== parentDel) && /-\d+$/.test(qDel);
+
+          const canDelete = isTruckSubDel && !hardLocked;
+          delBtn.disabled = !canDelete;
+          delBtn.style.opacity = canDelete ? '1' : '0.25';
+          delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
+          delBtn.title = canDelete ? '删除 TRUCK 子行' : 'Cannot delete: locked';
+
+          delBtn.onclick = async () => {
+            if (!canDelete) {
+              alert('❌ TRUCK 只能删除子行（例如 主号-1 / 主号-2...），主行不能删：\n' + qDel);
+              return;
+            }
+
+            if (!confirm(`确定删除这条 TRUCK 子行？\n${qDel}`)) return;
+
+            const resp = await fetch('/delete_inquiry', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ quoteId: qDel })
+            });
+
+            const raw = await resp.text();
+            let j = {};
+            try { j = JSON.parse(raw); } catch { }
+
+            if (!resp.ok || j.success === false) {
+              alert('❌ 删除失败：\n' + (j.message || raw || resp.statusText));
+              return;
+            }
+
+            await loadInquiries();
+          };
+          wrap.appendChild(delBtn);
+
+          td.appendChild(wrap);
+          return td;
+        }
+
+        function actionCellWH(item, quote, mainKey) {
+          const td = document.createElement('td');
+          td.className = 'border px-2 text-center';
+
+          const costSentField = 'warehouseCostSent';
+          const costSavedField = 'warehouseCostSaved';
+
+          const hardLocked = scopeConfirmed(item, 'WH') || isTruthy(item[costSentField]);
+
+          const wrap = document.createElement('div');
+          wrap.className = 'action-button-row';
+
+          // ✏️ EDIT
+          const editBtn = document.createElement('button');
+          editBtn.className = 'action-button';
+          editBtn.textContent = '✏️';
+          editBtn.title = '編輯成本';
+          editBtn.disabled = hardLocked;
+          editBtn.onclick = () => unlockRow(quote, 'WH');
+          wrap.appendChild(editBtn);
+
+          // 💾 SAVE (Sourcing 保存 Cost)
+          const saveBtn = document.createElement('button');
+          saveBtn.className = 'action-button';
+          saveBtn.textContent = '💾';
+          saveBtn.title = '儲存成本';
+          saveBtn.disabled = hardLocked;
+          saveBtn.onclick = async () => {
+            const fields = [
+              'Order Processing', 'Inbound', 'Sorting', 'Palletizing',
+              'Pallet Fee', 'Storage', 'Outbound', 'Vendor'
+            ];
+            const ok = await saveFields(quote, fields, 'WH');
+            if (!ok) return;
+
+            await setFlags(quote, { [costSavedField]: 'true' });
+            lockRow(quote, 'WH');
+
+            [
+              'Order Processing', 'Inbound', 'Sorting', 'Palletizing',
+              'Pallet Fee', 'Storage', 'Outbound', 'Vendor'
+            ].forEach(f => delete draftCache[draftKey(quote, 'WH', f)]);
+
+            await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');
+
+            markRowSaved(quote, 'WH');
+
+          };
+          wrap.appendChild(saveBtn);
+
+          // ✅ CHECK
+          const chk = document.createElement('input');
+          chk.type = 'checkbox';
+          chk.title = '成本已送出';
+          chk.checked = isTruthy(item[costSentField]);
+          chk.disabled = scopeConfirmed(item, 'WH');
+          chk.className = 'w-5 h-5 accent-blue-600 cursor-pointer';
+          chk.onchange = async () => {
+            const want = chk.checked;
+
+            if (want) {
+              const okSave = await autosaveScopeIfHasAnyValue(quote, 'WH');
+              if (!okSave) { chk.checked = false; return; }
+              await setFlags(quote, { [costSavedField]: 'true' });
+            }
+
+            const updates = {
+              [costSentField]: want ? 'true' : 'false'
+            };
+
+            const ok = await setFlags(quote, updates);
+            if (!ok) chk.checked = !want;
+
+            await loadInquiries();
+          };
+          wrap.appendChild(chk);
+
+          td.appendChild(wrap);
+
+          // ➕ ADD (只新增 WH 子行)
+
+          const addBtn = document.createElement('button');
+          addBtn.className = 'action-button';
+          addBtn.textContent = '➕';
+          addBtn.title = '新增 WAREHOUSE 子行';
+          addBtn.disabled = scopeConfirmed(item, 'WH'); // ✅ checked(成本已送出) 仍允许新增子行；仅在 Sales/Manager Confirm 后锁死
+          addBtn.onclick = async () => {
+            if (!confirm('確定新增一條 WAREHOUSE 子行？')) return;
+            await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');
+
+            const parent = String(mainKey || '').trim();   // ✅ 永远用主号
+
+            const all = await fetchAllInquiries();
+            const newQuote = nextWhQuote(parent, all);
+
+            const newItem = {
+              'Quotation #': newQuote,
+              'Parent Quotation #': parent,
+              'Type': 'WAREHOUSE',
+              'Date': new Date().toLocaleDateString(),
+              'Customer ID': item['Customer ID'] || '',
+              'Requested By': item['Requested By'] || '',
+              'Inquiry Type': item['Inquiry Type'] || '',
+              'Commodity': item['Commodity'] || '',
+              'Selected': 'false'
+            };
+
+            const resp = await fetch('/inquiries', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newItem)
+            });
+
+            const raw = await resp.text();
+            if (!resp.ok) {
+              alert('❌ 新增 WAREHOUSE 子行失败：\n' + raw);
+              return;
+            }
+            await loadInquiries();
+          };
+          wrap.appendChild(addBtn);
+
+          // 🗑️ DELETE (只删除 WAREHOUSE 子行)
+          const delBtn = document.createElement('button');
+          delBtn.className = 'action-button';
+          delBtn.textContent = '🗑️';
+          delBtn.title = '删除 WAREHOUSE 子行';
+
+          const qDel = String(quote || '').trim();
+          const parentDel = String(mainKey || '').trim();
+          const isWhSubDel = (qDel !== parentDel) && /-[A-Z]$/i.test(qDel);
+
+          const canDelete = isWhSubDel && !hardLocked && !hasAnyPriceFilled(item, 'WH');
+          delBtn.disabled = !canDelete;
+          delBtn.style.opacity = canDelete ? '1' : '0.25';
+          delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
+          delBtn.title = canDelete ? '删除 WAREHOUSE 子行' : 'Cannot delete: price entered or locked';
+
+          delBtn.onclick = async () => {
+            if (!canDelete) {
+              alert('❌ WAREHOUSE 只能删除子行（例如 主号-A / 主号-B...），主行不能删：\n' + qDel);
+              return;
+            }
+
+            if (!confirm(`确定删除这条 WAREHOUSE 子行？\n${qDel}`)) return;
+
+            const resp = await fetch('/delete_inquiry', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ quoteId: qDel })
+            });
+
+            const raw = await resp.text();
+            let j = {};
+            try { j = JSON.parse(raw); } catch { }
+
+            if (!resp.ok || j.success === false) {
+              alert('❌ 删除失败：\n' + (j.message || raw || resp.statusText));
+              return;
+            }
+
+            await loadInquiries();
+          };
+
+          wrap.appendChild(delBtn);
+
+
+          td.appendChild(wrap);
+
+          return td;
+        }
+
+        function naturalQuotationSort(a, b) {
+          const qa = String(a['Quotation #'] || '').trim();
+          const qb = String(b['Quotation #'] || '').trim();
+
+          return qb.localeCompare(qa, undefined, {
+            numeric: true,
+            sensitivity: 'base'
+          });
+        }
+
+        function flagIcons(item) {
+          const icons = [];
+          const haz = String(item['Hazmat'] ?? item['hazmat'] ?? '').toLowerCase() === 'true';
+          const ref = String(item['Reefer'] ?? item['reefer'] ?? '').toLowerCase() === 'true';
+          const bon = String(item['Bonded'] ?? item['bonded'] ?? '').toLowerCase() === 'true';
+          if (haz) icons.push('☢️');
+          if (ref) icons.push('❄️');
+          if (bon) icons.push('🔒');
+          return icons.join(' ');
+        }
+
+        function renderPage() {
+          const tbody = document.getElementById('summaryBody');
+          if (!tbody) return;
+          tbody.innerHTML = '';
+
+          const TOTAL_COLS = 27; // 你的表格最大列数（TRUCK_HEADERS 长度）
+          const data = (filteredData || []).slice().sort(naturalQuotationSort);
+          const start = (currentPage - 1) * pageSize;
+          const pageData = data.slice(start, start + pageSize);
+          const BASIC_HEAD = ['#', 'Date', 'Customer ID', 'Requested By', 'Inquiry Type', 'Container Size', 'Commodity', 'Packages', 'Flags', 'Dry Van Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop', 'From', 'To', 'QTY', 'Quotation #'];
+
+          const TRUCK_HEADERS = ['', 'Base Rate', 'Price', 'GP', 'Adjusted Price', 'Adjusted GP',
+            'Chassis Cost', 'Chassis Price', 'Pre-Pull Cost', 'Pre-Pull Price', 'Yard Storage Cost', 'Yard Storage Price',
+            'Driver Waiting Cost', 'Driver Waiting Price', 'Over Weight Cost', 'Over Weight Price', 'Chassis Split Cost', 'Chassis Split Price',
+            'Toll Cost', 'Toll Price', 'Reefer Fee Cost', 'Reefer Fee Price', 'Bond Fee Cost', 'Bond Fee Price', 'Carrier', '', 'Action'];
+
+          const WH_LEFT_HEADERS = ['', 'WH Order Proc', 'WH Order Proc Price', 'WH Inbound', 'WH Inbound Price', 'WH Sorting', 'WH Sorting Price',
+            'WH Palletizing', 'WH Palletizing Price', 'WH Pallet', 'WH Pallet Price', 'WH Storage', 'WH Storage Price', 'WH Outbound', 'WH Outbound Price', 'Vendor'];
+
+          // ===== 1) 将所有 items 归到“主号 key” =====
+          const groupMap = new Map();
+
+          function normalizeParentKey(it) {
+            const q = String(it['Quotation #'] || '').trim();
+            const p = String(it['Parent Quotation #'] || '').trim();
+            return p || q;
+          }
+
+          pageData.forEach(it => {
+            const key = normalizeParentKey(it);
+            if (!groupMap.has(key)) groupMap.set(key, []);
+            groupMap.get(key).push(it);
+          });
+
+          // keys：所有主号（包括只有子行的主号）
+          const keys = Array.from(groupMap.keys()).sort((a, b) =>
+            naturalQuotationSort({ 'Quotation #': a }, { 'Quotation #': b })
+          );
+
+          // index #（按主号计数）
+          const baseIndex = new Map();
+          const getIndex = (key) => {
+            if (!baseIndex.has(key)) baseIndex.set(key, baseIndex.size + 1 + start);
+            return baseIndex.get(key);
+          };
+
+          // ===== 2) 从一个 group 中挑 “最像主行”的记录 =====
+          function scoreAsMain(it, key) {
+            const q = String(it['Quotation #'] || '').trim();
+            const t = String(it.Type || '').toUpperCase();
+            const parent = String(it['Parent Quotation #'] || '').trim();
+
+            let s = 0;
+            if (q === key) s += 50;
+            if (t === 'MAIN' || t === 'MAINLINE') s += 50;
+            if (!parent) s += 10;
+            if (!/-\d+$/.test(q) && !/-[A-Z]$/i.test(q)) s += 10;
+
+            // 有完整 Basic 字段的更像主行
+            const fields = ['Customer ID', 'Inquiry Type', 'From', 'To', 'Container Size', 'Gross Weight'];
+            fields.forEach(f => { if (String(it[f] || '').trim()) s += 3; });
+
+            return s;
+          }
+
+          // ===== 3) 渲染每个主号 block =====
+          keys.forEach(key => {
+            const group = groupMap.get(key) || [];
+            if (!group.length) return;
+
+            const idx = getIndex(key);
+
+            // 选 main
+            const mainCandidates = group.filter(it =>
+              String(it['Quotation #'] || '').trim() === key
+            );
+
+            const main = mainCandidates.length ? mainCandidates[0] : group[0];
+
+            // 子行分类（不靠 Parent 是否存在，靠 Type / 后缀）
+            const isTruckSub = (it) => {
+              const t = String(it.Type || '').toUpperCase();
+              const q = String(it['Quotation #'] || '').trim();
+              return t === 'TRUCK' || /-\d+$/.test(q);
+            };
+            const isWhSub = (it) => {
+              const t = String(it.Type || '').toUpperCase();
+              const q = String(it['Quotation #'] || '').trim();
+              return t === 'WAREHOUSE' || /-[A-Z]$/i.test(q);
+            };
+
+            const truckSubs = group.filter(it => {
+              const q = String(it['Quotation #'] || '').trim();
+              return q !== key && /-\d+$/.test(q);
+            });
+
+            const whSubs = group.filter(it => {
+              const q = String(it['Quotation #'] || '').trim();
+              return q !== key && /-[A-Z]$/i.test(q);
+            });
+
+            // ========= BASIC header =========
+            const r1 = document.createElement('tr');
+            r1.className = 'row-basic-head';
+            BASIC_HEAD.forEach(h => r1.appendChild(tdHeader(h)));
+
+            const noteHead = tdHeader('NOTE');
+            noteHead.colSpan = 8;          // ✅ 18~25
+            noteHead.classList.add('text-left');
+            r1.appendChild(noteHead);
+
+            r1.appendChild(tdHeader(''));  // ✅ 第26空白
+            r1.appendChild(tdHeader('ACTION')); // ✅ 第27
+            tbody.appendChild(r1);
+
+            // ========= BASIC values =========
+            const r2 = document.createElement('tr');
+            r2.className = 'row-basic-val';
+
+            const vals = [
+              String(idx),
+              main['Date'] || '',
+              main['Customer ID'] || '',
+              main['Requested By'] || main.username || '',
+              main['Inquiry Type'] || '',
+              main['Container Size'] || '',
+              (main['Commodity'] || '').toString().trim(),
+              main['Packages Per Container'] || '',
+              flagIcons(main),
+              main['Dry Van Type'] || '',
+              main['Legal or Over Weight'] || '',
+              main['Gross Weight'] || '',
+              main['Live or Drop'] || '',
+              main['From'] || '',
+              composeTo2(main),
+              main['QTY'] || '',
+              (main['External Quotation #'] || key)
+            ];
+            vals.forEach(v => r2.appendChild(tdCell(v, 'text-center')));
+
+            const company = String(main['Customer Company'] || main['Company Name'] || '').trim();
+            const contact = String(main['Customer Contact'] || main['Contact Name'] || '').trim();
+            const email = String(main['Customer Email'] || '').trim();
+            const phone = String(main['Customer Phone'] || '').trim();
+
+            const customerInfoLine = (company || contact || email || phone)
+              ? `Customer Info: ${[
+                company ? `Company=${company}` : '',
+                contact ? `Contact=${contact}` : '',
+                email ? `Email=${email}` : '',
+                phone ? `Phone=${phone}` : ''
+              ].filter(Boolean).join(' | ')}`
+              : '';
+
+            const noteBody = String(main['Note'] || '').trim();
+
+            // ✅ 最终 GENERAL NOTE：客户信息在第一行，下面才是原 Note
+            const fullGeneralNote = [customerInfoLine, noteBody].filter(Boolean).join('\n');
+            const previewGeneralNote = fullGeneralNote.replace(/\s+/g, ' ').trim();
+            const noteTd = tdCell('', 'note-preview');
+            noteTd.colSpan = 8;
+            noteTd.dataset.fullNote = fullGeneralNote;
+            noteTd.dataset.which = 'GENERAL NOTE';
+
+            // ✅ 强制左对齐（保险）
+            noteTd.style.textAlign = 'left';
+
+            const line = document.createElement('div');
+            line.className = 'note-line';
+            line.textContent = previewGeneralNote;
+            noteTd.appendChild(line);
+
+            r2.appendChild(noteTd);
+
+            r2.appendChild(tdCell(''));                  // ✅ 第26空白
+            r2.appendChild(tdCell('🔒', 'text-center'));  // ✅ 第27（你想用锁就放这里）
+
+            tbody.appendChild(r2);
+
+            // ========= TRUCK header =========
+            const r3 = document.createElement('tr');
+            r3.className = 'row-truck-head';
+
+            TRUCK_HEADERS.forEach((h, i) => {
+              if (i === 0) r3.appendChild(tdHeader(key, 'text-left'));   // ✅ 第3行显示主号
+              else r3.appendChild(tdHeader(h));
+            });
+
+            tbody.appendChild(r3);
+
+            // TRUCK main row（永远显示，可在这里点 + 新增）
+            tbody.appendChild(renderTruckRow(main, key, false, key));
+            truckSubs.forEach(sub => tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key)));
+
+            const r5 = document.createElement('tr');
+            r5.className = 'row-wh-head';
+
+            WH_LEFT_HEADERS.forEach((h, i) => {
+              if (i === 0) r5.appendChild(tdHeader(key, 'text-left'));  // ✅ 用 key
+              else r5.appendChild(tdHeader(h));
+            });
+
+            // ✅ 第17栏：留空（Sales 的 EST GP 留位）
+            r5.appendChild(tdHeader(''));
+
+            // ✅ NOTE 从第18栏开始（18~25 => 8列）
+            const whNoteHead = tdHeader('NOTE');
+            whNoteHead.colSpan = 8;
+            whNoteHead.classList.add('text-left');
+            r5.appendChild(whNoteHead);
+
+            // ✅ 第26栏 spacer（你CSS里用 nth-child(26) 也行，但建议统一 class）
+            r5.appendChild(tdHeader('', 'spacer-col'));
+
+            // 第27栏 Action
+            r5.appendChild(tdHeader('Action'));
+
+            tbody.appendChild(r5);
+
+
+            // WH main row
+            tbody.appendChild(renderWhRow(main, key, false, key));
+            whSubs.forEach(sub => tbody.appendChild(renderWhRow(sub, sub['Quotation #'], true, key)));
+
+
+            // 分隔行（可选）
+            const sep = document.createElement('tr');
+            sep.className = 'row-sep';
+            const tdSep = document.createElement('td');
+            tdSep.colSpan = 27;
+            sep.appendChild(tdSep);
+            tbody.appendChild(sep);
+          });
+
+          const pageInfo = document.getElementById('pageInfo');
+          if (pageInfo) pageInfo.textContent = `Page ${currentPage}`;
+        }
+
+        function renderTruckRow(item, quote, isSub, mainKey) {
+          const q = String(quote || '').trim();
+
+          const parentDoc = (filteredData || []).find(x => String(x['Quotation #'] || '').trim() === String(mainKey || '').trim());
+          const baseExt = String(parentDoc?.['External Quotation #'] || '').trim();
+          const suffix = String(quote || '').match(/-\d+$/)?.[0] || '';
+          const displayQ = (isSub && baseExt) ? (baseExt + suffix) : (isSub ? q : '');
+          const r4 = document.createElement('tr');
+          r4.className = 'row-truck-val';
+          if (isSub) r4.classList.add('sub-row');
+
+          // ===== Status (match SALES) =====
+          const confirmed = scopeConfirmed(item, 'TRUCK');
+          const costSent = isTruthy(item['truckingCostSent']);   // ✅ 只看 TRUCK
+          const costSaved = isTruthy(item['truckingCostSaved']);
+          const hasAnyCost = ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee']
+            .some(k => (num(item[k]) || 0) > 0 || String(item[k] || '').trim() !== '');
+          const isNew = !confirmed && !costSent && !costSaved && !hasAnyCost;
+
+          if (confirmed) r4.classList.add('row-confirmed');
+          else if (costSent) r4.classList.add('row-sent');
+          else if (isNew) r4.classList.add('new-inquiry');
+
+          if (costSaved && !costSent && !confirmed) r4.classList.add('cost-saved');
+
+          const lockedTruck = lockState(item, 'TRUCK');
+
+
+          r4.appendChild(tdCell(displayQ, 'text-left font-semibold'));
+
+
+          const brInp = makeInput(item['Base Rate'] || '', 'Base Rate', quote, lockedTruck, 'TRUCK');
+          const tdBr = document.createElement('td'); tdBr.appendChild(brInp); r4.appendChild(tdBr);
+
+          r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—'));
+
+          ['Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee'].forEach(cF => {
+            const ci = makeInput(item[cF] || '', cF, quote, lockedTruck, 'TRUCK');
+            const tc = document.createElement('td'); tc.appendChild(ci); r4.appendChild(tc);
+            r4.appendChild(tdCell('—'));
+          });
+
+          const carrierInp = makeInput(item['Carrier'] || '', 'Carrier', quote, lockedTruck, 'TRUCK', true);
+          const tdCar = document.createElement('td'); tdCar.appendChild(carrierInp); r4.appendChild(tdCar);
+
+          // ✅ Vendor Note (Column 26) — only Sourcing can edit/save
+          const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();
+          const cleanNote = vendorNoteFull.replace(/\s+/g, ' ').trim();
+          const vendorNotePreview = cleanNote.length > 20
+            ? cleanNote.substring(0, 20) + '...'
+            : cleanNote;
+
+          const tNote = tdCell(vendorNotePreview, 'text-left note-preview vendor-note-preview');
+          tNote.dataset.fullNote = vendorNoteFull;
+          tNote.dataset.which = 'VENDOR NOTE';
+
+          // ✅ allow modal to save Vendor Note (server already restricts to sourcing)
+          tNote.dataset.quote = quote;
+          tNote.dataset.field = 'Vendor Note';
+
+          r4.appendChild(tNote);
+
+          r4.appendChild(actionCellTruck(item, quote, mainKey));
+          return r4;
+        }
+
+        function renderWhRow(item, quote, isSub, mainKey) {
+          const q = String(quote || '').trim();
+          const parentDoc = (filteredData || []).find(x => String(x['Quotation #'] || '').trim() === String(mainKey || '').trim());
+          const baseExt = String(parentDoc?.['External Quotation #'] || '').trim();
+          const suffix = String(quote || '').match(/-[A-Z]$/i)?.[0] || '';
+          const displayQ = (isSub && baseExt) ? (baseExt + suffix) : (isSub ? q : '');
+
+          const r6 = document.createElement('tr');
+          r6.className = 'row-wh-val';
+          if (isSub) r6.classList.add('sub-row');
+
+          // ===== Status (match SALES) =====
+          const confirmed = scopeConfirmed(item, 'WH');
+          const costSent = isTruthy(item['warehouseCostSent']);  // ✅ 只看 WH
+          const costSaved = isTruthy(item['warehouseCostSaved']);
+          const hasAnyCost = ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound']
+            .some(k => (num(item[k]) || 0) > 0 || String(item[k] || '').trim() !== '');
+          const isNew = !confirmed && !costSent && !costSaved && !hasAnyCost;
+
+          if (confirmed) r6.classList.add('row-confirmed');
+          else if (costSent) r6.classList.add('row-sent');
+          else if (isNew) r6.classList.add('new-inquiry');
+
+          if (costSaved && !costSent && !confirmed) r6.classList.add('cost-saved');
+
+          const lockedWH = lockState(item, 'WH');
+
+          r6.appendChild(tdCell(displayQ, 'text-left font-semibold'));
+
+          // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
+          ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {
+            const ci = makeInput(item[cF] || '', cF, quote, lockedWH, 'WH');
+            const tc = document.createElement('td');
+            tc.appendChild(ci);
+            r6.appendChild(tc);
+            r6.appendChild(tdCell('—'));
+          });
+
+          // ✅ (WH) Column 16: Vendor (恢复这一格)
+          const vendorInp = makeInput(item['Vendor'] || '', 'Vendor', quote, lockedWH, 'WH', true);
+          const tdVen = document.createElement('td');
+          tdVen.appendChild(vendorInp);
+          r6.appendChild(tdVen);
+
+          // ✅ (WH) Column 17: blank placeholder (保持留白)
+          r6.appendChild(tdCell(''));
+
+          // ===== Warehouse Requirement summary (from Inquiry form fields) =====
+          const needWH = String(item['Need Warehouse Service'] || '').toLowerCase().trim() === 'true';
+
+          const whServices = String(item['Warehouse Services'] || '').trim();
+          const whDetail = String(item['Warehouse Service Detail'] || '').trim();
+          const estPallets = String(item['Estimated Pallets'] || '').trim();
+          const estBoxes = String(item['Estimated Boxes / Cartons'] || item['Estimated Boxes'] || '').trim();
+          const estSku = String(item['Estimated SKU Count'] || '').trim();
+          const dur = String(item['Storage Duration'] || '').trim();
+          const durUnit = String(item['Storage Duration Unit'] || item['Duration Unit'] || '').trim();
+
+          const warehouseNote = String(item['Warehouse Note'] || '').trim();
+          const salesNote = String(item['Note'] || '').trim();
+
+          const lines = [];
+
+          // ===== Icons (same as Sales/Manager) =====
+          const icon = (on, emoji) => (String(on || '').toLowerCase().trim() === 'true' ? emoji : '');
+          const needWHIcon = icon(item['Need Warehouse Service'], '🏬');
+          const haz = icon(item['Hazmat'], '☢️');
+          const ree = icon(item['Reefer'], '❄️');
+          const bon = icon(item['Bonded'], '🔒');
+
+          const iconLine = [needWHIcon, haz, ree, bon].filter(Boolean).join(' ');
+          if (iconLine) lines.push(iconLine);
+
+          // ===== Services line (prefer detail with qty/unit) =====
+          if (needWH) {
+            if (whDetail) lines.push(whDetail);
+            else if (whServices) {
+              const list = whServices
+                .split(';')
+                .map(s => s.trim())
+                .filter(Boolean);
+              if (list.length) lines.push(list.map(s => `✅ ${s}`).join(' '));
+            }
+
+            // Estimated
+            const estParts = [];
+            if (estPallets) estParts.push(`Pallets ${estPallets}`);
+            if (estBoxes) estParts.push(`Boxes ${estBoxes}`);
+            if (estSku) estParts.push(`SKU ${estSku}`);
+            if (estParts.length) lines.push('Est: ' + estParts.join(', '));
+
+            // Duration
+            if (dur || durUnit) lines.push('Storage: ' + [dur, durUnit].filter(Boolean).join(' '));
+          }
+
+          // Warehouse Note (Inquiry)
+          if (warehouseNote) lines.push(`WH Note: ${warehouseNote}`);
+
+          // Sales Note (General Note)
+          if (salesNote) lines.push(`Sales Note: ${salesNote}`);
+
+          const whFull = lines.filter(Boolean).join('\n');
+          const whPreview = whFull.replace(/\s+/g, ' ').trim();
+
+          const whNoteTd = tdCell('', 'text-left note-preview');
+          whNoteTd.colSpan = 8;            // ✅ 18~25
+          whNoteTd.dataset.fullNote = whFull;
+          whNoteTd.dataset.which = 'WAREHOUSE NOTE';
+          whNoteTd.dataset.quote = String(quote || '').trim();  // 当前行 quote（主行/子行都能存）
+          whNoteTd.dataset.field = 'Warehouse Note';
+
+          const line2 = document.createElement('div');
+          line2.className = 'note-line';
+          line2.textContent = whPreview;
+          whNoteTd.appendChild(line2);
+
+          r6.appendChild(whNoteTd);
+          // ✅ Vendor Note (Column 26) — only Sourcing can edit/save
+          const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();
+          const cleanNote = vendorNoteFull.replace(/\s+/g, ' ').trim();
+          const vendorNotePreview = cleanNote.length > 20 ? cleanNote.substring(0, 20) + '...' : cleanNote;
+
+          const vNoteTd = tdCell(vendorNotePreview, 'text-left note-preview vendor-note-preview');
+          vNoteTd.dataset.fullNote = vendorNoteFull;
+          vNoteTd.dataset.which = 'VENDOR NOTE';
+
+          vNoteTd.dataset.quote = quote;
+          vNoteTd.dataset.field = 'Vendor Note';
+
+          r6.appendChild(vNoteTd);
+          r6.appendChild(actionCellWH(item, quote, mainKey)); // 第27栏 Action
+          return r6;
+        }   // ✅ 这一行你必须加
+
+        async function addSubLine(parentQuote, scope) {
+          if (!confirm(`確定新增一條 ${scope} 子成本行？`)) return;
+
+          // 計算新編號後綴
+          const currentSubs = await loadInquiries();
+          const subLines = currentSubs.filter(i => i['Parent Quotation #'] === parentQuote && i.Type === scope);
+          let suffix;
+          if (scope === 'TRUCK') {
+            suffix = '-' + (subLines.length + 1);
+          } else {
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            suffix = '-' + letters[subLines.length];
+          }
+          const newQuote = parentQuote + suffix;
+
+          // 只新增成本相關欄位（不帶基本資訊）
+          const newItem = {
+            "Quotation #": newQuote,
+            "Parent Quotation #": parentQuote,
+            "Type": scope,
+            // 成本欄位預設空（使用者填）
+            "Chassis": "",
+            "Pre-Pull": "",
+            "Yard Storage": "",
+            "Driver Waiting": "",
+            "Over Weight": "",
+            "Chassis Split": "",
+            "Toll": "",
+            "Reefer Fee": "",
+            "Bond Fee": "",
+            "Carrier": "",
+            "Order Processing": "",
+            "Inbound": "",
+            "Sorting": "",
+            "Palletizing": "",
+            "Pallet Fee": "",
+            "Storage": "",
+            "Outbound": "",
+            "Vendor": "",
+            "Note": "",
+            "Selected": "false"
+          };
+
+          try {
+            const response = await fetch('/inquiries', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newItem)
+            });
+
+            if (response.ok) {
+              alert(`新增成功：${newQuote}`);
+              await loadInquiries(); // 重新載入表格
+            } else {
+              alert('新增失敗');
+            }
+          } catch (err) {
+            console.error('新增錯誤:', err);
+            alert('網路錯誤');
+          }
+        }
+
+        (function setupNoteViewerModal() {
+          const modal = document.getElementById('noteModal');
+          const input = document.getElementById('noteModalInput');
+          const closeBtn = document.getElementById('noteModalClose');
+          const saveBtn = document.getElementById('noteModalSave');
+          const titleEl = modal?.querySelector('h2');
+          if (!modal || !input) return;
+
+          let activeTd = null;
+          let activeQuote = '';
+          let activeField = '';
+
+          function openModal(td) {
+            const which = td.dataset.which || 'NOTE';
+            const text = td.dataset.fullNote || td.textContent || '';
+            activeTd = td;
+            activeQuote = String(td.dataset.quote || '').trim();
+            activeField = String(td.dataset.field || '').trim();
+
+            if (titleEl) titleEl.textContent = which;
+            input.value = text;
+
+            modal.classList.remove('hidden');
+            document.body.classList.add('no-body-scroll');
+
+            // 没有 field 的 NOTE 只允许看，不允许存
+            if (!activeQuote || !activeField) {
+              input.readOnly = true;
+              saveBtn && (saveBtn.style.display = 'none');
+            } else {
+              input.readOnly = false;
+              saveBtn && (saveBtn.style.display = 'inline-block');
+            }
+          }
+
+          function closeModal() {
+            modal.classList.add('hidden');
+            document.body.classList.remove('no-body-scroll');
+            input.value = '';
+            activeTd = null;
+            activeQuote = '';
+            activeField = '';
+          }
+
+          async function saveModal() {
+            if (!activeQuote || !activeField) return;
+
+            const payload = {
+              'Quotation #': activeQuote,
+              'Saved': 'true',
+              [activeField]: input.value || ''
+            };
+
+            const r = await postUpdate(payload);
+            if (!r.ok) {
+              alert('❌ Save note failed: ' + (r.text || ''));
+              return;
+            }
+
+            // ✅ 更新当前格：一行预览 + fullNote
+            if (activeTd) {
+              const newText = input.value || '';
+              activeTd.dataset.fullNote = newText;
+              const preview = newText.replace(/\s+/g, ' ').trim();
+              // noteTd 内部你用了 note-line div
+              const line = activeTd.querySelector('.note-line');
+              if (line) line.textContent = preview;
+              else activeTd.textContent = preview;
+            }
+
+            closeModal();
+          }
+
+          closeBtn?.addEventListener('click', closeModal);
+          saveBtn?.addEventListener('click', saveModal);
+
+          modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+          document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+          });
+
+          document.addEventListener('click', (e) => {
+            const td = e.target.closest('#summaryTable td.note-preview');
+            if (!td) return;
+            openModal(td);
+          });
+        })();
+
+        async function getCurrentUser() {
+          const res = await fetch('/user');
+          if (!res.ok) {
+            alert('❌ Not logged in. Please login again.');
+            window.location.href = '/index.html';
+            return;
+          }
+          const userInfo = await res.json();
+          userRole = (userInfo.role || '').toLowerCase();
+          currentUser = (userInfo.username || '').trim();
+
+          if (userRole !== 'sourcing') {
+            alert('❌ Sourcing only.');
+            window.location.href = '/index.html';
+            return;
+          }
+          const nameEl = document.getElementById('usernameDisplay');
+          if (nameEl) nameEl.textContent = currentUser;
+        }
+
+        async function loadInquiries() {
+          try {
+            const res = await fetch('/inquiries');
+            const data = await res.json();
+            if (!Array.isArray(data)) {
+              console.error('Server did not return array:', data);
+              alert('🚨 Inquiry data invalid.');
+              return;
+            }
+            filteredData = data;
+
+            filteredData = applySearchFilter(filteredData, searchTerm);
+
+
+            renderPage();
+          } catch (e) {
+            console.error('Failed to load inquiries:', e);
+            alert('🚨 Load failed.');
+          }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+          await getCurrentUser();
+          await loadInquiries();
+
+          document.getElementById('prevPage')?.addEventListener('click', () => {
+            if (currentPage > 1) { currentPage--; renderPage(); }
+          });
+          document.getElementById('nextPage')?.addEventListener('click', () => {
+            const maxPage = Math.ceil((filteredData.length || 0) / pageSize) || 1;
+            if (currentPage < maxPage) { currentPage++; renderPage(); }
+          });
+          document.getElementById('exitBtn')?.addEventListener('click', () => {
+            window.location.href = '/logout';
+          });
+
+          document.getElementById('searchBtn')?.addEventListener('click', async () => {
+            searchTerm = document.getElementById('searchBox')?.value || '';
+            currentPage = 1;
+            await loadInquiries();
+          });
+
+          document.getElementById('clearSearchBtn')?.addEventListener('click', async () => {
+            const box = document.getElementById('searchBox');
+            if (box) box.value = '';
+            searchTerm = '';
+            currentPage = 1;
+            await loadInquiries();
+          });
+        });</script>
+    </div>
+  </div>
+</body>
+
+</html>

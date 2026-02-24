@@ -1,0 +1,3707 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sales Dashboard</title>
+  <script src="/customer_map.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    table,
+    tbody,
+    tr {
+      background-color: white !important;
+      transition: background-color 0.3s;
+    }
+
+    body {
+      font-family: "PingFang SC", "Helvetica Neue", Helvetica, "Segoe UI", Roboto, Arial, sans-serif;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow-x: auto;
+      overflow-y: scroll;
+    }
+
+    #inquiryForm {
+      font-size: 1rem;
+      line-height: 1.5rem;
+    }
+
+    #inquiryForm input,
+    #inquiryForm select,
+    #inquiryForm textarea {
+      font-size: 1rem;
+      line-height: 1.5rem;
+      padding: 0.5rem 0.75rem;
+
+    }
+
+    /* 🎯 鼠标悬停时输入框背景变化 */
+    #inquiryForm input:hover,
+    #inquiryForm select:hover,
+    #inquiryForm textarea:hover {
+      background-color: #f0f9ff;
+      transition: background-color 0.2s ease;
+    }
+
+    /* 🎯 鼠标点击时边框浮现动感 */
+    #inquiryForm input:focus,
+    #inquiryForm select:focus,
+    #inquiryForm textarea:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px #bfdbfe;
+      background-color: #fff;
+    }
+
+    /* 🎯 所有格子有平滑动画 */
+    #inquiryForm input,
+    #inquiryForm select,
+    #inquiryForm textarea {
+      transition: all 0.2s ease-in-out;
+    }
+
+    /* 🎯 Submit 按钮动效 */
+    #inquiryForm button[type="submit"] {
+      transition: all 0.2s ease-in-out;
+      transform: scale(1);
+    }
+
+    #inquiryForm button[type="submit"]:hover {
+      background-color: #2563eb;
+      transform: scale(1.03);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+
+    .row-basic-head td,
+    .row-truck-head td,
+    .row-wh-head td {
+      font-size: 11px;
+      letter-spacing: 0.2px;
+    }
+
+
+    /* BASIC 合并 NOTE 允许换行（已停用：改成一行预览 + 点击弹窗）
+.row-basic-val td[colspan="8"] {
+  white-space: normal !important;
+  word-break: break-word;
+  line-height: 1.4;
+}
+*/
+
+    /* 表头行（每票重复的那三条 header） */
+    .row-basic-head td,
+    .row-truck-head td,
+    .row-wh-head td {
+      font-weight: 700;
+      white-space: nowrap;
+      background: #f3f4f6;
+      /* 浅灰 */
+      border-top: 2px solid #9ca3af;
+      /* 每个区块上方粗线 */
+    }
+
+    .saved-row .saved-row .action-button,
+    .saved-row .checkbox-wrapper {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .action-button-row {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .action-button {
+      height: 1.5rem;
+      width: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.25rem;
+      background-color: #f1f5f9;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: all 0.15s ease-in-out;
+      transform: scale(1);
+      font-size: 1rem;
+    }
+
+    .action-button:hover {
+      transform: none;
+      background-color: #e2e8f0;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .checkbox-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 0.8rem;
+      width: 0.8rem;
+    }
+
+    .nowrap-limit {
+      white-space: nowrap;
+      max-width: 25ch;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ✅ saved-input 只控制“锁定/灰字”，不再控制背景色 */
+    .saved-input {
+      background-color: transparent !important;
+      color: #6b7280 !important;
+    }
+
+
+    .low-gp {
+      color: red !important;
+    }
+
+    #scroll-inner {
+      width: fit-content;
+      min-width: 100%;
+      overflow-x: auto;
+      overflow-y: visible;
+    }
+
+    #main-content {
+      padding: 0.125rem;
+      position: relative;
+      z-index: 1000;
+    }
+
+    .header-section {
+      margin-bottom: 0;
+    }
+
+    .form-group {
+      margin-bottom: 0.25rem;
+    }
+
+    select,
+    input,
+    textarea,
+    button {
+      margin-right: 0.5rem;
+      padding: 0.25rem;
+    }
+
+    .main-button {
+      color: white;
+      background: linear-gradient(to bottom right, #3b82f6, #2563eb);
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      min-width: 6rem;
+      text-align: center;
+      transition: all 0.2s ease-in-out;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .main-button:hover {
+      background: linear-gradient(to bottom right, #2563eb, #1d4ed8);
+      transform: scale(1.05);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .price-input {
+      width: 3rem;
+      height: 1rem;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.4rem;
+      text-align: right;
+    }
+
+    .form-group {
+      max-height: 75vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      transition: max-height 0.4s ease;
+    }
+
+
+    .toggle-inquiry {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 9999px;
+      padding: 0.4rem 1rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      z-index: 100;
+    }
+
+    tr.highlighted {
+      background-color: #dbeafe !important;
+    }
+
+    tr.highlighted-sourcing {
+      background-color: #fef9c3 !important;
+    }
+
+    tr.highlighted td {
+      border: 1px solid #d1d5db;
+    }
+
+    tr.highlighted td {
+      background-color: #dbeafe !important;
+    }
+
+
+    #inquiryForm input:not([type='checkbox']),
+    #inquiryForm select,
+    #inquiryForm textarea {
+      text-align: left !important;
+    }
+
+    input[type='text'],
+    input[type='number'] {
+      padding-right: 0.4rem;
+    }
+
+    input.price-input {
+      text-align: right !important;
+    }
+
+    td[data-field='GP'],
+    td[data-field='Adjusted GP'] {
+      font-size: 0.875rem;
+      height: 2.25rem;
+      vertical-align: middle;
+      padding: 0.25rem 0.5rem;
+      text-align: right;
+    }
+
+    tr.bg-blue-100 td {
+      border: 1px solid #d1d5db;
+    }
+
+    td[data-field="Note"] {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 30ch;
+      text-align: left !important;
+      padding: 0.25rem;
+    }
+
+    #noteModalInput {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: inherit;
+      line-height: 1.5;
+      width: 100%;
+      max-width: 100%;
+    }
+
+
+    tr {
+      transition: background-color 0.3s;
+    }
+
+    table {
+      background-color: white;
+    }
+
+    th {
+      background-color: lightgray;
+    }
+
+    body.no-body-scroll {
+      overflow: hidden;
+    }
+
+    /* V2 Warehouse Requirement block */
+    .section-title {
+      font-weight: 700;
+      color: #111827;
+      margin-top: 0.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .tiny-note {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+
+    /* 固定每一行的基礎高度（你可改 44/48） */
+    #summaryBody tr {
+      height: 26px;
+    }
+
+
+    /* ===== FINAL: Auto width by content + adjustable NOTE ===== */
+    :root {
+      --noteWidth: 520px;
+    }
+
+
+    /* 强制 Note Modal 永远居中且覆盖全屏 */
+    #noteModal {
+      position: fixed !important;
+      inset: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      z-index: 99999 !important;
+    }
+
+    /* 隐藏状态仍然 hidden */
+    #noteModal.hidden {
+      display: none !important;
+    }
+
+    /* 弹窗盒子限制大小并居中 */
+    #noteModal>div {
+      max-width: min(720px, 92vw) !important;
+      max-height: 80vh !important;
+      overflow: auto !important;
+    }
+
+    .header-section {
+      position: relative;
+      z-index: 9999;
+    }
+
+    /* 统一表格行高度 */
+    #summaryTable td,
+    #summaryTable th {
+      padding-top: 6px !important;
+      padding-bottom: 6px !important;
+      line-height: 1.2 !important;
+    }
+
+
+
+    /* 仅用于 Commodity / From / To：根据内容自动变宽（会撑列） */
+    #summaryTable input.auto-grow {
+      width: auto !important;
+      /* 关键：不要 100% */
+      min-width: 6ch !important;
+      /* 起步宽度 */
+      box-sizing: content-box !important;
+    }
+
+    /* input 贴满格子，但不把列撑宽 */
+    #summaryTable input {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    /* Commodity / From / To 允许自动撑列 */
+    #summaryTable input.auto-grow {
+      width: auto !important;
+      max-width: none !important;
+      min-width: 6ch !important;
+      box-sizing: content-box !important;
+    }
+
+    /* ===== Alignment Reset (final override) ===== */
+
+    /* 1) 所有表头内容居中 */
+    #summaryTable th,
+    #summaryTable .row-basic-head td,
+    #summaryTable .row-truck-head td,
+    #summaryTable .row-wh-head td {
+      text-align: center !important;
+    }
+
+    /* 2) 所有填写内容默认居中（文字与输入框） */
+    #summaryTable td {
+      text-align: center !important;
+    }
+
+    #summaryTable input,
+    #summaryTable textarea,
+    #summaryTable select {
+      text-align: center !important;
+    }
+
+    /* 3) FROM & TO 填写内容靠右（仅 BASIC 第二行的 inq-field） */
+    #summaryTable input.inq-field[data-key="From"],
+    #summaryTable input.inq-field[data-key="To"] {
+      text-align: right !important;
+    }
+
+    /* 4) NOTE 内容居左（含 GENERAL NOTE / WAREHOUSE NOTE 展示格） */
+    #summaryTable td.note-preview,
+    #summaryTable td.note-block {
+      text-align: left !important;
+    }
+
+    /* 5) 所有 COST & PRICE 及 GP 靠右 */
+    /* 5.1 所有带 data-field 的输入框：Cost/Price/GP 统一靠右 */
+    #summaryTable input[data-field*="Cost"],
+    #summaryTable input[data-field*="Price"],
+    #summaryTable input[data-field*="GP"] {
+      text-align: right !important;
+    }
+
+    /* 5.2 TRUCK/WH 数字展示单元格（非 input 的纯数字）也靠右 */
+    #summaryTable tr.row-truck-val td,
+    #summaryTable tr.row-wh-val td {
+      text-align: right !important;
+    }
+
+    /* 但：TRUCK/WH 里 NOTE 仍要靠左、Action 仍居中、Carrier/Vendor 仍居中 */
+    #summaryTable tr.row-truck-val td.note-preview,
+    #summaryTable tr.row-wh-val td.note-preview,
+    #summaryTable tr.row-truck-val td.note-block,
+    #summaryTable tr.row-wh-val td.note-block {
+      text-align: left !important;
+    }
+
+    #summaryTable tr.row-truck-val td:last-child,
+    #summaryTable tr.row-wh-val td:last-child {
+      text-align: center !important;
+    }
+
+    #summaryTable input[data-field="Carrier"],
+    #summaryTable input[data-field="Vendor"] {
+      text-align: center !important;
+    }
+
+    /* BASIC 第二行 input 默认完全透明 */
+    #summaryTable tr.row-basic-val input.inq-field {
+      border: none !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    /* 让文字对齐一致 */
+    #summaryTable tr.row-basic-val input.inq-field:disabled {
+      color: inherit !important;
+      cursor: default;
+    }
+
+    /* ===== BASIC 第二行对齐规则 ===== */
+
+    /* 默认：全部居中 */
+    #summaryTable tr.row-basic-val td {
+      text-align: center !important;
+    }
+
+    /* Commodity：内容居中 */
+    #summaryTable tr.row-basic-val td[data-field="Commodity"] {
+      text-align: center !important;
+    }
+
+    #summaryTable tr.row-basic-val td[data-field="Commodity"] input {
+      text-align: center !important;
+    }
+
+    /* From / To：内容靠右 */
+    #summaryTable tr.row-basic-val td[data-field="From"],
+    #summaryTable tr.row-basic-val td[data-field="To"] {
+      text-align: right !important;
+    }
+
+    #summaryTable tr.row-basic-val td[data-field="From"] input,
+    #summaryTable tr.row-basic-val td[data-field="To"] input {
+      text-align: right !important;
+    }
+
+    /* 页面整体铺满 */
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Summary 容器铺满 */
+    .container,
+    .main-container,
+    .wrapper,
+    .page-container {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+
+    #summaryTable {
+      width: 100% !important;
+    }
+
+    #summaryTable-wrapper,
+    .summary-wrapper,
+    .table-wrapper {
+      width: 100% !important;
+    }
+
+    /* ✅ 让 Summary 真正占满剩余高度（消灭底部空白） */
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      overflow: auto;
+      /* ✅ 页面滚动条回来 */
+      /* 或者：overflow-y: auto; overflow-x: auto; */
+    }
+
+
+    /* 顶部区域（标题+按钮+表单）占内容高度 */
+    #main-content {
+      flex: 0 0 auto;
+    }
+
+    /* 表格区域占满剩余高度 */
+    #fixed-scroll-wrapper {
+      flex: 1 1 auto;
+      min-height: 0;
+      /* 关键：允许内部滚动 */
+      height: auto !important;
+      max-height: none !important;
+
+      margin: 0 !important;
+      /* 去掉 1rem，避免留白 */
+      border-left: 0 !important;
+      border-right: 0 !important;
+      border-bottom: 0 !important;
+      border-top: 1px solid #d1d5db !important;
+
+      overflow: auto !important;
+    }
+
+    #formGroup #submitInquiryBtn {
+      position: relative;
+      /* 或 static */
+      bottom: auto;
+    }
+
+    .main-button {
+      min-width: 180px !important;
+      /* 强制最小宽度，防止变太小 */
+      white-space: nowrap;
+    }
+
+    #formGroup {
+      padding: 1rem;
+      /* 给 formGroup 加内边距，避免贴边 */
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      /* 可选：加点阴影区分 */
+    }
+
+    /* Summary 区域固定铺满屏幕剩余空间，底部滚动条在视窗底部 */
+    :root {
+      --topBarH: 78px;
+    }
+
+    /* 顶部按钮栏高度，必要时微调 */
+
+    /* ===== Mode: INQUIRY (default) ===== */
+    body.mode-inquiry {
+      display: block !important;
+      overflow: auto !important;
+      background: #f9fafb !important;
+    }
+
+    body.mode-inquiry #formGroup {
+      display: block !important;
+    }
+
+    body.mode-inquiry #fixed-scroll-wrapper {
+      display: none !important;
+    }
+
+    /* ===== Mode: SUMMARY ===== */
+    body.mode-summary {
+      overflow: hidden !important;
+      /* 页面不滚，滚动交给表格容器 */
+    }
+
+    body.mode-summary #formGroup {
+      display: none !important;
+    }
+
+    body.mode-summary #fixed-scroll-wrapper {
+      display: block !important;
+      position: fixed !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      top: var(--topBarH) !important;
+      margin: 0 !important;
+      max-height: none !important;
+      overflow: auto !important;
+      /* ✅ 横向滚动条固定在屏幕底部 */
+      border-top: 1px solid #d1d5db !important;
+    }
+
+    /* ===== Inquiry 模式：彻底取消旧的 flex/占位规则 ===== */
+    body.mode-inquiry {
+      display: block !important;
+      /* 取消 body:flex */
+      overflow: auto !important;
+      /* 页面自己滚动 */
+      background: #ffffff !important;
+      /* 避免灰底 */
+    }
+
+    /* Summary wrapper 在 Inquiry 模式彻底不占位 */
+    body.mode-inquiry #fixed-scroll-wrapper {
+      display: none !important;
+      position: static !important;
+      height: 0 !important;
+      max-height: 0 !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+    }
+
+    /* 让 Inquiry 区域“至少”撑满一屏（不会出现底部空洞） */
+    body.mode-inquiry #main-content {
+      min-height: calc(100vh - var(--topBarH, 78px)) !important;
+      background: #ffffff !important;
+    }
+
+    /* 让表单块自己把剩余空间吃掉（底部不留灰） */
+    body.mode-inquiry #formGroup {
+      min-height: calc(100vh - var(--topBarH, 78px) - 24px) !important;
+    }
+
+    /* =========================
+   FINAL COLORS (INPUT-ONLY until CONFIRMED)
+   ========================= */
+
+    /* 表头统一浅灰 */
+    #summaryTable tr.row-basic-head td,
+    #summaryTable tr.row-truck-head td,
+    #summaryTable tr.row-wh-head td {
+      background: #f3f4f6 !important;
+      font-weight: 700;
+    }
+
+    /* 默认：values 行背景保持白/很淡灰（不做区块染色） */
+    #summaryTable tr.row-truck-val td,
+    #summaryTable tr.row-wh-val td {
+      background: #ffffff !important;
+    }
+
+    /* 默认 input 白色 */
+    #summaryTable tr.row-truck-val input,
+    #summaryTable tr.row-wh-val input {
+      background: #ffffff !important;
+      border-color: #e5e7eb !important;
+    }
+
+    /* ✅ 收到 COST：只染 input 杏黄（提醒 Sales），td 背景不变 */
+    #summaryTable tr.cost-received.row-truck-val input,
+    #summaryTable tr.cost-received.row-wh-val input {
+      background: #fcf7eb !important;
+      border-color: #f1d6a8 !important;
+    }
+
+    /* SAVE 状态：整行极淡灰蓝 */
+
+    #summaryTable tr.saved-price td {
+      background: #f3f6fb !important;
+    }
+
+    /* input 保持透明，避免“格子感” */
+    #summaryTable tr.saved-price input {
+      background: transparent !important;
+      border-color: #e5e7eb !important;
+    }
+
+    /* ✅ CHECK 后：整行锁定蓝（这时才染 td 背景） */
+    #summaryTable tr.row-confirmed td {
+      background: #cfe8ff !important;
+    }
+
+    #summaryTable tr.row-confirmed td input {
+      background: #cfe8ff !important;
+      border-color: #b6dcff !important;
+    }
+
+
+    /* =========================
+   MANAGER THEME OVERRIDE for SALES
+   Paste at VERY END of Sales <style>
+   ========================= */
+
+    /* Base */
+    #summaryTable {
+      width: 100% !important;
+      background: #fff !important;
+    }
+
+    #summaryTable td,
+    #summaryTable th {
+      padding: 4px 6px !important;
+      line-height: 1.1 !important;
+      border-right: 1px solid #f3f4f6 !important;
+    }
+
+    /* Header rows (Row 1/3/5) taller */
+    #summaryTable tr.row-basic-head td,
+    #summaryTable tr.row-truck-head td,
+    #summaryTable tr.row-wh-head td {
+      background: #f3f4f6 !important;
+      font-weight: 700 !important;
+      white-space: nowrap !important;
+      text-align: center !important;
+      padding-top: 7px !important;
+      padding-bottom: 7px !important;
+      line-height: 1.25 !important;
+    }
+
+    #summaryTable tr.row-basic-head td {
+      padding-top: 9px !important;
+      padding-bottom: 9px !important;
+    }
+
+    /* Inputs */
+    #summaryTable input {
+      width: 100% !important;
+      box-sizing: border-box !important;
+      border: 1px solid #e5e7eb !important;
+      padding: 2px 4px !important;
+      font-size: 12px !important;
+      height: 20px !important;
+      background: #fff !important;
+      text-align: right !important;
+    }
+
+    #summaryTable input[data-field="Carrier"],
+    #summaryTable input[data-field="Vendor"] {
+      text-align: center !important;
+    }
+
+    /* States (same as Manager) */
+    #summaryTable tr.cost-received.row-truck-val input,
+    #summaryTable tr.cost-received.row-wh-val input {
+      background: #fcf7eb !important;
+      border-color: #f1d6a8 !important;
+    }
+
+    /* SAVE = whole row light gray-blue (NOT per cell) */
+    #summaryTable tr.saved-price td {
+      background: #f3f6fb !important;
+    }
+
+    #summaryTable tr.saved-price input {
+      background: transparent !important;
+      border-color: #e5e7eb !important;
+    }
+
+    /* CONFIRMED = whole row blue */
+    #summaryTable tr.row-confirmed td {
+      background: #cfe8ff !important;
+    }
+
+    #summaryTable tr.row-confirmed td input {
+      background: #cfe8ff !important;
+      border-color: #b6dcff !important;
+    }
+
+    /* Sub rows: same font as main (no italic, no gray) */
+    .sub-row {
+      background: transparent !important;
+      font-style: normal !important;
+      color: inherit !important;
+    }
+
+    .sub-row td:first-child {
+      padding-left: 0 !important;
+      text-align: center !important;
+    }
+
+    /* Action buttons: Manager sizing */
+    .action-button-row {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      white-space: nowrap !important;
+    }
+
+    .action-button {
+      width: 26px !important;
+      height: 26px !important;
+      font-size: 16px !important;
+      line-height: 1 !important;
+      border-radius: 6px !important;
+      background: #f8fafc !important;
+      border: 1px solid #e2e8f0 !important;
+    }
+
+    .action-button:hover {
+      background: #e2e8f0 !important;
+    }
+
+    /* Sticky # / ACTION columns locked to same gray */
+    :root {
+      --sticky-gray: #e5e7eb;
+      --sticky-divider: #d1d5db;
+    }
+
+
+    /* Hover: light, but keep confirmed color */
+    #summaryTable tr:hover td {
+      background-color: #f9fafb !important;
+    }
+
+    #summaryTable tr.row-confirmed:hover td {
+      background: #cfe8ff !important;
+    }
+
+
+    #fixed-scroll-wrapper {
+      margin: 0 !important;
+      border-top: 1px solid #d1d5db !important;
+      border-left: 0 !important;
+      border-right: 0 !important;
+      border-bottom: 0 !important;
+      overflow: auto !important;
+    }
+
+    /* =========================
+   SALES: 3D BLOCK BORDER (NO SHADOW, NO CLIP)
+   Paste at VERY END of <style>
+   ========================= */
+
+    /* 让表格更适合做“块状边” */
+    #summaryTable {
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+    }
+
+    /* 顶部：每票开始的 header 做“3D 压边”（用渐变+高光线，不靠阴影） */
+    #summaryTable tr.row-basic-head td {
+      border-top: 4px solid #cfd6dd !important;
+
+      /* 关键：用两条线做立体感（不怕 overflow 裁切） */
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(0, 0, 0, 0.06) !important;
+    }
+
+    /* =========================
+   FINAL: Quotation 3D Border (KEEP ONLY THIS)
+   ========================= */
+
+    /* 让块边更干净 */
+    #summaryTable {
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+    }
+
+    /* ① 每票顶部：用 border + 内高光/内阴影 做“压边” */
+    #summaryTable tr.row-basic-head td {
+      border-top: 5px solid #cfd6dd !important;
+      background: #f3f4f6 !important;
+
+      /* 立体感 = 上高光 + 下阴影（inset 不会被 overflow 裁切） */
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.10) !important;
+    }
+
+    /* sticky 两侧也必须同一条顶边，否则会断 */
+    #summaryTable tr.row-basic-head td:first-child,
+    #summaryTable tr.row-basic-head td:last-child {
+      border-top: 5px solid #cfd6dd !important;
+    }
+
+    /* ===== Fix ugly top edge above table ===== */
+
+    /* 1) 取消表格容器的上边线（避免和 header-section 叠线） */
+    #fixed-scroll-wrapper {
+      border-top: 0 !important;
+    }
+
+    /* 2) 顶部栏只保留一条很细的底线 */
+    .header-section {
+      border-bottom: 1px solid #e5e7eb !important;
+    }
+
+    /* 3) 表头区域做成“干净的条”，并用阴影代替粗边框 */
+    #summaryTable thead {
+      background: #f3f4f6 !important;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+      /* 立体但不脏 */
+    }
+
+    /* 4) 清掉 thead 里每格自己的 top border（否则会出现分段感） */
+    #summaryTable thead th,
+    #summaryTable thead td {
+      border-top: 0 !important;
+    }
+
+    /* ===== SALES: Sticky # + ACTION always same clean gray ===== */
+    :root {
+      --sticky-gray: #e5e7eb;
+      --sticky-divider: #d1d5db;
+    }
+
+    #summaryTable th:first-child,
+    #summaryTable td:first-child,
+    #summaryTable th:last-child,
+    #summaryTable td:last-child {
+      background: var(--sticky-gray) !important;
+      background-image: none !important;
+      border: 0 !important;
+      /* 清掉 Tailwind .border 切割感 */
+      box-shadow: none !important;
+    }
+
+    /* left */
+    #summaryTable th:first-child,
+    #summaryTable td:first-child {
+      position: sticky !important;
+      left: 0 !important;
+      z-index: 9999 !important;
+      width: 10ch !important;
+      min-width: 10ch !important;
+      max-width: 10ch !important;
+      text-align: center !important;
+      box-shadow: inset -1px 0 0 var(--sticky-divider), 6px 0 10px -10px rgba(0, 0, 0, .25) !important;
+    }
+
+    /* right */
+    #summaryTable th:last-child,
+    #summaryTable td:last-child {
+      position: sticky !important;
+      right: 0 !important;
+      z-index: 9999 !important;
+      width: 110px !important;
+      min-width: 110px !important;
+      max-width: 110px !important;
+      text-align: center !important;
+      padding-left: 6px !important;
+      padding-right: 6px !important;
+      box-shadow: inset 1px 0 0 var(--sticky-divider), -6px 0 10px -10px rgba(0, 0, 0, .25) !important;
+    }
+
+
+    /* ===== SALES: smaller action buttons ===== */
+    .action-button {
+      width: 24px !important;
+      height: 24px !important;
+      font-size: 14px !important;
+      border-radius: 6px !important;
+      box-shadow: none !important;
+      /* 去掉重阴影会更精致 */
+    }
+
+    .action-button-row {
+      gap: 5px !important;
+    }
+
+    /* ===== SALES: EDITING row should look like COST received (apricot) ===== */
+    #summaryTable tr.editing-row td {
+      background: #fcf7eb !important;
+    }
+
+    #summaryTable tr.editing-row td input {
+      background: #fcf7eb !important;
+      border-color: #f1d6a8 !important;
+    }
+
+    /* 两侧 sticky 仍保持灰色，不跟着变杏色 */
+    #summaryTable tr.editing-row td:first-child,
+    #summaryTable tr.editing-row td:last-child {
+      background: var(--sticky-gray) !important;
+    }
+
+    /* =========================
+   FORCE ACTION COLUMN ONE SOLID COLOR
+   ========================= */
+
+    :root {
+      --action-gray: #e5e7eb;
+      --action-divider: #d1d5db;
+    }
+
+    /* 无论任何状态，ACTION 永远同一灰色 */
+    #summaryTable td:last-child,
+    #summaryTable th:last-child {
+      background: var(--action-gray) !important;
+      background-image: none !important;
+      border: 0 !important;
+      box-shadow: inset 1px 0 0 var(--action-divider) !important;
+    }
+
+    /* 去掉 ACTION 里面的小阴影块 */
+    #summaryTable td:last-child .action-button {
+      box-shadow: none !important;
+    }
+
+    /* ===== Make header rows darker (match sticky tone) ===== */
+
+    #summaryTable tr.row-basic-head td,
+    #summaryTable tr.row-truck-head td,
+    #summaryTable tr.row-wh-head td {
+      background: #e5e7eb !important;
+      /* 原来 #f3f4f6 太浅 */
+      border-top: 3px solid #cfd6dd !important;
+    }
+
+    /* ===== FINAL: force SAVE row color (must be LAST) ===== */
+    #summaryTable tr.saved-price.row-truck-val td,
+    #summaryTable tr.saved-price.row-wh-val td {
+      background: #f3f6fb !important;
+    }
+
+    /* SAVE 状态下 input 透明，避免格子感 */
+    #summaryTable tr.saved-price.row-truck-val td input,
+    #summaryTable tr.saved-price.row-wh-val td input {
+      background: transparent !important;
+      border-color: #e5e7eb !important;
+    }
+
+    /* 确保 SAVE 后不再保持 editing 杏色 */
+    #summaryTable tr.saved-price.editing-row td,
+    #summaryTable tr.saved-price.editing-row td input {
+      background: #f3f6fb !important;
+    }
+
+    /* ===== SALES: match MANAGER compact density ===== */
+
+    /* 表单字体更紧凑 */
+    #inquiryForm {
+      font-size: 0.90rem !important;
+      line-height: 1.20rem !important;
+    }
+
+    /* 输入框压缩 */
+    #inquiryForm input,
+    #inquiryForm select,
+    #inquiryForm textarea {
+      padding: 0.35rem 0.6rem !important;
+      font-size: 0.9rem !important;
+      line-height: 1.2rem !important;
+    }
+
+    /* 表单块之间减少间距 */
+    .form-group {
+      margin-bottom: 0.15rem !important;
+    }
+
+    /* Warehouse Services 行更紧凑 */
+    #inquiryForm .grid>div {
+      margin-bottom: 0.2rem !important;
+    }
+
+    /* Section 标题更贴近 */
+    .section-title {
+      margin-top: 0.35rem !important;
+      margin-bottom: 0.15rem !important;
+    }
+
+    /* ===== SALES: make topbar compact like MANAGER ===== */
+
+    /* 顶部整体更紧凑 */
+    .header-section {
+      padding-top: 6px !important;
+      padding-bottom: 6px !important;
+    }
+
+    /* 让按钮不要那么“胖” */
+    .header-section .main-button {
+      min-width: 6rem !important;
+      /* 关键：干掉你之前强制的 180px */
+      padding: 0.42rem 0.9rem !important;
+      /* 变紧凑 */
+      font-size: 0.82rem !important;
+    }
+
+    /* Search input 紧凑一点 */
+    #searchBox {
+      height: 38px !important;
+      padding-top: 0.35rem !important;
+      padding-bottom: 0.35rem !important;
+      font-size: 0.85rem !important;
+    }
+
+    /* 顶部这排元素别换行（保持一条线好看） */
+    .header-section>div {
+      flex-wrap: nowrap !important;
+      gap: 8px !important;
+    }
+
+    /* ===== Compact Warehouse Services block ===== */
+
+    /* 整个 Warehouse Requirement 区域更紧凑 */
+    #inquiryForm .section-title {
+      margin-top: 6px !important;
+      margin-bottom: 4px !important;
+    }
+
+    /* 三列之间间距缩小 */
+    #inquiryForm .grid {
+      column-gap: 20px !important;
+      /* 原来通常 32~40 */
+      row-gap: 6px !important;
+    }
+
+    /* 每个 checkbox 行更紧凑 */
+    #inquiryForm .grid>div {
+      margin-bottom: 6px !important;
+    }
+
+    /* checkbox 和文字之间间距 */
+    #inquiryForm .grid label {
+      margin-right: 6px !important;
+      font-size: 0.9rem !important;
+    }
+
+    /* Qty / Unit 输入框缩小 */
+    #inquiryForm .grid input {
+      height: 26px !important;
+      padding: 2px 6px !important;
+      font-size: 0.85rem !important;
+    }
+
+    /* 小 checkbox 稍微对齐 */
+    #inquiryForm input[type="checkbox"] {
+      transform: scale(0.9);
+      margin-right: 6px;
+    }
+
+    /* ===== Top bar horizontal breathing space ===== */
+
+    .header-section {
+      padding-left: 24px !important;
+      /* ≈ 两个中文字宽度 */
+      padding-right: 24px !important;
+    }
+
+    #summaryTable td.note-preview .note-line {
+      display: block;
+      max-width: 360px;
+      /* ✅ 520 -> 360 (更短) */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #summaryTable td.spacer-col,
+    #summaryTable th.spacer-col {
+      width: 6px !important;
+      /* ✅ 14 -> 6 */
+      min-width: 6px !important;
+      max-width: 6px !important;
+      padding: 0 !important;
+      /* ✅ 更彻底 */
+      overflow: hidden !important;
+      white-space: nowrap !important;
+    }
+
+    /* =========================
+   QUOTATION BLOCK BORDER (Sales)
+   Like Manager: each quotation framed
+   Paste at VERY END of <style>
+   ========================= */
+
+    :root {
+      --quote-border: #cfd6dd;
+    }
+
+
+    /* 1) 强制两侧底色一致（任何状态都不能改） */
+    #summaryTable th:first-child,
+    #summaryTable td:first-child,
+    #summaryTable th:last-child,
+    #summaryTable td:last-child {
+      background: var(--sticky-gray) !important;
+      background-image: none !important;
+    }
+
+    /* 2) 左侧 # 栏：更立体的分隔（右侧内线 + 外侧阴影） */
+    #summaryTable th:first-child,
+    #summaryTable td:first-child {
+      box-shadow:
+        inset -2px 0 0 var(--sticky-divider),
+        8px 0 14px -12px var(--sticky-shadow) !important;
+    }
+
+    /* 3) 右侧 ACTION 栏：更立体的分隔（左侧内线 + 外侧阴影） */
+    #summaryTable th:last-child,
+    #summaryTable td:last-child {
+      box-shadow:
+        inset 2px 0 0 var(--sticky-divider),
+        -8px 0 14px -12px var(--sticky-shadow) !important;
+    }
+
+    /* 4) 无论 hover / confirmed / saved / cost-received / editing，都不能污染两侧 */
+    #summaryTable tr:hover td:first-child,
+    #summaryTable tr:hover td:last-child,
+    #summaryTable tr.row-confirmed td:first-child,
+    #summaryTable tr.row-confirmed td:last-child,
+    #summaryTable tr.saved-price td:first-child,
+    #summaryTable tr.saved-price td:last-child,
+    #summaryTable tr.cost-received td:first-child,
+    #summaryTable tr.cost-received td:last-child,
+    #summaryTable tr.editing-row td:first-child,
+    #summaryTable tr.editing-row td:last-child,
+    #summaryTable tr.sub-row td:first-child,
+    #summaryTable tr.sub-row td:last-child {
+      background: var(--sticky-gray) !important;
+      background-image: none !important;
+    }
+
+    /* 5) ACTION 里面按钮区域也统一（避免每格像一块块） */
+    #summaryTable td:last-child {
+      padding-left: 6px !important;
+      padding-right: 6px !important;
+    }
+
+    #summaryTable td:last-child .action-button {
+      background: #f8fafc !important;
+      border: 1px solid #e2e8f0 !important;
+      box-shadow: none !important;
+    }
+
+    /* =========================
+   CLEAN BORDER SYSTEM (Final)
+   ========================= */
+
+    /* 表格用 collapse，统一线条 */
+    #summaryTable {
+      border-collapse: collapse !important;
+    }
+
+    /* 所有单元格统一 1px 细线 */
+    #summaryTable td,
+    #summaryTable th {
+      border: 1px solid #d1d5db !important;
+    }
+
+    /* 每个 quotation 顶部 3px 边界 */
+    #summaryTable tr.row-basic-head td {
+      border-top: 3px solid #cfd6dd !important;
+    }
+
+    /* 每个 quotation 底部 3px 边界 */
+    #summaryTable tr.row-sep td {
+      border-bottom: 3px solid #cfd6dd !important;
+      background: #f3f4f6 !important;
+      height: 8px !important;
+    }
+
+    /* sticky 左右列不再额外画阴影 */
+    #summaryTable td:first-child,
+    #summaryTable th:first-child,
+    #summaryTable td:last-child,
+    #summaryTable th:last-child {
+      box-shadow: none !important;
+    }
+
+    /* ===== FIX: ACTION icons in the SAME cell must align perfectly ===== */
+
+    /* 容器统一用 inline-flex，垂直居中 */
+    .action-button-row {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      white-space: nowrap !important;
+    }
+
+    /* 无论是 button / a / span 都强制同一盒模型 */
+    .action-button-row button,
+    .action-button-row a,
+    .action-button-row span {
+      width: 26px !important;
+      height: 26px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+
+      padding: 0 !important;
+      line-height: 1 !important;
+      /* 关键：去掉字体基线差异 */
+      vertical-align: middle !important;
+      /* 关键：强制对齐 */
+      font-size: 16px !important;
+      /* 统一大小（你可改 14/16） */
+      border-radius: 6px !important;
+    }
+
+    /* 如果你已有 .action-button 类，也强制一致 */
+    .action-button {
+      width: 26px !important;
+      height: 26px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0 !important;
+      line-height: 1 !important;
+      font-size: 16px !important;
+    }
+
+    /* ===== BASIC ACTION (Submit/Edit/Save) polish ===== */
+
+    /* 让按钮之间有呼吸感 */
+    .basic-action-row {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 10px !important;
+      /* ✅ 间距更大 */
+      white-space: nowrap !important;
+    }
+
+    /* 三个按钮统一尺寸 + 灵动 hover/active */
+    .basic-action-row .action-button {
+      width: 28px !important;
+      height: 28px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+
+      padding: 0 !important;
+      line-height: 1 !important;
+      font-size: 16px !important;
+
+      border-radius: 8px !important;
+      background: #f8fafc !important;
+      border: 1px solid #e2e8f0 !important;
+
+      transition: transform .12s ease, background-color .12s ease, box-shadow .12s ease, opacity .12s ease;
+    }
+
+    .basic-action-row .action-button:hover {
+      background: #e2e8f0 !important;
+      transform: translateY(-1px) !important;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, .12) !important;
+    }
+
+    .basic-action-row .action-button:active {
+      transform: translateY(0px) scale(.96) !important;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .10) !important;
+    }
+
+    /* 点击后“工作中”状态：变淡 + 禁用鼠标 */
+    .basic-action-row .action-button.working {
+      opacity: .55 !important;
+      pointer-events: none !important;
+    }
+
+    /* 成功一下：绿色边框闪一下 */
+    .basic-action-row .action-button.done {
+      border-color: #22c55e !important;
+    }
+
+    /* ===== FORCE ALL NOTE CELLS LEFT ALIGNED ===== */
+
+    #summaryTable td.note-preview,
+    #summaryTable td[data-field="Note"] {
+      text-align: left !important;
+    }
+
+    #summaryTable td.note-preview .note-line {
+      text-align: left !important;
+    }
+
+    /* Vendor Note preview only (does NOT affect other notes) */
+    #summaryTable td.note-preview.vendor-note-preview {
+      width: 180px !important;
+      min-width: 180px !important;
+      max-width: 180px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      text-align: left !important;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-sm">
+  <div id="main-content">
+    <div class="header-section flex justify-between items-center w-full px-4 mt-2">
+      <h1 class="text-2xl font-bold text-gray-800">Welcome, <span id="usernameDisplay">Sales</span></h1>
+      <div class="flex items-center gap-2">
+        <button id="toggleInquiry" class="main-button">🔽</button>
+        <button id="prevPage" class="main-button">Previous</button>
+        <span id="pageInfo" class="text-gray-800 text-sm font-semibold">Page 1</span>
+        <button id="nextPage" class="main-button">Next</button>
+        <button id="exitBtn" class="main-button">Exit</button>
+        <input id="searchBox" class="border px-3 py-2 rounded-full text-sm w-64"
+          placeholder="Search Quotation # or ZIP..." />
+        <button id="searchBtn" class="main-button">Search</button>
+        <button id="clearSearchBtn" class="main-button">Clear</button>
+
+      </div>
+    </div>
+
+
+
+    <!-- Inquiry Form -->
+    <div class="form-group" id="formGroup">
+      <form class="grid grid-cols-2 gap-2 bg-white p-4 rounded shadow" id="inquiryForm">
+        <!-- Basic -->
+        <input class="border p-2" name="customerId" placeholder="Customer ID" required />
+        <input class="border p-2 bg-gray-100" name="requestedByDisplay" placeholder="Requested By" disabled />
+        <input type="hidden" name="requestedBy" />
+
+        <select class="border p-2" name="inquiryType" required>
+          <option value="">Select Type</option>
+          <option>Drayage</option>
+          <option>Dry Van</option>
+          <option>Flat Bed</option>
+          <option>Drayage + Warehouse</option>
+          <option>Warehouse Only</option>
+        </select>
+
+        <select class="border p-2" name="containerSize">
+          <option value="">Container Size</option>
+          <option>20'</option>
+          <option>40'</option>
+          <option>40HQ</option>
+          <option>53'</option>
+        </select>
+
+        <select class="border p-2" name="dryVanType" id="dryVanTypeSelect">
+          <option value="">Dry Van Type</option>
+          <option>HOTSHOT</option>
+          <option>28'</option>
+          <option>53'</option>
+          <option>LTL</option>
+          <option>SMALL PARCEL</option>
+        </select>
+
+        <select class="border p-2" name="legalOverWeight">
+          <option value="">Legal or Over Weight</option>
+          <option value="Legal">Legal</option>
+          <option value="Over Weight">Over Weight</option>
+        </select>
+
+        <input class="border p-2" name="grossWeight" placeholder="Gross Weight" />
+        <select class="border p-2" name="liveOrDrop">
+          <option value="">Live or Drop</option>
+          <option value="Live">Live</option>
+          <option value="Drop">Drop</option>
+        </select>
+
+        <!-- Location -->
+        <input class="border p-2" name="from" placeholder="From (Port / Rail / Address)" required />
+
+        <div class="grid grid-cols-3 gap-2 col-span-1">
+          <input class="border p-2" name="toCity" placeholder="To City" required />
+          <input class="border p-2" name="toState" placeholder="To State" required />
+          <input class="border p-2" name="toZip" placeholder="To ZIP" required />
+        </div>
+
+        <input class="border p-2" name="qty" placeholder="QTY" />
+        <input class="border p-2" name="quotationId" placeholder="Quotation #" required />
+
+        <!-- Cargo Info -->
+        <div class="col-span-2">
+          <div class="section-title">Cargo Information</div>
+          <div class="grid grid-cols-2 gap-2">
+            <input class="border p-2" name="commodity" placeholder="Commodity" />
+            <select class="border p-2" name="packageType">
+              <option value="">Package Type</option>
+              <option>Pallet</option>
+              <option>Carton</option>
+              <option>Unit</option>
+              <option>Bundle</option>
+              <option>Sack</option>
+            </select>
+            <input class="border p-2" name="packagesPerContainer" placeholder="Packages Per Container" />
+            <div class="flex items-center gap-4 px-2">
+              <label class="flex items-center gap-2"><input type="checkbox" name="hazmat" /> Hazmat</label>
+              <label class="flex items-center gap-2"><input type="checkbox" name="reefer" /> Reefer</label>
+              <label class="flex items-center gap-2"><input type="checkbox" name="bonded" /> Bonded</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Warehouse Requirement -->
+        <div class="col-span-2">
+          <div class="section-title">Warehouse Requirement</div>
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-2">
+              <input type="checkbox" id="needWarehouseService" name="needWarehouseService" />
+              Need Warehouse Service
+            </label>
+            <span class="tiny-note">Check to show warehouse service request details.</span>
+          </div>
+
+          <div id="warehouseBlock" class="mt-4 hidden">
+
+            <!-- ===== Warehouse Services ===== -->
+            <div class="tiny-note font-semibold text-gray-700 mb-2">
+              Warehouse Services (multi-select)
+            </div>
+
+            <div class="grid grid-cols-3 gap-x-10 gap-y-3 text-sm">
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Order Processing" />
+                  <span>Order Processing</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Order Processing" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Order Processing" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Inbound" />
+                  <span>Inbound</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Inbound" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Inbound" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Outbound" />
+                  <span>Outbound</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Outbound" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Outbound" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Sorting" />
+                  <span>Sorting</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Sorting" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Sorting" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Palletizing" />
+                  <span>Palletizing</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Palletizing" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Palletizing" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Pallet Fee" />
+                  <span>Pallet Fee</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Pallet Fee" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Pallet Fee" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Storage" />
+                  <span>Storage</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Storage" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Storage" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Label" />
+                  <span>Label</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Label" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Label" placeholder="Unit" disabled />
+              </div>
+
+              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
+                <label class="flex items-center gap-2">
+                  <input type="checkbox" name="whService" value="Cross Dock" />
+                  <span>Cross Dock</span>
+                </label>
+                <input class="border wh-mini w-full" name="whQty_Cross Dock" placeholder="Qty" disabled />
+                <input class="border wh-mini w-full" name="whUnit_Cross Dock" placeholder="Unit" disabled />
+              </div>
+
+            </div>
+
+
+            <!-- ===== Estimated ===== -->
+            <div class="grid grid-cols-3 gap-3 mt-4">
+              <input class="border p-2" name="estimatedPallets" placeholder="Estimated Pallets" />
+              <input class="border p-2" name="estimatedBoxes" placeholder="Estimated Boxes / Cartons" />
+              <input class="border p-2" name="estimatedSkuCount" placeholder="Estimated SKU Count" />
+            </div>
+
+            <!-- ===== Storage Duration ===== -->
+            <div class="grid grid-cols-2 gap-3 mt-3">
+              <input class="border p-2" name="storageDuration" placeholder="Storage Duration (number)" />
+              <input class="border p-2" name="storageDurationUnit" placeholder="Duration Unit (Days/Weeks/Months)" />
+            </div>
+
+            <!-- ===== Notes ===== -->
+            <textarea class="border p-2 mt-3 w-full" name="warehouseNote" placeholder="Warehouse Note"></textarea>
+            <textarea class="border p-2 mt-3 w-full" name="note" placeholder="General Note"></textarea>
+
+          </div>
+
+          <div class="col-span-2 mt-6 mb-4 flex justify-center items-center">
+            <button type="submit" id="submitInquiryBtn" class="w-full py-3 text-base font-semibold text-white rounded-full
+                   bg-gradient-to-r from-blue-500 to-blue-600
+                   shadow-md transition-all duration-200
+                   hover:from-blue-600 hover:to-blue-700 hover:shadow-lg">
+              Submit Inquiry
+            </button>
+          </div>
+
+      </form>
+    </div> <!-- / #formGroup -->
+  </div> <!-- / #main-content -->
+
+
+  <div id="fixed-scroll-wrapper" class="scroll-container">
+    <div style="width: 100%;">
+      <table class="bg-white border text-xs" id="summaryTable">
+        <thead class="bg-gray-200" style="background-color:#e0f2fe; position: sticky; top: 0; z-index: 10;">
+          <tr>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+            <th class="border px-2"></th>
+          </tr>
+        </thead>
+
+        <tbody id="summaryBody">
+        </tbody>
+      </table>
+
+
+      <div id="noteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+        <div class="bg-white rounded-lg shadow-lg w-96 p-4">
+          <h2 class="text-lg font-semibold mb-2">Edit Note</h2>
+          <textarea id="noteModalInput" wrap="soft" class="w-full border p-2 h-40 resize-none"></textarea>
+          <div class="mt-4 overflow-x-auto">
+            <button id="noteModalSave" class="bg-blue-500 text-white px-4 py-1 rounded">Save</button>
+          </div>
+        </div>
+      </div>
+
+
+      <script>
+
+        // ✅ 保证全局可用（给 onchange 调用）
+        window.refreshWarehouseBlock = function () {
+          const chk = document.getElementById('needWarehouseService');
+          const block = document.getElementById('warehouseBlock');
+          if (!chk || !block) return;
+          block.classList.toggle('hidden', !chk.checked);
+        };
+
+        /* ===========================
+           Excel-style 6-row Summary (Sales)
+           - For each Quotation: 6 rows
+             1) BASIC header
+             2) BASIC values
+             3) TRUCK header
+             4) TRUCK values + ACTION
+             5) WAREHOUSE header
+             6) WAREHOUSE values + ACTION
+           - Keeps existing pricing logic (simulateQuoteFull) and GP logic (calculateGPValue)
+           =========================== */
+
+        (function () {
+          const TOTAL_COLS = 27;
+
+          function ensureColgroup() {
+            const table = document.getElementById('summaryTable');
+            if (!table) return;
+
+            // 已经有 colgroup 就不重复建
+            if (table.querySelector('colgroup')) return;
+
+            const colgroup = document.createElement('colgroup');
+
+            // === 27 列的“表头文本基准”（不换行，按字数估算宽度） ===
+            // BASIC：1-17 是真实字段；18-26 是 NOTE；27 ACTION
+            const BASIC_COLS = [
+              '#', 'Date', 'Customer ID', 'Requested By', 'Inquiry Type', 'Container Size',
+              'Commodity', 'Packages', 'Flags', 'Dry Van Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop',
+              'From', 'To', 'QTY', 'Quotation #'
+            ];
+
+            const notePerColPx = Math.ceil(520 / 9); // 你 NOTE 总宽 520，分摊到 9 列
+
+            // TRUCK 这一行你已有 TRUCK_HEADERS（27）
+            // WH 这一行：1-17 是 WH_LEFT_HEADERS；18-25 NOTE；26 空；27 Action
+            const WH_COLS = [
+              ...WH_LEFT_HEADERS, // 17
+              'NOTE', 'NOTE', 'NOTE', 'NOTE', 'NOTE', 'NOTE', 'NOTE', 'NOTE', 'NOTE', // 9
+              '', 'Action'
+            ];
+
+            // TRUCK_HEADERS 你文件里已存在（27）
+            const TRUCK_COLS = TRUCK_HEADERS;
+
+            // 这三列允许内容撑列（不设固定宽）
+            const AUTO_COL_INDEX = new Set([7, 14, 15]); // Commodity(7), From(14), To(15) —— 1-based
+
+            for (let i = 1; i <= TOTAL_COLS; i++) {
+              const col = document.createElement('col');
+
+              // NOTE 9 列（18-26）固定分摊宽度（不影响你 note-preview 的整体宽度）
+              if (i >= 18 && i <= 26) {
+                col.style.width = `${notePerColPx}px`;
+                colgroup.appendChild(col);
+                continue;
+              }
+
+              // ACTION 列固定
+              if (i === 27) {
+                col.style.width = `120px`;
+                colgroup.appendChild(col);
+                continue;
+              }
+
+              // Commodity / From / To：不设宽度，让它随内容撑列
+              if (AUTO_COL_INDEX.has(i)) {
+                colgroup.appendChild(col);
+                continue;
+              }
+
+              // 其它列：取 BASIC/TRUCK/WH 在该列位置的“最长表头字数”来估算宽度
+              const basicLabel = BASIC_COLS[i - 1] || '';
+              const truckLabel = TRUCK_COLS[i - 1] || '';
+              const whLabel = WH_COLS[i - 1] || '';
+
+              const maxLen = Math.max(basicLabel.length, truckLabel.length, whLabel.length);
+
+              // 给一点 padding（+2ch），并限制最大宽度避免太夸张
+              const ch = Math.min(maxLen + 2, 18);
+              col.style.width = `${ch}ch`;
+
+              colgroup.appendChild(col);
+            }
+
+            table.insertBefore(colgroup, table.firstChild);
+          }
+
+
+
+          function isTruthy(v) {
+            if (v === true) return true;
+            const s = String(v || '').toLowerCase().trim();
+            return s === 'true' || s === '1' || s === 'yes' || s === 'y';
+          }
+
+          function roleIsViewOnly(role) {
+            const r = String(role || '').toLowerCase();
+            return r === 'ops_view' || r === 'viewer';
+          }
+
+          function isTruthyFlag(v) {
+            const s = String(v ?? '').trim().toLowerCase();
+            return s === 'true' || s === 'y' || s === '1' || s === 'yes';
+          }
+
+          // ✅ 只要 Sourcing 填过任何 cost / 或勾过 cost sent/selected，就锁 Inquiry info
+          // ❌ 不要把 Sales 的 Warehouse Requirement 算进去
+          function hasSourcingInput(it) {
+            const numFields = [
+              'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
+              'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee'
+            ];
+
+            const anyCost = numFields.some(k => {
+              const v = Number(((it[k] ?? '') + '').replace(/,/g, '').trim() || 0);
+              return v > 0;
+            });
+
+            const anyConfirm = isTruthyFlag(it['Selected']) || isTruthyFlag(it['Cost Sent']);
+            return anyCost || anyConfirm;
+          }
+
+          // ✅ For WH: detect whether Sourcing has provided any WH cost or marked cost sent
+          function hasSourcingWHInput(it) {
+            const numFields = [
+              'Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'
+            ];
+            const anyCost = numFields.some(k => {
+              const v = Number(((it[k] ?? '') + '').replace(/,/g, '').trim() || 0);
+              return v > 0;
+            });
+
+            const anyConfirm = isTruthyFlag(it['warehouseCostSent'])
+              || isTruthyFlag(it['Selected'])
+              || isTruthyFlag(it['Cost Sent']);
+
+            return anyCost || anyConfirm;
+          }
+
+          // ✅ Detect whether Sales/Manager has actually filled any PRICE fields
+          // Used to distinguish: Cost received (yellow) vs Saved (blue)
+          function hasAnyPriceFilled(data, scope) {
+            const fields = scope === 'WH'
+              ? [
+                'Order Processing Price', 'Inbound Price', 'Sorting Price', 'Palletizing Price',
+                'Pallet Fee Price', 'Storage Price', 'Outbound Price', 'Vendor'
+              ]
+              : [
+                'Adjusted Price', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
+                'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Carrier'
+              ];
+            return fields.some(k => String((data && data[k]) ?? '').trim() !== '');
+          }
+
+          function num(v) {
+            const n = parseFloat(String(v ?? '').replace(/,/g, '').trim());
+            return Number.isFinite(n) ? n : null;
+          }
+          function fmt2(v) {
+            const n = num(v);
+            return n === null ? '' : n.toFixed(2);
+          }
+          function fmtGPpct(gpFloat) {
+            if (!Number.isFinite(gpFloat)) return '';
+            return (gpFloat * 100).toFixed(2) + '%';
+          }
+
+          function composeTo2(item) {
+            const t = (item['To'] || '').trim();
+            if (t) return t;
+            const city = (item['To City'] || '').trim();
+            const state = (item['To State'] || '').trim();
+            const zip = (item['To ZIP'] || '').trim();
+            return [city, [state, zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+          }
+
+          function tdCell(text = '', cls = '') {
+            const td = document.createElement('td');
+            td.className = `border px-2 text-xs ${cls}`;
+            td.textContent = text ?? '';
+            return td;
+          }
+          function tdHeader(text = '', cls = '') {
+            return tdCell(text, `font-bold bg-gray-100 text-center ${cls}`);
+          }
+
+          function makeInput(value, field, quote, locked, scope, alignLeft = false) {
+            const input = document.createElement('input');
+            input.value = value ?? '';
+            input.className = `w-full border text-xs px-1 py-0.5 ${alignLeft ? 'text-left' : 'text-right'}`;
+            input.setAttribute('data-quote', quote);
+            input.setAttribute('data-field', field);
+            input.setAttribute('data-scope', scope);
+            input.disabled = !!locked;
+            if (locked) input.classList.add('saved-input');
+            return input;
+          }
+
+          async function postUpdate(payload) {
+            const res = await fetch('/inquiries/update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+              const t = await res.text();
+              console.error('Update failed:', t);
+              return { ok: false, text: t };
+            }
+            return { ok: true };
+          }
+
+          async function saveFields(quote, fields, scope) {
+            const payload = {
+              'Quotation #': quote,
+              'Saved': 'true',
+              'Requested By': (window.currentUser || ''),
+              'username': (window.currentUser || '')
+            };
+
+            // ✅ Scope-specific saved flags (to distinguish from Sourcing cost updates)
+            if (scope === 'TRUCK') payload['truckingPriceSaved'] = 'true';
+            if (scope === 'WH') payload['warehousePriceSaved'] = 'true';
+
+
+
+
+            // ✅ 先把当前 quote + scope 下所有 input 全拿出来
+            const inputs = Array.from(document.querySelectorAll(`input[data-scope="${scope}"]`))
+              .filter(el => el.getAttribute('data-quote') === quote);
+
+            // ✅ 建一个 map：fieldName -> value
+            const map = new Map();
+            inputs.forEach(el => {
+              const f = el.getAttribute('data-field');
+              if (f) map.set(f, el.value);
+            });
+
+            // ✅ 按 fields 白名单装 payload
+            fields.forEach(f => {
+              if (map.has(f)) payload[f] = map.get(f);
+            });
+
+            console.log('[DEBUG saveFields]', { scope, quote, payload }); // 🔥 临时保留，便于确认 payload 有字段
+
+            const r = await postUpdate(payload);
+            if (!r.ok) alert('❌ Save failed: ' + (r.text || ''));
+            return r.ok;
+          }
+
+          async function setConfirm(quote, field, checked) {
+            const payload = { 'Quotation #': quote, 'Saved': 'true' };
+            payload[field] = checked ? 'true' : 'false';
+            // keep manager confirmed as-is (server merges)
+            const r = await postUpdate(payload);
+            if (!r.ok) alert('❌ Confirm update failed.');
+            return r.ok;
+          }
+
+
+          function unlockRow(quote, scope) {
+            document
+              .querySelectorAll(`input[data-scope="${scope}"][data-quote="${quote}"]`)
+              .forEach(el => {
+                el.disabled = false;
+                el.classList.remove('saved-input');
+              });
+          }
+
+          function lockRow(quote, scope) {
+            document
+              .querySelectorAll(`input[data-scope="${scope}"][data-quote="${quote}"]`)
+              .forEach(el => {
+                el.disabled = true;
+                el.classList.add('saved-input');
+              });
+          }
+
+          function actionCellTruck(item, quote, role) {
+            const td = document.createElement('td');
+            td.className = 'border px-2 text-center';
+
+            if (roleIsViewOnly(role)) return td;
+
+            const lockedByMgr = isTruthy(item['truckingManagerConfirmed']);
+            const locked = lockedByMgr || isTruthy(item['truckingSalesConfirmed']);
+
+            const wrap = document.createElement('div');
+            wrap.className = 'action-button-row';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'action-button';
+            editBtn.textContent = '✏️';
+            editBtn.title = 'Price Edit (Truck)';
+            editBtn.disabled = lockedByMgr;   // ✅ 只有 Manager Confirm 才禁用 Edit
+            editBtn.onclick = () => {
+              if (chk.checked) {
+                alert("Row is confirmed. Please UNCHECK first.");
+                return;
+              }
+
+              // ✅ 点击 EDIT：整行变成杏色（editing-row）
+              document.querySelectorAll(`tr.row-truck-val[data-quote="${quote}"]`).forEach(tr => {
+                tr.classList.remove('saved-price', 'row-confirmed', 'cost-received');
+                tr.classList.add('editing-row');
+              });
+
+              unlockRow(quote, 'TRUCK');
+            };
+
+
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'action-button';
+            saveBtn.textContent = '💾';
+            saveBtn.title = 'Price Save (Truck)';
+            saveBtn.onclick = async () => {
+              const fields = [
+                'Adjusted Price', 'Carrier', 'Note',
+                'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price',
+                'Driver Waiting Price', 'Over Weight Price', 'Chassis Split Price',
+                'Toll Price', 'Reefer Fee Price', 'Bond Fee Price'
+              ];
+
+              const ok = await saveFields(quote, fields, 'TRUCK');
+
+              if (ok) {
+                lockRow(quote, 'TRUCK');
+
+                // ✅ 保存成功：退出 editing（黄），进入 saved（淡灰蓝）
+                document.querySelectorAll(`tr.row-truck-val[data-quote="${quote}"]`).forEach(tr => {
+                  tr.classList.remove('editing-row', 'row-confirmed', 'cost-received');
+                  tr.classList.add('saved-price');
+                });
+              }
+            };
+
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.title = 'Price Confirm (Truck)';
+            chk.checked = locked;
+            chk.disabled = lockedByMgr;
+            chk.onchange = async () => {
+              const want = chk.checked;
+
+              // ✅ 只有在“勾选”时自动保存一次，确保 Manager 能看到
+              if (want) {
+                const fields = [
+                  'Adjusted Price', 'Carrier', 'Note',
+                  'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
+                  'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price'
+                ];
+                const okSave = await saveFields(quote, fields, 'TRUCK');
+                if (!okSave) { chk.checked = false; return; }
+                lockRow(quote, 'TRUCK');
+              }
+
+              const ok = await setConfirm(quote, 'truckingSalesConfirmed', want);
+              if (!ok) chk.checked = !want;
+
+              window.loadInquiries && window.loadInquiries();
+            };
+
+
+            const addBtn = document.createElement('button');
+            addBtn.className = 'action-button';
+            addBtn.textContent = '➕';
+            addBtn.title = 'Add Truck Option';
+            addBtn.onclick = () => alert('➕ Truck option will be wired after Excel view is stable.');
+
+            wrap.appendChild(editBtn);
+            wrap.appendChild(saveBtn);
+            wrap.appendChild(chk);
+            wrap.appendChild(addBtn);
+            td.appendChild(wrap);
+            return td;
+          }
+
+          function actionCellWH(item, quote, role) {
+            const td = document.createElement('td');
+            td.className = 'border px-2 text-center';
+
+            if (roleIsViewOnly(role)) return td;
+
+            const lockedByMgr = isTruthy(item['warehouseManagerConfirmed']);
+            const locked = lockedByMgr || isTruthy(item['warehouseSalesConfirmed']);
+
+            const wrap = document.createElement('div');
+            wrap.className = 'action-button-row';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'action-button';
+            editBtn.textContent = '✏️';
+            editBtn.title = 'Price Edit (Truck)';
+            editBtn.disabled = lockedByMgr;
+
+            editBtn.onclick = () => {
+              if (chk.checked) {
+                alert("Row is confirmed. Please UNCHECK first.");
+                return;
+              }
+
+              // ✅ 点击 EDIT：整行变成杏色（editing-row）
+              document.querySelectorAll(`tr.row-wh-val[data-quote="${quote}"]`).forEach(tr => {
+                tr.classList.remove('saved-price', 'row-confirmed', 'cost-received');
+                tr.classList.add('editing-row');
+              });
+
+              unlockRow(quote, 'WH');
+            };
+
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'action-button';
+            saveBtn.textContent = '💾';
+            saveBtn.title = 'Price Save (Warehouse)';
+            saveBtn.onclick = async () => {
+              const fields = [
+                'Vendor', 'Note',
+                'Order Processing Price',     // ← 改這裡
+                'Inbound Price',              // ← 改這裡
+                'Sorting Price',              // ← 改這裡
+                'Palletizing Price',          // ← 改這裡
+                'Pallet Fee Price',           // ← 改這裡
+                'Storage Price',              // ← 改這裡
+                'Outbound Price'              // ← 改這裡
+              ];
+
+              const ok = await saveFields(quote, fields, 'WH');
+              if (ok) {
+                lockRow(quote, 'WH');
+
+                // ✅ 保存成功：退出 editing（黄），进入 saved（淡灰蓝）
+                document.querySelectorAll(`tr.row-wh-val[data-quote="${quote}"]`).forEach(tr => {
+                  tr.classList.remove('editing-row', 'row-confirmed', 'cost-received');
+                  tr.classList.add('saved-price');
+                });
+              }
+            };
+
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.title = 'Price Confirm (Warehouse)';
+            chk.checked = locked;
+            chk.disabled = lockedByMgr;
+            chk.onchange = async () => {
+              const want = chk.checked;
+
+              // ✅ 勾选时自动保存 Warehouse Price
+              if (want) {
+                const fields = [
+                  'Vendor', 'Note',
+                  'Order Processing Price',
+                  'Inbound Price',
+                  'Sorting Price',
+                  'Palletizing Price',
+                  'Pallet Fee Price',
+                  'Storage Price',
+                  'Outbound Price'
+                ];
+
+                const okSave = await saveFields(quote, fields, 'WH');
+                if (!okSave) { chk.checked = false; return; }
+                lockRow(quote, 'WH');
+              }
+
+
+              const ok = await setConfirm(quote, 'warehouseSalesConfirmed', want);
+              if (!ok) { chk.checked = !want; return; }
+
+              // ✅ 保存成功：退出 editing-row，进入 saved-price（整行灰蓝）
+              document.querySelectorAll(`tr.row-wh-val[data-quote="${quote}"]`).forEach(tr => {
+                tr.classList.remove('editing-row', 'row-confirmed', 'cost-received');
+                tr.classList.add('saved-price');
+              });
+
+              window.loadInquiries && window.loadInquiries();
+            };
+
+            const addBtn = document.createElement('button');
+            addBtn.className = 'action-button';
+            addBtn.textContent = '➕';
+            addBtn.title = 'Add Warehouse Option';
+            addBtn.onclick = () => alert('➕ Warehouse option will be wired after Excel view is stable.');
+
+            wrap.appendChild(editBtn);
+            wrap.appendChild(saveBtn);
+            wrap.appendChild(chk);
+            wrap.appendChild(addBtn);
+            td.appendChild(wrap);
+            return td;
+          }
+
+          window.renderPage = function renderPageExcel6() {
+            const tbody = document.getElementById('summaryBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const role = window.userRole || '';
+            const viewOnly = roleIsViewOnly(role);
+
+            // Use existing globals from main script
+            const pageSize = window.pageSize || 100;
+            const currentPage = window.currentPage || 1;
+
+            const data = window.filteredData || [];
+            // ✅ 不要在这里再 sort，让 loadInquiries 的排序生效
+
+
+            // 繼續原有 td 填入...
+
+            const start = (currentPage - 1) * pageSize;
+            const pageData = data.slice(start, start + pageSize);
+            // ===== SUB-LINES (from Sourcing) =====
+            const truckSubsByParent = new Map();
+            const whSubsByParent = new Map();
+
+            (data || []).forEach(it => {
+              const q = String(it['Quotation #'] || '').trim();
+              const p = String(it['Parent Quotation #'] || '').trim();
+              if (!q || !p) return;
+
+              const t = String(it['Type'] || '').toUpperCase();
+              if (t === 'TRUCK') {
+                if (!truckSubsByParent.has(p)) truckSubsByParent.set(p, []);
+                truckSubsByParent.get(p).push(it);
+              } else if (t === 'WAREHOUSE') {
+                if (!whSubsByParent.has(p)) whSubsByParent.set(p, []);
+                whSubsByParent.get(p).push(it);
+              }
+            });
+
+            function _truckSubNo(q) {
+              const m = String(q || '').match(/-(\d+)$/);
+              return m ? parseInt(m[1], 10) : 0;
+            }
+            function _whSubLetter(q) {
+              const m = String(q || '').match(/-([A-Z])$/i);
+              return m ? m[1].toUpperCase() : '';
+            }
+            truckSubsByParent.forEach(arr => arr.sort((a, b) => _truckSubNo(a['Quotation #']) - _truckSubNo(b['Quotation #'])));
+            whSubsByParent.forEach(arr => arr.sort((a, b) => _whSubLetter(a['Quotation #']).localeCompare(_whSubLetter(b['Quotation #']))));
+
+
+            // index by base quote
+            const baseIndex = new Map();
+            const getBase = (q) => {
+              q = (q || '').trim();
+              const m = q.match(/^(.+?)\/[TW]\d+$/i);
+              return m ? m[1] : q;
+            };
+            const getIndex = (q) => {
+              const b = getBase(q);
+              if (!baseIndex.has(b)) baseIndex.set(b, baseIndex.size + 1 + start);
+              return baseIndex.get(b);
+            };
+
+            function flagIcons(item) {
+              const icons = [];
+              const haz = String(item['Hazmat'] ?? item['hazmat'] ?? '').toLowerCase() === 'true';
+              const ref = String(item['Reefer'] ?? item['reefer'] ?? '').toLowerCase() === 'true';
+              const bon = String(item['Bonded'] ?? item['bonded'] ?? '').toLowerCase() === 'true';
+              if (haz) icons.push('☢️');
+              if (ref) icons.push('❄️');
+              if (bon) icons.push('🔒');
+              return icons.length ? ' ' + icons.join(' ') : '';
+            }
+
+
+            function cargoText(item) {
+              const commodity = (item['Commodity'] ?? item['commodity'] ?? '').toString().trim();
+              const ppc = (item['Packages Per Container'] ?? item['packagesPerContainer'] ?? '').toString().trim();
+
+              const parts = [];
+              if (commodity) parts.push(commodity);
+              if (ppc) parts.push(`PPC:${ppc}`);
+
+              const base = parts.join(' | ');
+              return (base || '') + flagIcons(item);
+            }
+
+
+            function flagIcons(item) {
+              const icons = [];
+              const haz = String(item['Hazmat'] ?? item['hazmat'] ?? '').toLowerCase() === 'true';
+              const ref = String(item['Reefer'] ?? item['reefer'] ?? '').toLowerCase() === 'true';
+              const bon = String(item['Bonded'] ?? item['bonded'] ?? '').toLowerCase() === 'true';
+              if (haz) icons.push('☢️');
+              if (ref) icons.push('❄️');
+              if (bon) icons.push('🔒');
+              return icons.join(' ');
+            }
+
+
+            const BASIC_HEADERS = [
+              '#', 'Date', 'Customer ID', 'Requested By',
+              'Inquiry Type', 'Container Size',
+              'Commodity', 'Packages', 'Flags',                // ✅ 新增
+              'Dry Van Type',
+              'Legal/Over Weight', 'Gross Weight', 'Live/Drop',
+              'From', 'To', 'QTY', 'Quotation #'
+            ];
+
+            const BASIC_LEFT_COLS = BASIC_HEADERS.length;
+            const BASIC_NOTE_COLSPAN = 25 - BASIC_LEFT_COLS;
+
+
+            const TRUCK_HEADERS = [
+              '', 'Base Rate', 'Price', 'GP', 'Adjusted Price', 'Adjusted GP',
+              'Chassis Cost', 'Chassis Price',
+              'Pre-Pull Cost', 'Pre-Pull Price',
+              'Yard Storage Cost', 'Yard Storage Price',
+              'Driver Waiting Cost', 'Driver Waiting Price',
+              'Over Weight Cost', 'Over Weight Price',
+              'Chassis Split Cost', 'Chassis Split Price',
+              'Toll Cost', 'Toll Price',
+              'Reefer Fee Cost', 'Reefer Fee Price',
+              'Bond Fee Cost', 'Bond Fee Price',
+              'Carrier', '', 'Action'
+            ];
+
+            const WH_LEFT_HEADERS = [
+              '', 'WH Order Proc', 'WH Order Proc Price',
+              'WH Inbound', 'WH Inbound Price',
+              'WH Sorting', 'WH Sorting Price',
+              'WH Palletizing', 'WH Palletizing Price',
+              'WH Pallet', 'WH Pallet Price',
+              'WH Storage', 'WH Storage Price',
+              'WH Outbound', 'WH Outbound Price',
+              'Vendor'
+            ];
+
+
+            let displayIndex = 0;
+
+            pageData.forEach(item => {
+              const quote = (item['Quotation #'] || '').trim();
+              if (!quote) return;
+
+
+              // ✅ Child sub-lines should NOT render a full 6-row block here.
+              // Only render MAIN rows; sub-lines will be inserted under the MAIN block.
+              const _parent = String(item['Parent Quotation #'] || '').trim();
+              if (_parent) return;
+              displayIndex++;
+
+
+
+              // 1) BASIC header
+              const r1 = document.createElement('tr');
+              r1.className = 'row-basic-head';
+
+              // 前 17 列
+              const basicHeadFirst17 = [
+                '#', 'Date', 'Customer ID', 'Requested By', 'Inquiry Type', 'Container Size',
+                'Commodity', 'Packages', 'Flags', 'Dry Van Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop',
+                'From', 'To', 'QTY', 'Quotation #'
+              ];
+              basicHeadFirst17.forEach(h => r1.appendChild(tdHeader(h)));
+
+              const row = document.createElement('tr');
+
+              // 子行視覺區分（縮進 + 樣式）
+              if (item['Parent Quotation #']) {
+                row.classList.add('sub-row');
+              }
+
+              // 繼續原有代碼...
+
+              // 18~25 合并成 NOTE（8 列）
+              // 18~25 合并成 NOTE（8 列）
+              const noteHead = tdHeader('NOTE');
+              noteHead.colSpan = 8;                 // ✅ 8 才对
+              noteHead.classList.add('text-center'); // 你要左对齐就 text-left
+              r1.appendChild(noteHead);
+
+              // ✅ 第26栏 spacer（一定要有，避免 ACTION 挤进 NOTE）
+              r1.appendChild(tdHeader('', 'spacer-col'));
+
+              // 第27栏 ACTION
+              const actionHead = tdHeader('ACTION');
+              r1.appendChild(actionHead);
+
+              tbody.appendChild(r1);
+
+
+              // 2) BASIC values
+              const r2 = document.createElement('tr');
+              r2.className = 'row-basic-val';
+
+              function makeInquiryInput(value, key, allowEdit, alignLeft = false) {
+                const input = document.createElement('input');
+                input.value = value ?? '';
+                input.className = `inq-field cell-fill border text-xs px-1 py-0.5 ${alignLeft ? 'text-left' : 'text-center'}`;
+                input.dataset.key = key;                 // ✅ 保存时用
+                input.dataset.allowEdit = allowEdit ? '1' : '0';
+                input.disabled = true;                   // ✅ 默认锁住
+                return input;
+              }
+
+
+              const flags = flagIcons(item);
+
+              // 前 18 列内容
+              const basicValFirst17 = [
+                String(displayIndex),
+                item['Date'] || '',
+                item['Customer ID'] || '',
+                item['Requested By'] || item.username || '',
+                item['Inquiry Type'] || '',
+                item['Container Size'] || '',
+                (item['Commodity'] || '').toString().trim(),
+                item['Packages Per Container'] || '',
+                flags,
+                item['Dry Van Type'] || '',
+                item['Legal or Over Weight'] || '',
+                item['Gross Weight'] || '',
+                item['Live or Drop'] || '',
+                item['From'] || '',
+                composeTo2(item),
+                item['QTY'] || '',
+                (item['External Quotation #'] || quote)
+              ];
+
+              basicValFirst17.forEach((v, i) => {
+                const td = document.createElement('td');
+                td.className = 'border px-2 text-xs text-center';
+
+                // 允许 Sales 修改的 inquiry 字段（前提：Sourcing 未出 cost）
+                // 你说 QUOTATION # 也要能改，所以放进来
+                const editableKeysByIndex = {
+                  5: 'Container Size',
+                  6: 'Commodity',
+                  7: 'Packages Per Container',
+                  9: 'Dry Van Type',
+                  10: 'Legal or Over Weight',
+                  11: 'Gross Weight',
+                  12: 'Live or Drop',
+                  13: 'From',
+                  14: 'To',
+                  15: 'QTY',
+                  16: 'External Quotation #'
+                };
+
+                const key = editableKeysByIndex[i];
+
+                if (key) {
+                  const alignLeft = (key === 'From' || key === 'To' || key === 'Commodity');
+                  const inp = makeInquiryInput(v, key, true, alignLeft);
+
+                  // ✅ 粘贴在这里（替换掉旧的 text-input/num-input 逻辑）
+                  inp.classList.add('cell-fill'); // 默认贴满格子
+
+                  if (key === 'Commodity' || key === 'From' || key === 'To') {
+                    inp.classList.remove('cell-fill');
+                    inp.classList.add('auto-grow');
+
+                    const setSize = () => {
+                      const len = (inp.value || '').length;
+                      inp.size = Math.max(6, len + 1);
+                    };
+                    setSize();
+                    inp.addEventListener('input', setSize);
+                  }
+
+                  td.classList.remove('text-center');
+                  td.classList.add(alignLeft ? 'text-left' : 'text-center');
+                  td.appendChild(inp);
+
+                } else {
+                  // 不允许改的字段保持文本
+                  td.textContent = v ?? '';
+                  // from/to/commodity 以外你想左对齐的可以在这里加
+                  if (i === 13 || i === 14) td.classList.add('text-left');
+                }
+
+                r2.appendChild(td);
+              });
+
+
+              const company = (item['Customer Company'] || item['Company Name'] || '').toString().trim();
+              const contact = (item['Customer Contact'] || item['Contact Name'] || '').toString().trim();
+              const email = (item['Customer Email'] || '').toString().trim();
+              const phone = (item['Customer Phone'] || '').toString().trim();
+
+              const customerInfoLine = [company, contact, email, phone].filter(Boolean).length
+                ? `Customer Info: ${[
+                  company ? `Company=${company}` : '',
+                  contact ? `Contact=${contact}` : '',
+                  email ? `Email=${email}` : '',
+                  phone ? `Phone=${phone}` : ''
+                ].filter(Boolean).join(' | ')}`
+                : '';
+
+              const noteBody = (item['Note'] || '').toString().trim();
+
+              // ✅ 最终 GENERAL NOTE：客户信息在第一行，下面才是原 Note
+              const fullGeneralNote = [customerInfoLine, noteBody].filter(Boolean).join('\n');
+              const previewGeneralNote = fullGeneralNote.replace(/\s+/g, ' ').trim(); // ✅ 压扁换行
+
+              const noteVal = tdCell('', 'text-left note-preview');
+              noteVal.colSpan = 8;  // ✅ 9 -> 8
+              noteVal.dataset.fullNote = fullGeneralNote;
+              noteVal.dataset.which = 'GENERAL NOTE';
+
+              const line = document.createElement('div');
+              line.className = 'note-line';
+              line.textContent = previewGeneralNote;
+              noteVal.appendChild(line);
+
+              r2.appendChild(noteVal);
+
+              // ✅ 第26栏 spacer（必须有，不然 ACTION 会挤进 NOTE 造成右侧错位）
+              r2.appendChild(tdCell('', 'spacer-col'));
+
+              // ✅ 加这一行（修复 canEditInquiry not defined）
+              const canEditInquiry = !viewOnly && !hasSourcingInput(item);
+
+              // ✅ 第27栏 ACTION（你原本的按钮 td，保持原逻辑）
+              // ✅ BASIC r2 ACTION cell (Submit/Edit/Save) — unified layout
+              const inquiryActionTd = document.createElement('td');
+              inquiryActionTd.className = 'border px-2 text-center';
+
+              const wrapBasic = document.createElement('div');
+              wrapBasic.className = 'basic-action-row';
+
+              // 📤 Submit to Sourcing
+              const submitBtn = document.createElement('button');
+              submitBtn.type = 'button';
+              submitBtn.textContent = '📤';
+              submitBtn.title = 'Submit to Sourcing';
+              submitBtn.className = 'btn-submit-sourcing action-button';
+              submitBtn.dataset.quote = quote;
+
+              // 📝 Inquiry Edit
+              const editBtn = document.createElement('button');
+              editBtn.type = 'button';
+              editBtn.textContent = '📝';
+              editBtn.title = 'Inquiry Edit';
+              editBtn.className = 'btn-edit-inquiry action-button'; // ✅ 关键：加 action-button
+              editBtn.dataset.quote = quote;
+
+              // 💾 Inquiry Save
+              const saveBtn = document.createElement('button');
+              saveBtn.type = 'button';
+              saveBtn.textContent = '💾';
+              saveBtn.title = 'Inquiry Save';
+              saveBtn.className = 'btn-save-inquiry action-button'; // ✅ 关键：统一 class
+              saveBtn.style.display = 'none';
+              saveBtn.dataset.quote = quote;
+
+              // 组装（按你现在逻辑：外部单才有📤，可编辑才有📝💾）
+              if (canEditInquiry) {
+                // 外部单且未提交才显示 submit（你原来条件照旧）
+                if (String(item['Source'] || '') === 'customer_portal' && String(item['Submitted To Sourcing'] || '').toLowerCase() !== 'true') {
+                  wrapBasic.appendChild(submitBtn);
+                }
+                wrapBasic.appendChild(editBtn);
+                wrapBasic.appendChild(saveBtn);
+              } else {
+                inquiryActionTd.textContent = '🔒';
+              }
+
+              if (wrapBasic.childNodes.length) inquiryActionTd.appendChild(wrapBasic);
+              r2.appendChild(inquiryActionTd);
+
+              tbody.appendChild(r2);
+
+              // 3) TRUCK header
+              const r3 = document.createElement('tr');
+              r3.className = 'row-truck-head';
+              TRUCK_HEADERS.forEach((h, i) => {
+                if (i === 0) r3.appendChild(tdHeader(quote, 'text-left nowrap-limit'));  // ✅ 第1格显示主号
+                else r3.appendChild(tdHeader(h, (h === 'Carrier' || h === 'Note') ? 'text-left' : 'text-right'));
+              });
+
+              tbody.appendChild(r3);
+
+              // 4) TRUCK values (MAIN)
+              const r4 = document.createElement('tr');
+              r4.className = 'row-truck-val';
+
+              // ✅ 让 lockRow(quote,'TRUCK') 找得到主行
+              r4.dataset.quote = quote;
+              r4.dataset.scope = 'TRUCK';
+
+              if (isTruthy(item['truckingSalesConfirmed'])) {
+                r4.classList.add('truck-confirmed');
+              }
+
+              const lockedTruck = viewOnly
+                || isTruthy(item['Saved'])
+                || isTruthy(item['truckingManagerConfirmed'])
+                || isTruthy(item['truckingSalesConfirmed']);
+
+
+              r4.appendChild(tdCell('')); // 空白欄
+
+              // Base Rate
+              r4.appendChild(tdCell(fmt2(item['Base Rate'])));
+
+              // Price（顯示兩位小數）
+              const priceVal = Number(item['Price']) || 0;
+              r4.appendChild(tdCell(isNaN(priceVal) ? '—' : priceVal.toFixed(2)));
+
+              // GP（防 NaN，轉成百分比）
+              const gpRaw = Number(item['GP']) || 0;
+              const gpPercent = isNaN(gpRaw) || !isFinite(gpRaw) ? '—' : (gpRaw * 100).toFixed(2) + '%';
+              r4.appendChild(tdCell(gpPercent));
+
+              // Adjusted Price（可編輯）
+              const adjInp = makeInput(item['Adjusted Price'] || '', 'Adjusted Price', quote, lockedTruck, 'TRUCK');
+              const tdAdj = document.createElement('td');
+              tdAdj.appendChild(adjInp);
+              r4.appendChild(tdAdj);
+
+              // Adjusted GP（自動計算）
+              const baseRateNum = num(item['Base Rate']);
+              const adjPriceNum = num(item['Adjusted Price']);
+              let adjGPText = '—';
+              if (adjPriceNum > 0 && baseRateNum > 0) {
+                const adjGP = ((adjPriceNum - baseRateNum) / adjPriceNum) * 100;
+                adjGPText = adjGP.toFixed(2) + '%';
+              }
+              r4.appendChild(tdCell(adjGPText));
+
+              adjInp.addEventListener('input', () => {
+                const ap = num(adjInp.value);
+                let newGP = '—';
+                if (ap > 0 && baseRateNum > 0) {
+                  newGP = (((ap - baseRateNum) / ap) * 100).toFixed(2) + '%';
+                }
+                r4.children[5].textContent = newGP;   // 第6個 td 是 Adjusted GP
+              });
+
+              // 後面的 Chassis、Pre-Pull... 等欄位保持原樣
+              const pairs = [
+                ['Chassis', 'Chassis Price'],
+                ['Pre-Pull', 'Pre-Pull Price'],
+                ['Yard Storage', 'Yard Storage Price'],
+                ['Driver Waiting', 'Driver Waiting Price'],
+                ['Over Weight', 'Over Weight Price'],
+                ['Chassis Split', 'Chassis Split Price'],
+                ['Toll', 'Toll Price'],
+                ['Reefer Fee', 'Reefer Fee Price'],
+                ['Bond Fee', 'Bond Fee Price'],
+              ];
+
+              pairs.forEach(([cF, pF]) => {
+                r4.appendChild(tdCell(fmt2(item[cF])));
+                const pi = makeInput(item[pF] || '', pF, quote, lockedTruck, 'TRUCK');
+                const t = document.createElement('td');
+                t.appendChild(pi);
+                r4.appendChild(t);
+              });
+
+              const carrier = makeInput(item['Carrier'] || '', 'Carrier', quote, lockedTruck, 'TRUCK', true);
+              const tdCar = document.createElement('td');
+              tdCar.appendChild(carrier);
+              r4.appendChild(tdCar);
+
+              // ✅ Vendor Note (Column 26) — Sales view only (read-only)
+              const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();
+              const cleanNote = vendorNoteFull.replace(/\s+/g, ' ').trim();
+              const vendorNotePreview = cleanNote.length > 20 ? cleanNote.substring(0, 20) + '...' : cleanNote;
+
+              const vNoteTd = tdCell(vendorNotePreview, 'text-left note-preview vendor-note-preview');
+              vNoteTd.dataset.fullNote = vendorNoteFull;
+              vNoteTd.dataset.which = 'VENDOR NOTE';
+
+              // ❌ Sales 不允许保存，所以不要加 dataset.field / dataset.quote
+              r4.appendChild(vNoteTd);
+
+              r4.appendChild(actionCellTruck(item, quote, role));
+
+
+              const costReceivedTruck = hasSourcingInput(item);
+              const savedTruck = isTruthy(item['truckingPriceSaved']);
+              const confirmedTruck =
+                isTruthy(item['truckingSalesConfirmed']) || isTruthy(item['truckingManagerConfirmed']);
+
+              if (confirmedTruck) r4.classList.add('row-confirmed');
+              else if (savedTruck) r4.classList.add('saved-price');
+              else if (costReceivedTruck) r4.classList.add('cost-received');
+
+
+              tbody.appendChild(r4);
+
+
+              // ===== Insert TRUCK sub-lines under TRUCK main row (Sourcing) =====
+              const _truckSubs = truckSubsByParent.get(quote) || [];
+              _truckSubs.forEach(sub => {
+                const subQuote = String(sub['Quotation #'] || '').trim();
+                if (!subQuote) return;
+
+                const r4s = document.createElement('tr');
+                r4s.dataset.quote = subQuote;
+                r4s.dataset.scope = 'TRUCK';
+                r4s.className = 'row-truck-val sub-row';
+
+                const baseExt = (item['External Quotation #'] || quote || '').trim();  // 主单 external
+                const suffix = String(subQuote).includes('-') ? '-' + String(subQuote).split('-').pop() : '';
+                r4s.appendChild(tdCell((baseExt ? (baseExt + suffix) : subQuote), 'text-center font-semibold nowrap-limit'));
+
+                // ✅ 子行统一锁定状态（一定要在任何 makeInput 之前定义）
+
+                const lockedSub = viewOnly
+                  || isTruthy(sub['Saved'])
+                  || isTruthy(sub['truckingManagerConfirmed'])
+                  || isTruthy(sub['truckingSalesConfirmed']);
+
+
+                // Base Rate (Cost)
+                r4s.appendChild(tdCell(fmt2(sub['Base Rate'])));
+
+                // Price / GP（从 server 字段显示）
+                r4s.appendChild(tdCell(sub['Price'] ? Number(sub['Price']).toFixed(2) : '—'));
+
+                const gpRawSub = Number(sub['GP']);
+                const gpPercentSub = (!isFinite(gpRawSub) ? '—' : (gpRawSub * 100).toFixed(2) + '%');
+                r4s.appendChild(tdCell(gpPercentSub));
+
+                // Adjusted Price（input）
+                const adjInpSub = makeInput(sub['Adjusted Price'] || '', 'Adjusted Price', subQuote, lockedSub, 'TRUCK');
+                const tdAdjSub = document.createElement('td');
+                tdAdjSub.appendChild(adjInpSub);
+                r4s.appendChild(tdAdjSub);
+
+                // Adjusted GP（显示 + 即时更新）
+                const tdAdjGPSub = tdCell(sub['Adjusted GP'] || '—');
+                r4s.appendChild(tdAdjGPSub);
+
+                adjInpSub.addEventListener('input', () => {
+                  const baseRateNum = Number(String(sub['Base Rate'] || '').replace(/,/g, '')) || 0;
+                  const ap = Number(String(adjInpSub.value || '').replace(/,/g, '')) || 0;
+
+                  if (ap > 0 && baseRateNum > 0) {
+                    const gp = ((ap - baseRateNum) / ap) * 100;
+                    tdAdjGPSub.textContent = gp.toFixed(2) + '%';
+                  } else {
+                    tdAdjGPSub.textContent = '—';
+                  }
+                });
+
+                // Cost/Price pairs（Cost 文本 + Price input）
+                const pairsSub = [
+                  ['Chassis', 'Chassis Price'],
+                  ['Pre-Pull', 'Pre-Pull Price'],
+                  ['Yard Storage', 'Yard Storage Price'],
+                  ['Driver Waiting', 'Driver Waiting Price'],
+                  ['Over Weight', 'Over Weight Price'],
+                  ['Chassis Split', 'Chassis Split Price'],
+                  ['Toll', 'Toll Price'],
+                  ['Reefer Fee', 'Reefer Fee Price'],
+                  ['Bond Fee', 'Bond Fee Price'],
+                ];
+
+                pairsSub.forEach(([cF, pF]) => {
+                  r4s.appendChild(tdCell(fmt2(sub[cF])));
+
+                  const pi = makeInput(sub[pF] || '', pF, subQuote, lockedSub, 'TRUCK');
+                  const tdP = document.createElement('td');
+                  tdP.appendChild(pi);
+                  r4s.appendChild(tdP);
+                });
+
+                const carInp = makeInput(sub['Carrier'] || '', 'Carrier', subQuote, true, 'TRUCK', true);
+
+                const tdCar = document.createElement('td');
+                tdCar.appendChild(carInp);
+                r4s.appendChild(tdCar);
+
+                r4s.appendChild(tdCell('')); // Note 占位，保证列数对齐
+                r4s.appendChild(actionCellTruck(sub, subQuote, role));
+
+                if (isTruthy(sub['truckingSalesConfirmed']) || isTruthy(sub['truckingManagerConfirmed'])) {
+                  r4s.classList.add('truck-confirmed');
+                }
+
+
+                // ===== 状态控制（TRUCK 子行 r4s）=====
+                const confirmedTruckSub =
+                  isTruthy(sub['truckingSalesConfirmed']) ||
+                  isTruthy(sub['truckingManagerConfirmed']);
+
+                const savedTruckSub = isTruthy(sub['truckingPriceSaved']);
+                const costReceivedTruckSub = hasSourcingInput(sub); // ✅ 子行也可用同函数
+
+                if (confirmedTruckSub) {
+                  r4s.classList.add('row-confirmed');
+                } else if (savedTruckSub) {
+                  r4s.classList.add('saved-price');
+                } else if (costReceivedTruckSub) {
+                  r4s.classList.add('cost-received');
+                }
+
+
+
+                tbody.appendChild(r4s);
+              });
+
+              // 5) WH header
+              const r5 = document.createElement('tr');
+              r5.className = 'row-wh-head';
+              // WH header row
+              WH_LEFT_HEADERS.forEach((h, i) => {
+                if (i === 0) r5.appendChild(tdHeader(quote, 'text-left')); // ✅ 用 quote
+                else r5.appendChild(tdHeader(h));
+              });
+
+              // ✅ NEW column (right after Vendor)
+              r5.appendChild(tdHeader('EST GP'));
+
+              // NOTE starts 1 column later, so colspan reduced
+              const whNoteHead = tdHeader('NOTE');
+              whNoteHead.colSpan = 8;
+              whNoteHead.classList.add('text-left'); // 你要居中就改 text-center
+              r5.appendChild(whNoteHead);
+
+              // spacer + action（保持你原本的）
+              r5.appendChild(tdHeader(''));
+              r5.appendChild(tdHeader('Action'));
+
+
+              tbody.appendChild(r5);
+
+
+              // 6) WH values
+              const r6 = document.createElement('tr');
+              r6.className = 'row-wh-val';
+
+              // ✅ allow lockRow()/style targeting
+              r6.dataset.quote = quote;
+              r6.dataset.scope = 'WH';
+
+              if (isTruthy(item['warehouseSalesConfirmed'])) {
+                r6.classList.add('wh-confirmed');
+              }
+
+              const lockedWH = viewOnly
+                || isTruthy(item['Saved'])
+                || isTruthy(item['warehouseManagerConfirmed'])
+                || isTruthy(item['warehouseSalesConfirmed']);
+
+
+              r6.appendChild(tdCell('')); // col1 blank
+
+              const whPairs = [
+                ['Order Processing', 'Order Processing Price'],
+                ['Inbound', 'Inbound Price'],
+                ['Sorting', 'Sorting Price'],
+                ['Palletizing', 'Palletizing Price'],
+                ['Pallet Fee', 'Pallet Fee Price'],       // 修正这里
+                ['Storage', 'Storage Price'],
+                ['Outbound', 'Outbound Price'],
+              ];
+
+
+              const whAuto = (costVal, priceVal) => {
+                const c = num(costVal);
+                const p = String(priceVal ?? '').trim();
+                if (p) return p;
+                if (c === null) return '';
+                return String(Math.round(c * 1.25));
+              };
+              whPairs.forEach(([cF, pF]) => {
+                r6.appendChild(tdCell(fmt2(item[cF])));
+                const pi = makeInput(whAuto(item[cF], item[pF]), pF, quote, lockedWH, 'WH');
+                const t = document.createElement('td');
+                t.appendChild(pi);
+                r6.appendChild(t);
+              });
+
+
+              // ===== Vendor（这里就是第16栏）=====
+              const vendor = makeInput(item['Vendor'] || '', 'Vendor', quote, lockedWH, 'WH', true);
+              const tdVendor = document.createElement('td');
+              tdVendor.appendChild(vendor);
+              r6.appendChild(tdVendor);
+
+              // ===== 第17栏：EST GP =====
+              const whCostFields = [
+                'Order Processing', 'Inbound', 'Sorting',
+                'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'
+              ];
+
+              const whPriceFields = [
+                'Order Processing Price', 'Inbound Price', 'Sorting Price',
+                'Palletizing Price', 'Pallet Fee Price',
+                'Storage Price', 'Outbound Price'
+              ];
+
+              let sumCost = 0;
+              let sumPrice = 0;
+
+              whCostFields.forEach(f => {
+                const n = parseFloat(item[f] || 0);
+                if (!isNaN(n)) sumCost += n;
+              });
+
+              whPriceFields.forEach(f => {
+                const n = parseFloat(item[f] || 0);
+                if (!isNaN(n)) sumPrice += n;
+              });
+
+              let estGpText = '—';
+              if (sumPrice > 0) {
+                const gp = (sumPrice - sumCost) / sumPrice;
+                estGpText = (gp * 100).toFixed(2) + '%';
+              }
+
+              const tdEstGP = document.createElement('td');
+              tdEstGP.textContent = estGpText;
+              tdEstGP.style.textAlign = 'right';
+              r6.appendChild(tdEstGP);
+
+              // ===== 解析 Warehouse Services 字符串 =====
+              const whServicesStr = (item['Warehouse Services'] || '').toString().trim();
+              const whServicesList = whServicesStr
+                ? whServicesStr.split(';').map(s => s.trim()).filter(Boolean)
+                : [];
+
+
+              // ===== 18-25 => NOTE (Warehouse 汇总，占 9 列) =====
+
+              // 图标函数
+              const icon = (on, emoji) =>
+                (String(on).toLowerCase() === 'true' ? emoji : '');
+
+              const haz = icon(item['Hazmat'], '☣️');
+              const ree = icon(item['Reefer'], '❄️');
+              const bon = icon(item['Bonded'], '🔒');
+              const needWHIcon = icon(item['Need Warehouse Service'], '🏬');
+
+              // ✅ 加这一行
+              const iconLine = [needWHIcon, haz, ree, bon].filter(Boolean).join(' ');
+
+
+              // Warehouse services (multi-select)
+              // ✅ 1) Service Detail（优先显示带 Qty/Unit 的版本）
+              const detail = (item['Warehouse Service Detail'] || '').toString().trim();
+              const servicesLine =
+                detail ||
+                (whServicesList.length ? whServicesList.map(s => `✅ ${s}`).join(' ') : '');
+
+              // ✅ 2) Estimated（把你原来那些输入显示出来）
+              const estPallets = (item['Estimated Pallets'] || '').toString().trim();
+              const estBoxes = (item['Estimated Boxes'] || '').toString().trim();
+              const estSku = (item['Estimated SKU Count'] || '').toString().trim();
+
+              const estLine =
+                (estPallets || estBoxes || estSku)
+                  ? `Est: Pallets ${estPallets || '-'}, Boxes ${estBoxes || '-'}, SKU ${estSku || '-'}`
+                  : '';
+
+              // ✅ 3) Storage Duration
+              const dur = (item['Storage Duration'] || '').toString().trim();
+              const durUnit = (item['Storage Duration Unit'] || '').toString().trim();
+
+              const storageLine =
+                (dur || durUnit)
+                  ? `Storage: ${dur || '-'} ${durUnit || ''}`.trim()
+                  : '';
+
+              // ✅ 4) Warehouse Note 文本
+              const whNote = (item['Warehouse Note'] || '').toString().trim();
+              const whNoteLine = whNote ? `WH Note: ${whNote}` : '';
+
+              const mergedWhNote = [
+                iconLine,
+                servicesLine,
+                estLine,
+                storageLine,
+                whNoteLine,
+              ].filter(Boolean).join(' | ');
+
+
+              const whFull = (mergedWhNote || '').toString();
+              const whPreview = whFull.replace(/\s+/g, ' ').trim(); // ✅ 压扁换行
+
+              const whNoteVal = tdCell('', 'text-left note-preview');
+              whNoteVal.colSpan = 8;
+              whNoteVal.dataset.fullNote = whFull;
+              whNoteVal.dataset.which = 'WAREHOUSE NOTE';
+
+              const line2 = document.createElement('div');
+              line2.className = 'note-line';
+              line2.textContent = whPreview;           // 一行预览
+              whNoteVal.appendChild(line2);
+
+              r6.appendChild(whNoteVal);
+
+
+              // 26 blank
+              r6.appendChild(tdCell(''));
+
+              // 27 Action
+              r6.appendChild(actionCellWH(item, quote, role));
+
+              const costReceivedWH = hasSourcingWHInput(item);
+              const savedWH = isTruthy(item['warehousePriceSaved']);
+              const confirmedWH =
+                isTruthy(item['warehouseSalesConfirmed']) || isTruthy(item['warehouseManagerConfirmed']);
+
+              if (confirmedWH) r6.classList.add('row-confirmed');
+              else if (savedWH) r6.classList.add('saved-price');
+              else if (costReceivedWH) r6.classList.add('cost-received');
+
+
+              tbody.appendChild(r6);
+
+
+              // ===== Insert WAREHOUSE sub-lines under WH main row (Sourcing) =====
+              const _whSubs = whSubsByParent.get(quote) || [];
+              _whSubs.forEach(sub => {
+                const subQuote = String(sub['Quotation #'] || '').trim();
+                if (!subQuote) return;
+
+                const r6s = document.createElement('tr');
+                r6s.dataset.quote = subQuote;
+                r6s.dataset.scope = 'WH';
+                r6s.className = 'row-wh-val sub-row';
+
+                const baseExt = (item['External Quotation #'] || quote || '').trim();
+                const suffix = String(subQuote).match(/-[A-Z]$/i)?.[0] || '';
+                r6s.appendChild(tdCell((baseExt ? (baseExt + suffix) : subQuote), 'text-center font-semibold nowrap-limit'));
+
+                const whPairsSub = [
+                  ['Order Processing', 'Order Processing Price'],
+                  ['Inbound', 'Inbound Price'],
+                  ['Sorting', 'Sorting Price'],
+                  ['Palletizing', 'Palletizing Price'],
+                  ['Pallet Fee', 'Pallet Fee Price'],
+                  ['Storage', 'Storage Price'],
+                  ['Outbound', 'Outbound Price'],
+                ];
+
+                whPairsSub.forEach(([cF, pF]) => {
+                  // Cost：文本
+                  r6s.appendChild(tdCell(fmt2(sub[cF])));
+
+                  // Price：input（Sales 填价）
+                  const lockedSub = viewOnly
+                    || isTruthy(sub['Saved'])
+                    || isTruthy(sub['warehouseManagerConfirmed'])
+                    || isTruthy(sub['warehouseSalesConfirmed']);
+
+                  const pi = makeInput(sub[pF] || '', pF, subQuote, lockedSub, 'WH');
+                  const tdP = document.createElement('td');
+                  tdP.appendChild(pi);
+                  r6s.appendChild(tdP);
+                });
+
+                const venInp = makeInput(sub['Vendor'] || '', 'Vendor', subQuote, true, 'WH', true);
+                const tdVen = document.createElement('td');
+                tdVen.appendChild(venInp);
+                r6s.appendChild(tdVen);
+
+                // ===== 子行第17栏：EST GP（加在这里）=====
+                const whCostFieldsSub = [
+                  'Order Processing', 'Inbound', 'Sorting',
+                  'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'
+                ];
+
+                const whPriceFieldsSub = [
+                  'Order Processing Price', 'Inbound Price', 'Sorting Price',
+                  'Palletizing Price', 'Pallet Fee Price',
+                  'Storage Price', 'Outbound Price'
+                ];
+
+                let sumCostSub = 0;
+                let sumPriceSub = 0;
+
+                whCostFieldsSub.forEach(f => {
+                  const n = parseFloat(sub[f] || 0);
+                  if (!isNaN(n)) sumCostSub += n;
+                });
+                whPriceFieldsSub.forEach(f => {
+                  const n = parseFloat(sub[f] || 0);
+                  if (!isNaN(n)) sumPriceSub += n;
+                });
+
+                let estGpSubText = '—';
+                if (sumPriceSub > 0) {
+                  const gp = (sumPriceSub - sumCostSub) / sumPriceSub;
+                  estGpSubText = (gp * 100).toFixed(2) + '%';
+                }
+
+                const tdEstGPSub = document.createElement('td');
+                tdEstGPSub.textContent = estGpSubText;
+                tdEstGPSub.style.textAlign = 'right';
+                r6s.appendChild(tdEstGPSub);
+
+                // ===== 然后才进入 NOTE =====
+                const whFullS = (sub['Warehouse Note'] || '').toString();
+                const whPreviewS = whFullS.replace(/\s+/g, ' ').trim();
+                const whNoteTdS = tdCell(whPreviewS, 'text-left note-preview');
+                whNoteTdS.colSpan = 8;
+                whNoteTdS.dataset.fullNote = whFullS;
+                whNoteTdS.dataset.which = 'WAREHOUSE NOTE';
+                r6s.appendChild(whNoteTdS);
+                r6s.appendChild(tdCell('', 'spacer-col'));
+                r6s.appendChild(actionCellWH(sub, subQuote, role));
+
+                // 🔥 加在这里
+                if (isTruthy(sub['warehouseSalesConfirmed']) || isTruthy(sub['warehouseManagerConfirmed'])) {
+                  r6s.classList.add('wh-confirmed');
+                }
+
+                // ===== 状态控制（WH 子行 r6s）=====
+
+                const confirmedWHSub =
+                  isTruthy(sub['warehouseSalesConfirmed']) ||
+                  isTruthy(sub['warehouseManagerConfirmed']);
+
+                const savedWHSub = isTruthy(sub['warehousePriceSaved']);            // ✅ 子行：Saved + Price有值
+                const costReceivedWHSub = hasSourcingWHInput(sub);      // 子行用 sub
+
+                if (confirmedWHSub) {
+                  r6s.classList.add('row-confirmed');
+                } else if (savedWHSub) {
+                  r6s.classList.add('saved-price');
+                } else if (costReceivedWHSub) {
+                  r6s.classList.add('cost-received');
+                }
+
+                tbody.appendChild(r6s);
+              });
+
+            });
+
+            const pageInfo = document.getElementById('pageInfo');
+            if (pageInfo) pageInfo.textContent = `Page ${currentPage}`;
+          };
+
+          // ================= SEARCH SUPPORT =================
+          window.searchTerm = '';
+
+          window.applySearchFilter = function (list, term) {
+            const t = String(term || '').trim().toLowerCase();
+            if (!t) return list;
+
+            const mains = list.filter(it => !String(it['Parent Quotation #'] || '').trim());
+
+            const hit = (it) => {
+              const q = String(it['Quotation #'] || '').toLowerCase();
+              const zip = String(it['To ZIP'] || '').toLowerCase();
+              const to = String(it['To'] || '').toLowerCase();
+              return q.includes(t) || zip.includes(t) || to.includes(t);
+            };
+
+            const matchedMains = mains.filter(hit);
+
+            const mainKeys = new Set(
+              matchedMains.map(it => String(it['Quotation #'] || '').trim())
+            );
+
+            const children = list.filter(it => {
+              const p = String(it['Parent Quotation #'] || '').trim();
+              return p && mainKeys.has(p);
+            });
+
+            const seen = new Set();
+            const merged = [];
+            [...matchedMains, ...children].forEach(it => {
+              const q = String(it['Quotation #'] || '').trim();
+              if (!q || seen.has(q)) return;
+              seen.add(q);
+              merged.push(it);
+            });
+
+            return merged;
+          };
+
+
+          // Ensure Warehouse block always bound (in case earlier script stopped)
+          try {
+            const whChk = document.getElementById('needWarehouseService');
+            if (whChk && typeof window.refreshWarehouseBlock === 'function') {
+              whChk.addEventListener('change', window.refreshWarehouseBlock);
+              window.refreshWarehouseBlock();
+            }
+          } catch (e) { }
+
+        })();
+
+
+        // ===============================
+        // ✅ Main loader (required for Summary)
+        // ===============================
+        window.pageSize = 100;
+        window.currentPage = 1;
+        window.filteredData = [];
+        window.currentUser = '';
+        window.userRole = '';
+
+        window.getCurrentUser = async function () {
+          const res = await fetch('/user');
+          if (!res.ok) {
+            alert('❌ Not logged in. Please login again.');
+            window.location.href = '/index.html';
+            return;
+          }
+          const userInfo = await res.json();
+          window.userRole = userInfo.role;
+          window.currentUser = (userInfo.username || '').trim();
+
+          const nameEl = document.getElementById('usernameDisplay');
+          if (nameEl) nameEl.textContent = window.currentUser;
+
+          const reqHidden = document.querySelector('[name="requestedBy"]');
+          const reqDisplay = document.querySelector('[name="requestedByDisplay"]');
+          if (reqHidden) reqHidden.value = window.currentUser;
+          if (reqDisplay) reqDisplay.value = window.currentUser;
+        };
+
+        window.loadInquiries = async function () {
+          try {
+            const res = await fetch('/inquiries', { credentials: 'same-origin' });
+
+            const raw = await res.text(); // ✅ 先读 text，避免 json() 直接炸
+            let data = null;
+
+            try {
+              data = JSON.parse(raw);
+            } catch (err) {
+              console.error('❌ /inquiries returned NON-JSON:', raw.slice(0, 500));
+              alert(`🚨 Load failed: /inquiries returned non-JSON (status ${res.status}).\n\n` +
+                raw.slice(0, 220));
+              return;
+            }
+
+            if (!res.ok) {
+              console.error('❌ /inquiries not ok:', res.status, data);
+              alert(`🚨 Load failed: /inquiries status ${res.status}\n\n` +
+                JSON.stringify(data).slice(0, 220));
+              return;
+            }
+
+            if (!Array.isArray(data)) {
+              console.error('🚨 Inquiry data invalid (not array):', data);
+              alert('🚨 Inquiry data invalid (not array).');
+              return;
+            }
+
+            window.filteredData = data;
+
+            // ✅ Search
+            window.filteredData = window.applySearchFilter(window.filteredData, window.searchTerm);
+
+            // ✅ Sort（保持你原有排序逻辑即可）
+            window.filteredData.sort((a, b) => {
+              const qa = String(a['Quotation #'] || '');
+              const qb = String(b['Quotation #'] || '');
+
+              const aIsChild = String(a['Parent Quotation #'] || '').trim() !== '';
+              const bIsChild = String(b['Parent Quotation #'] || '').trim() !== '';
+
+              if (!aIsChild && bIsChild) return -1;
+              if (aIsChild && !bIsChild) return 1;
+
+              return qb.localeCompare(qa, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            if (typeof window.renderPage === 'function') {
+              window.renderPage();
+            } else {
+              console.error('renderPage is not a function');
+              alert('❌ renderPage missing.');
+            }
+          } catch (e) {
+            console.error('Failed to load inquiries:', e);
+            alert('🚨 Load failed: ' + (e.message || e));
+          }
+        };
+
+        function applyLayoutMode() {
+          const isFS = !!document.fullscreenElement;
+          document.body.classList.toggle('fullscreen-mode', isFS);
+
+          // ✅ 你的需求：非全屏隐藏 Form，全屏显示 Form
+          document.body.classList.toggle('summary-only', !isFS);
+
+          // 如果全屏时你也想默认收起 Form（可选），就把下面注释去掉：
+          // if (isFS) document.getElementById('formGroup')?.classList.add('hidden');
+        }
+        // applyLayoutMode(); // ✅ disabled (kept for reference)
+        // document.addEventListener('fullscreenchange', applyLayoutMode); // ✅ disabled
+        window.addEventListener('resize', applyLayoutMode);
+
+        window.setMode = function (mode) {
+          document.body.classList.remove('mode-inquiry', 'mode-summary');
+          document.body.classList.add(mode === 'summary' ? 'mode-summary' : 'mode-inquiry');
+        };
+
+
+        document.addEventListener('DOMContentLoaded', async () => {
+          // 1) user
+          await window.getCurrentUser();
+          // 2) load data + render
+          await window.loadInquiries();
+
+          window.setMode?.('inquiry');            // ✅ 默认隐藏 Summary
+          document.getElementById('fixed-scroll-wrapper')?.scrollTo(0, 0); // 可选
+
+
+          document.body.classList.add('inquiry-only');
+          document.body.classList.remove('summary-only');
+
+
+          // ===== Top buttons hard-bind (debug + fix) =====
+          const btnToggle = document.getElementById('toggleInquiry');
+          const btnPrev = document.getElementById('prevPage');
+          const btnNext = document.getElementById('nextPage');
+          const btnExit = document.getElementById('exitBtn');
+          const formGroup = document.getElementById('formGroup');
+
+
+          function setMode(mode) {
+            if (mode === 'summary') {
+              document.body.classList.remove('mode-inquiry');
+              document.body.classList.add('mode-summary');
+              // 可选：按钮图标变“回到表单”
+              if (btnToggle) btnToggle.textContent = '📝';
+            } else {
+              document.body.classList.remove('mode-summary');
+              document.body.classList.add('mode-inquiry');
+              // 可选：按钮图标变“查看Summary”
+              if (btnToggle) btnToggle.textContent = '📊';
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          }
+
+          document.getElementById('toggleInquiry')?.addEventListener('click', () => {
+            const isSummary = document.body.classList.contains('mode-summary');
+            window.setMode?.(isSummary ? 'inquiry' : 'summary');
+          });
+
+          document.addEventListener('fullscreenchange', () => {
+            // 用户按 ESC 退出全屏，也自动回 Inquiry
+            if (!document.fullscreenElement) {
+              document.body.classList.remove('summary-only');
+              document.body.classList.add('inquiry-only');
+            }
+          });
+
+
+
+          btnExit?.addEventListener('click', () => {
+            console.log('[TOP] exit clicked');
+            window.location.href = '/index.html';
+          });
+
+
+          // 3) warehouse checkbox bind + initial sync
+          const whChk = document.getElementById('needWarehouseService');
+          if (whChk) whChk.addEventListener('change', window.refreshWarehouseBlock);
+          window.refreshWarehouseBlock();
+        });
+
+        document.querySelectorAll('input[name="whService"]').forEach(chk => {
+          const svc = chk.value;
+          const qty = document.querySelector(`input[name="whQty_${svc}"]`);
+          const unit = document.querySelector(`input[name="whUnit_${svc}"]`);
+          if (!qty || !unit) return;
+
+          const sync = () => {
+            const on = chk.checked;
+            qty.disabled = !on;
+            unit.disabled = !on;
+            if (!on) { qty.value = ''; unit.value = ''; }
+          };
+
+          chk.addEventListener('change', sync);
+          sync();
+        });
+
+        document.getElementById('inquiryForm').addEventListener('submit', async function (e) {
+          e.preventDefault();
+
+          // 1) 取表单数据
+          const form = this;
+          const fd = new FormData(form);
+          const entry = Object.fromEntries(fd.entries());
+
+          // 2) 多选 Warehouse Services
+          const selectedServices = Array.from(form.querySelectorAll('input[name="whService"]:checked')).map(x => x.value);
+
+          // ✅ 2.1) 组装每个服务的 Qty/Unit 文本（先算出来）
+          const svcLines = selectedServices.map(svc => {
+            const qtyEl = form.querySelector(`input[name="whQty_${svc}"]`);
+            const unitEl = form.querySelector(`input[name="whUnit_${svc}"]`);
+
+            const qty = (qtyEl?.value || '').trim();
+            const unit = (unitEl?.value || '').trim();
+
+            if (!qty && !unit) return `✅ ${svc}`;
+            return `✅ ${svc}: ${qty || '-'} ${unit || ''}`.trim();
+          }).filter(Boolean);
+
+          const serviceDetail = svcLines.join(' | ');
+
+
+          // 3) checkbox
+          const hazmat = form.querySelector('input[name="hazmat"]')?.checked ? 'true' : 'false';
+          const reefer = form.querySelector('input[name="reefer"]')?.checked ? 'true' : 'false';
+          const bonded = form.querySelector('input[name="bonded"]')?.checked ? 'true' : 'false';
+          const needWH = form.querySelector('input[name="needWarehouseService"]')?.checked ? 'true' : 'false';
+
+          // 4) 拼 To
+          const toCity = (entry.toCity || '').trim();
+          const toState = (entry.toState || '').trim();
+          const toZip = (entry.toZip || '').trim();
+          const composedTo = [toCity, [toState, toZip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+
+          // ✅ 5) 关键：把字段映射成 Summary/系统使用的 key（带空格的大写）
+          const newInquiry = {
+            'Date': new Date().toLocaleDateString(),
+
+            'Customer ID': entry.customerId || '',
+            'Requested By': window.currentUser || '',
+            'username': window.currentUser || '',
+
+            'Inquiry Type': entry.inquiryType || '',
+            'Container Size': entry.containerSize || '',
+            'Dry Van Type': entry.dryVanType || '',
+            'Legal or Over Weight': entry.legalOverWeight || '',
+            'Gross Weight': entry.grossWeight || '',
+            'Live or Drop': entry.liveOrDrop || '',
+            'From': entry.from || '',
+
+            'To City': toCity,
+            'To State': toState,
+            'To ZIP': toZip,
+            'To': composedTo,
+
+            'QTY': entry.qty || '',
+            'Quotation #': entry.quotationId || '',
+
+            // Cargo
+            'Commodity': entry.commodity || '',
+            'Package Type': entry.packageType || '',
+            'Packages Per Container': entry.packagesPerContainer || '',
+            'Hazmat': hazmat,
+            'Reefer': reefer,
+            'Bonded': bonded,
+
+            // Warehouse block
+            'Need Warehouse Service': needWH,
+            'Warehouse Services': selectedServices.join('; '),
+            'Warehouse Service Detail': serviceDetail,   // ✅ 加这一行
+            'Estimated Pallets': entry.estimatedPallets || '',
+            'Estimated Boxes': entry.estimatedBoxes || '',
+            'Estimated SKU Count': entry.estimatedSkuCount || '',
+            'Storage Duration': entry.storageDuration || '',
+            'Storage Duration Unit': entry.storageDurationUnit || '',
+            'Warehouse Note': entry.warehouseNote || '',
+
+            // General note
+            'Note': entry.note || '',
+
+            // default flags
+            'Saved': 'false',
+            'truckingPriceSaved': 'false',
+            'warehousePriceSaved': 'false',
+            'truckingSalesConfirmed': 'false',
+            'truckingManagerConfirmed': 'false',
+            'warehouseSalesConfirmed': 'false',
+            'warehouseManagerConfirmed': 'false'
+          };
+
+          try {
+            const res = await fetch('/inquiries', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newInquiry)
+            });
+
+            const result = await res.json();
+            if (result.success) {
+              alert('✅ Inquiry submitted successfully!');
+              form.reset();
+              window.refreshWarehouseBlock?.();
+              await window.loadInquiries?.();
+            } else {
+              alert('❌ Submit failed: ' + (result.message || 'Unknown error'));
+            }
+          } catch (err) {
+            console.error(err);
+            alert('❌ Network error: ' + err.message);
+          }
+        });
+
+        (function setupNoteViewerModal() {
+          const modal = document.getElementById('noteModal');
+          const input = document.getElementById('noteModalInput');
+          const saveBtn = document.getElementById('noteModalSave');
+          const titleEl = modal?.querySelector('h2');
+
+          if (!modal || !input) return;
+
+          // Sales端：只读查看
+          if (saveBtn) saveBtn.style.display = 'none';
+          input.setAttribute('readonly', 'readonly');
+
+          function openModal(text, which) {
+            if (titleEl) titleEl.textContent = which || 'NOTE';
+            input.value = text || '';
+            modal.classList.remove('hidden');
+            document.body.classList.add('no-body-scroll');
+          }
+          function closeModal() {
+            modal.classList.add('hidden');
+            input.value = '';
+            document.body.classList.remove('no-body-scroll');
+          }
+
+          modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+          document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+          });
+
+          document.addEventListener('click', (e) => {
+            const td = e.target.closest('#summaryTable td.note-preview');
+            if (!td) return;
+            openModal(td.dataset.fullNote || td.textContent || '', td.dataset.which || 'NOTE');
+          });
+        })();
+
+        // ===== Inquiry Edit/Save handlers =====
+        // ===== Inquiry Edit/Save handlers =====
+
+        // ✅ 放在外面：只定义一次（不要每次 click 都重新定义）
+        function setWorking(btn, on) {
+          if (!btn) return;
+          btn.classList.toggle('working', !!on);
+        }
+        function flashDone(btn) {
+          if (!btn) return;
+          btn.classList.add('done');
+          setTimeout(() => btn.classList.remove('done'), 700);
+        }
+
+        document.addEventListener('click', async (e) => {
+          const editBtn = e.target.closest('button.btn-edit-inquiry');
+          const saveBtn = e.target.closest('button.btn-save-inquiry');
+          const submitSourcingBtn = e.target.closest('button.btn-submit-sourcing');
+
+          if (!editBtn && !saveBtn && !submitSourcingBtn) return;
+
+          // ✅ 用哪个按钮点的，就用哪个按钮找 quote
+          const activeBtn = editBtn || saveBtn || submitSourcingBtn;
+          const quote = activeBtn?.dataset?.quote;
+          if (!quote) return;
+
+          // ✅ 关键修复：submit 也能正确找到 tr
+          const tr = activeBtn.closest('tr');
+          if (!tr) return;
+
+          const fields = tr.querySelectorAll('.inq-field');
+
+          // --- 点击 SUBMIT TO SOURCING (customer portal only) ---
+          if (submitSourcingBtn) {
+            const external = prompt('Please enter External Quotation # (required before submitting to sourcing):');
+            if (!external || !external.trim()) {
+              alert('External Quotation # is required.');
+              return;
+            }
+
+            const payload = {
+              'Quotation #': quote,
+              'Saved': 'true',
+              'External Quotation #': external.trim(),
+              'Submitted To Sourcing': 'true',
+              'Submitted To Sourcing At': new Date().toISOString()
+            };
+
+            setWorking(submitSourcingBtn, true);
+            try {
+              const res = await fetch('/inquiries/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+
+              const text = await res.text();
+              if (!res.ok) {
+                alert('❌ Submit to Sourcing failed: ' + text);
+                return;
+              }
+
+              // ✅ 成功反馈：闪绿 + 隐藏📤
+              flashDone(submitSourcingBtn);
+              submitSourcingBtn.style.display = 'none';
+
+              await window.loadInquiries?.();
+            } catch (err) {
+              console.error(err);
+              alert('❌ Network error: ' + err.message);
+            } finally {
+              setWorking(submitSourcingBtn, false);
+            }
+            return;
+          }
+
+          // --- 点击 EDIT ---
+          if (editBtn) {
+            fields.forEach(inp => {
+              if (inp.dataset.allowEdit === '1') inp.disabled = false;
+            });
+
+            // 按钮切换：隐藏📝，显示💾
+            editBtn.style.display = 'none';
+            const s = tr.querySelector('button.btn-save-inquiry');
+            if (s) s.style.display = 'inline-flex';
+            return;
+          }
+
+          // --- 点击 SAVE ---
+          if (saveBtn) {
+            const payload = { 'Quotation #': quote, 'Saved': 'true' };
+            fields.forEach(inp => {
+              if (inp.dataset.allowEdit === '1') {
+                payload[inp.dataset.key] = inp.value;
+              }
+            });
+
+            setWorking(saveBtn, true);
+            try {
+              const res = await fetch('/inquiries/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+
+              const text = await res.text();
+              if (!res.ok) {
+                alert('❌ Save failed: ' + text);
+                return;
+              }
+
+              // ✅ 成功反馈：闪绿
+              flashDone(saveBtn);
+
+              // 保存成功：锁回去
+              fields.forEach(inp => {
+                if (inp.dataset.allowEdit === '1') inp.disabled = true;
+              });
+
+              // 按钮切回：隐藏💾，显示📝
+              saveBtn.style.display = 'none';
+              const ed = tr.querySelector('button.btn-edit-inquiry');
+              if (ed) ed.style.display = 'inline-flex';
+
+            } catch (err) {
+              console.error('Save inquiry failed:', err);
+              alert('Save inquiry failed: ' + err.message);
+            } finally {
+              setWorking(saveBtn, false);
+            }
+          }
+        });
+
+        document.getElementById('searchBtn')?.addEventListener('click', async () => {
+          window.searchTerm = document.getElementById('searchBox')?.value || '';
+          await window.loadInquiries();
+        });
+
+        document.getElementById('clearSearchBtn')?.addEventListener('click', async () => {
+          const box = document.getElementById('searchBox');
+          if (box) box.value = '';
+          window.searchTerm = '';
+          await window.loadInquiries();
+        });
+
+
+
+      </script>
+</body>
+
+</html>

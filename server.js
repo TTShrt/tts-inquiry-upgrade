@@ -870,6 +870,34 @@ app.get('/inquiries', async (req, res) => {
   }
 });
 
+// ==========================
+// ✅ V2 APIs (New System)
+// ==========================
+app.get('/v2/inquiries', async (req, res) => {
+  try {
+    if (USE_MOCK) return res.json([]);
+    if (!InquiryV2) return res.status(500).json({ error: 'Mongo NEW not connected' });
+
+    const rows = await InquiryV2.find({}).sort({ _id: -1 }).lean();
+    res.json(rows);
+  } catch (e) {
+    console.error('❌ /v2/inquiries error:', e);
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+app.post('/v2/inquiries', async (req, res) => {
+  try {
+    if (USE_MOCK) return res.json({ ok: true, mock: true });
+    if (!InquiryV2) return res.status(500).json({ error: 'Mongo NEW not connected' });
+
+    const doc = await InquiryV2.create(req.body);
+    res.json({ ok: true, doc });
+  } catch (e) {
+    console.error('❌ POST /v2/inquiries error:', e);
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
 
 app.post('/inquiries/update', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();

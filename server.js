@@ -7,6 +7,7 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const fetch = require('node-fetch');
 require('dotenv').config();
+console.log("🚀 THIS IS UPGRADE SERVER - NEW DB ONLY");
 
 const USE_MOCK = process.env.USE_MOCK === 'true';
 

@@ -2087,13 +2087,13 @@
           r4.appendChild(tdCell(displayQ, 'text-left font-semibold'));
 
 
-          const brInp = makeInput(item['Base Rate'] || '', 'Base Rate', quote, lockedTruck, 'TRUCK');
+          const brInp = makeInput(item['Base Rate'] ?? '', 'Base Rate', quote, lockedTruck, 'TRUCK');
           const tdBr = document.createElement('td'); tdBr.appendChild(brInp); r4.appendChild(tdBr);
 
           r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—'));
 
           ['Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee'].forEach(cF => {
-            const ci = makeInput(item[cF] || '', cF, quote, lockedTruck, 'TRUCK');
+            const ci = makeInput(item[cF] ?? '', cF, quote, lockedTruck, 'TRUCK');
             const tc = document.createElement('td'); tc.appendChild(ci); r4.appendChild(tc);
             r4.appendChild(tdCell('—'));
           });
@@ -2153,7 +2153,7 @@
 
           // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
           ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {
-            const ci = makeInput(item[cF] || '', cF, quote, lockedWH, 'WH');
+            const ci = makeInput(item[cF] ?? '', cF, quote, lockedWH, 'WH');
             const tc = document.createElement('td');
             tc.appendChild(ci);
             r6.appendChild(tc);
@@ -2161,7 +2161,7 @@
           });
 
           // ✅ (WH) Column 16: Vendor (恢复这一格)
-          const vendorInp = makeInput(item['Vendor'] || '', 'Vendor', quote, lockedWH, 'WH', true);
+          const vendorInp = makeInput(item['Vendor'] ?? '', 'Vendor', quote, lockedWH, 'WH', true);
           const tdVen = document.createElement('td');
           tdVen.appendChild(vendorInp);
           r6.appendChild(tdVen);

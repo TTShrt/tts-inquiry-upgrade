@@ -1795,6 +1795,22 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get('/__debug/db', async (req, res) => {
+  try {
+    const mongoReady = !!conn && conn.readyState === 1 && !!Inquiry;
+    const count = mongoReady ? await Inquiry.countDocuments({}) : null;
+    res.json({
+      USE_MOCK,
+      mongoReady,
+      dbName: conn?.name || conn?.db?.databaseName || null,
+      collection: 'inquiries',
+      count,
+    });
+  } catch (e) {
+    res.status(500).json({ error: String(e?.message || e) });
+  }
+});
+
 server.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);
 });

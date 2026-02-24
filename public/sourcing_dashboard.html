@@ -1521,12 +1521,18 @@
               const okSave = await autosaveScopeIfHasAnyValue(quote, 'TRUCK');
               if (!okSave) { chk.checked = false; return; }
               await setFlags(quote, { [costSavedField]: 'true' });
+
+              // ✅ 关键：CHECK 后也要清掉 draftCache，否则 reload 会用空缓存覆盖 Mongo 值
+              const fields = [
+                'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
+                'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier'
+              ];
+              fields.forEach(f => delete draftCache[draftKey(quote, 'TRUCK', f)]);
             }
 
             const updates = {
               [costSentField]: want ? 'true' : 'false'
             };
-
 
             const ok = await setFlags(quote, updates);
             if (!ok) chk.checked = !want;
@@ -1689,6 +1695,13 @@
               const okSave = await autosaveScopeIfHasAnyValue(quote, 'WH');
               if (!okSave) { chk.checked = false; return; }
               await setFlags(quote, { [costSavedField]: 'true' });
+
+              // ✅ 关键：CHECK 后也要清 cache
+              const fields = [
+                'Order Processing', 'Inbound', 'Sorting', 'Palletizing',
+                'Pallet Fee', 'Storage', 'Outbound', 'Vendor'
+              ];
+              fields.forEach(f => delete draftCache[draftKey(quote, 'WH', f)]);
             }
 
             const updates = {

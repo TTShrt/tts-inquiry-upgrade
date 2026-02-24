@@ -1000,14 +1000,6 @@ app.post('/inquiries/update', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing Quotation #' });
     }
 
-
-    if (role === 'ops_view') {
-      return res.status(403).json({
-        success: false,
-        message: 'OPS view-only cannot update inquiries.'
-      });
-    }
-
     // ===== Field buckets (scope-aware) =====
     const TRUCK_COST_FIELDS = [
       'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',

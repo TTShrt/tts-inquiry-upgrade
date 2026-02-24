@@ -48,6 +48,30 @@ const io = socketIo(server);
 const PORT = process.env.PORT || 3000;
 
 app.use(cookieParser());
+
+// ==============================
+// ✅ Auth helpers (FIX requireRole)
+// ==============================
+
+function requireRole(role) {
+  return (req, res, next) => {
+    const r = String(req.cookies?.role || '').toLowerCase();
+    if (r !== String(role).toLowerCase()) {
+      return res.status(403).send('Forbidden');
+    }
+    next();
+  };
+}
+
+function requireAnyRole(roles) {
+  return (req, res, next) => {
+    const r = String(req.cookies?.role || '').toLowerCase();
+    const ok = roles.map(x => String(x).toLowerCase()).includes(r);
+    if (!ok) return res.status(403).send('Forbidden');
+    next();
+  };
+}
+
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 

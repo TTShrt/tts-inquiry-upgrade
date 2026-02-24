@@ -54,6 +54,28 @@ app.use(cookieParser());
 // ✅ Auth helpers (FIX requireRole)
 // ==============================
 
+app.use(bodyParser.json());
+
+// ✅✅✅ 把 debug 路由加在這裡！（bodyParser 之後，static 之前）
+app.get('/__debug/db', async (req, res) => {
+  try {
+    const mongoReady = !!conn && conn.readyState === 1 && !!Inquiry;
+    const count = mongoReady ? await Inquiry.countDocuments({}) : null;
+    res.json({
+      USE_MOCK,
+      mongoReady,
+      dbName: conn?.name || conn?.db?.databaseName || null,
+      collection: 'inquiries',
+      count,
+      MONGO_URI: process.env.MONGODB_URI ? '設有值（隱藏細節）' : '未設定',
+      connReadyState: conn ? conn.readyState : 'null'
+    });
+  } catch (e) {
+    res.status(500).json({ error: String(e?.message || e) });
+  }
+});
+
+
 function requireRole(role) {
   return (req, res, next) => {
     const r = String(req.cookies?.role || '').toLowerCase();
@@ -73,10 +95,13 @@ function requireAnyRole(roles) {
   };
 }
 
-app.use(bodyParser.json());
+
 app.use(express.static(path.join(__dirname, 'public')));
 
-const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI; // 现在这个应指向 rateinquiry_v2
+const MONGO_URI =
+  process.env.MONGO_URI_NEW ||
+  process.env.MONGODB_URI ||
+  process.env.MONGO_URI;
 
 console.log('[BOOT] USE_MOCK=', USE_MOCK);
 console.log('[BOOT] MONGO_URI FULL =', MONGO_URI);
@@ -939,16 +964,15 @@ app.get('/inquiries', async (req, res) => {
 });
 
 app.post('/inquiries/update', async (req, res) => {
-
-  console.log('[UPDATE] role=', role, 'quotation=', incoming['Quotation #'], 'keys=', Object.keys(incoming || {}));
   const role = String(req.cookies?.role || '').toLowerCase();
   if (role === 'ops_view') {
     return res.status(403).json({ success: false, message: 'OPS view-only cannot modify data.' });
   }
+
   try {
     const incoming = req.body || {};
-
     console.log('[UPDATE] role=', role, 'quotation=', incoming['Quotation #'], 'keys=', Object.keys(incoming || {}));
+
     const quotationId = incoming['Quotation #'];
 
     function buildSafePatch(payload) {

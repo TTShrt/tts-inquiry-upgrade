@@ -1090,6 +1090,10 @@ app.post('/inquiries/update', async (req, res) => {
         continue;
       }
 
+      // ✅ 防止前端空字串把已有值覆盖成空（特别是 autosave / checkbox）
+      if (v === '' && k !== 'Note' && k !== 'Vendor Note' && k !== 'Warehouse Note') {
+        continue;
+      }
       filtered[k] = v;
     }
 

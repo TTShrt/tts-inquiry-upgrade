@@ -1270,13 +1270,20 @@
             if (f) map.set(f, el.value);
           });
 
-          fields.forEach(f => { if (map.has(f)) payload[f] = map.get(f); });
+          fields.forEach(f => {
+            if (!map.has(f)) return;
+            const val = map.get(f);
+
+            // ✅ 不要用空字串覆盖旧值（避免 CHECK/autosave 清空数据）
+            if (val === '' || val === null || typeof val === 'undefined') return;
+
+            payload[f] = val;
+          });
 
           const r = await postUpdate(payload);
           if (!r.ok) alert('❌ Save failed: ' + (r.text || ''));
           return r.ok;
         }
-
 
         async function autosaveScopeIfHasAnyValue(quote, scope) {
           const inputs = Array.from(document.querySelectorAll(`input[data-scope="${scope}"]`))

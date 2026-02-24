@@ -947,6 +947,33 @@ app.post('/inquiries/update', async (req, res) => {
     const incoming = req.body || {};
     const quotationId = incoming['Quotation #'];
 
+function buildSafePatch(payload) {
+  const patch = {};
+  for (const [k, v] of Object.entries(payload || {})) {
+    // 不允许改主键
+    if (k === '_id' || k === 'Quotation #' || k === 'Quotation # ') continue;
+
+    // boolean 一定允许覆盖（checkbox）
+    if (typeof v === 'boolean') { patch[k] = v; continue; }
+
+    // number 允许 0
+    if (typeof v === 'number') { patch[k] = v; continue; }
+
+    // string：空字符串不更新
+    if (typeof v === 'string') {
+      if (v.trim() === '') continue;
+      patch[k] = v;
+      continue;
+    }
+
+    // null/undefined 不更新
+    if (v === null || v === undefined) continue;
+
+    patch[k] = v;
+  }
+  return patch;
+}
+
     if (!quotationId || String(quotationId).trim() === '') {
       return res.status(400).json({ success: false, message: 'Missing Quotation #' });
     }
@@ -1430,12 +1457,8 @@ app.post('/api/push-to-gofreight', async (req, res) => {
       });
     }
 
-    if (gfRes.ok) {
-      await Inquiry.updateOne(
-        { 'Quotation #': fullQuoteId },
-        { $set: { 'Pushed To GF': 'true' } }
-      );
-    }
+    const patch = buildSafePatch(incoming);
+    await Inquiry.updateOne({ 'Quotation #': quotationId }, { $set: patch });
 
     res.status(gfRes.status).json(resultJson);
   } catch (err) {

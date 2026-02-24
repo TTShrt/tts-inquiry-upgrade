@@ -939,12 +939,16 @@ app.get('/inquiries', async (req, res) => {
 });
 
 app.post('/inquiries/update', async (req, res) => {
+
+  console.log('[UPDATE] role=', role, 'quotation=', incoming['Quotation #'], 'keys=', Object.keys(incoming || {}));
   const role = String(req.cookies?.role || '').toLowerCase();
   if (role === 'ops_view') {
     return res.status(403).json({ success: false, message: 'OPS view-only cannot modify data.' });
   }
   try {
     const incoming = req.body || {};
+
+    console.log('[UPDATE] role=', role, 'quotation=', incoming['Quotation #'], 'keys=', Object.keys(incoming || {}));
     const quotationId = incoming['Quotation #'];
 
     function buildSafePatch(payload) {
@@ -1181,6 +1185,7 @@ app.post('/inquiries/update', async (req, res) => {
       filtered[k] = v;
     }
 
+    console.log('[UPDATE BLOCKED]', blocked);
     if (blocked.length) {
       // Keep behavior strict to avoid silent data drift
       return res.status(403).json({

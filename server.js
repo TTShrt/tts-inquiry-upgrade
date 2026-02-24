@@ -909,7 +909,9 @@ app.get('/inquiries', async (req, res) => {
     const salesGroup = String(req.cookies?.salesGroup || '').trim();
 
     // ✅ read source
-    const inquiries = mongoReady ? await Inquiry.find({}).lean() : mockInquiries;
+    // ✅ read source
+    if (!mongoReady) return res.json([]);   // 关键：Mongo不通就不要用mock
+    const inquiries = await Inquiry.find({}).lean();
 
     // ✅ manager sees all
     if (role === 'manager') {
@@ -933,7 +935,6 @@ app.get('/inquiries', async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error while loading inquiries' });
   }
 });
-
 
 app.post('/inquiries/update', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();

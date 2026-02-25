@@ -1496,7 +1496,15 @@
           const costSentField = 'truckingCostSent';
           const costSavedField = 'truckingCostSaved';
 
-          const hardLocked = scopeConfirmed(item, 'TRUCK') || isTruthy(item[costSentField]);
+          const parent = (filteredData || []).find(x => String(x['Quotation #'] || '').trim() === String(mainKey || '').trim()) || null;
+          const parentLocked =
+            !!parent && (
+              scopeConfirmed(parent, 'TRUCK') ||
+              isTruthy(parent['truckingCostSent']) ||
+              isTruthy(parent['truckingCostSaved'])
+            );
+
+          const hardLocked = parentLocked || scopeConfirmed(item, 'TRUCK') || isTruthy(item['truckingCostSent']);
 
           const wrap = document.createElement('div');
           wrap.className = 'action-button-row';
@@ -1525,7 +1533,11 @@
             const ok = await saveFields(quote, fields, 'TRUCK');
             if (!ok) return;
 
-            await setFlags(quote, { [costSavedField]: 'true' });
+            await setFlags(quote, {
+              [costSentField]: want ? 'true' : 'false',
+              'Cost Sent': want ? 'true' : 'false',
+              'Selected': want ? 'true' : 'false'
+            });
             lockRow(quote, 'TRUCK');
 
             fields.forEach(f => delete draftCache[draftKey(quote, 'TRUCK', f)]);

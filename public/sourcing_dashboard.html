@@ -2492,12 +2492,6 @@
             }
             filteredData = data;
 
-            const existingQuotes = new Set((data || []).map(x => String(x['Quotation #'] || '').trim()).filter(Boolean));
-            for (const k of Object.keys(draftCache)) {
-              const q = k.split('__')[0]; // draftKey: quote__scope__field
-              if (q && !existingQuotes.has(q)) delete draftCache[k];
-            }
-
             filteredData = applySearchFilter(filteredData, searchTerm);
             renderPage();
           } catch (e) {

@@ -1227,6 +1227,24 @@
           return scopeConfirmed(item, scope) || isTruthy(item[costSentField]) || isTruthy(item[costSavedField]);
         }
 
+        function getGroupQuotes(mainKey, scope) {
+          const base = String(mainKey || '').trim();
+          if (!base) return [];
+
+          // 你数据里有 Type 字段（TRUCK / WH），并且子行 Quotation # 有后缀
+          const isTruck = (it) => String(it.Type || '').toUpperCase() === 'TRUCK' || /-\d+$/.test(String(it['Quotation #'] || ''));
+          const isWH = (it) => String(it.Type || '').toUpperCase() === 'WH' || /-[A-Z]$/i.test(String(it['Quotation #'] || ''));
+
+          const pred = scope === 'TRUCK' ? isTruck : isWH;
+
+          // 取出同一主单下的所有行（含主行 + 子行）
+          return (filteredData || [])
+            .filter(it => pred(it))
+            .map(it => String(it['Quotation #'] || '').trim())
+            .filter(q => q === base || q.startsWith(base + '-'))
+            .filter(Boolean);
+        }
+        
         async function postUpdate(payload) {
           const res = await fetch('/inquiries/update', {
             method: 'POST',

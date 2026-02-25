@@ -1490,185 +1490,182 @@
         }
 
         function actionCellTruck(item, quote, mainKey) {
-          const td = document.createElement('td');
-          td.className = 'border px-2 text-center';
+  const td = document.createElement('td');
+  td.className = 'border px-2 text-center';
 
-          const costSentField = 'truckingCostSent';
-          const costSavedField = 'truckingCostSaved';
+  const costSentField = 'truckingCostSent';
+  const costSavedField = 'truckingCostSaved';
 
-          const hardLocked = scopeConfirmed(item, 'TRUCK') || isTruthy(item[costSentField]);
+  const hardLocked = scopeConfirmed(item, 'TRUCK') || isTruthy(item[costSentField]);
 
-          const wrap = document.createElement('div');
-          wrap.className = 'action-button-row';
+  const wrap = document.createElement('div');
+  wrap.className = 'action-button-row';
 
-          // ✏️ EDIT
-          const editBtn = document.createElement('button');
-          editBtn.className = 'action-button';
-          editBtn.textContent = '✏️';
-          editBtn.title = '編輯成本';
-          editBtn.disabled = hardLocked;
-          editBtn.onclick = () => unlockRow(quote, 'TRUCK');
-          wrap.appendChild(editBtn);
+  // ✏️ EDIT
+  const editBtn = document.createElement('button');
+  editBtn.className = 'action-button';
+  editBtn.textContent = '✏️';
+  editBtn.title = '編輯成本';
+  editBtn.disabled = hardLocked;
+  editBtn.onclick = () => unlockRow(quote, 'TRUCK');
+  wrap.appendChild(editBtn);
 
-          // 💾 SAVE
-          const saveBtn = document.createElement('button');
-          saveBtn.className = 'action-button';
-          saveBtn.textContent = '💾';
-          saveBtn.title = '儲存成本';
-          saveBtn.disabled = hardLocked;
-          saveBtn.onclick = async () => {
-            const fields = [
-              'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-              'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier'
-            ];
+  // 💾 SAVE
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'action-button';
+  saveBtn.textContent = '💾';
+  saveBtn.title = '儲存成本';
+  saveBtn.disabled = hardLocked;
+  saveBtn.onclick = async () => {
+    const fields = [
+      'Base Rate','Chassis','Pre-Pull','Yard Storage','Driver Waiting',
+      'Over Weight','Chassis Split','Toll','Reefer Fee','Bond Fee','Carrier'
+    ];
 
-            const ok = await saveFields(quote, fields, 'TRUCK');
-            if (!ok) return;
+    const ok = await saveFields(quote, fields, 'TRUCK');
+    if (!ok) return;
 
-            await setFlags(quote, { [costSavedField]: 'true' });
-            lockRow(quote, 'TRUCK');
+    await setFlags(quote, { [costSavedField]: 'true' });
+    lockRow(quote, 'TRUCK');
 
-            // ✅ 清除该行 TRUCK 的 draft 缓存
-            fields.forEach(f => delete draftCache[draftKey(quote, 'TRUCK', f)]);
+    fields.forEach(f => delete draftCache[draftKey(quote,'TRUCK',f)]);
+    markRowSaved(quote, 'TRUCK');
+  };
+  wrap.appendChild(saveBtn);
 
-            // ✅ 不要 renderPage() / 不要 loadInquiries()
-            // 只做 UI 锁定即可（锁定蓝色你已经在 lockRow() 做了）
-            markRowSaved(quote, 'TRUCK');
+  // ✅ CHECK (Cost Sent)
+  const chk = document.createElement('input');
+  chk.type = 'checkbox';
+  chk.title = '成本已送出';
+  chk.checked = isTruthy(item[costSentField]);
+  chk.disabled = scopeConfirmed(item, 'TRUCK');
+  chk.className = 'w-5 h-5 accent-blue-600 cursor-pointer';
 
-          };
-          wrap.appendChild(saveBtn);
+  chk.onchange = async () => {
+    const want = chk.checked;
+    chk.disabled = true;
 
-          // ✅ CHECK (Cost Sent)
-          const chk = document.createElement('input');
-          chk.type = 'checkbox';
-          chk.title = '成本已送出';
-          chk.checked = isTruthy(item[costSentField]);
-          chk.disabled = scopeConfirmed(item, 'TRUCK');
-          chk.className = 'w-5 h-5 accent-blue-600 cursor-pointer';
-          chk.onchange = async () => {
-            const want = chk.checked;
-            chk.disabled = true; // 防连点
+    try {
+      if (want) {
+        const okSave = await autosaveScopeIfHasAnyValue(quote, 'TRUCK');
+        if (!okSave) { chk.checked = false; return; }
 
-            try {
-              if (want) {
-                const okSave = await autosaveScopeIfHasAnyValue(quote, 'TRUCK');
-                if (!okSave) { chk.checked = false; return; }
-                const okFlag1 = await setFlags(quote, { [costSavedField]: 'true' });
-                if (!okFlag1) { chk.checked = false; return; }
-              }
+        const okFlag1 = await setFlags(quote, { [costSavedField]: 'true' });
+        if (!okFlag1) { chk.checked = false; return; }
+      }
 
-              const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
-              if (!okFlag2) { chk.checked = !want; return; }
+      const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
+      if (!okFlag2) { chk.checked = !want; return; }
 
-              // ✅ 成功后：锁行 + 上色（不再 loadInquiries，不再清缓存导致“看起来清空”）
-              lockRow(quote, 'TRUCK');
+      // ✅ 不 reload，不 loadInquiries
+      lockRow(quote, 'TRUCK');
 
-              const row = findRowByQuoteScope(quote, 'TRUCK');
-              if (row) {
-                row.classList.remove('new-inquiry', 'row-confirmed');
-                row.classList.toggle('row-sent', want);
-                if (!want) row.classList.add('cost-saved'); // 取消 sent，但仍是已保存
-              }
+      const row = findRowByQuoteScope(quote, 'TRUCK');
+      if (row) {
+        row.classList.remove('new-inquiry', 'row-confirmed');
+        row.classList.toggle('row-sent', want);
+        if (!want) row.classList.add('cost-saved');
+        else row.classList.remove('cost-saved');
+      }
 
-              // ✅ 清掉该行 TRUCK draftCache（避免下次 render 用旧草稿覆盖）
-              ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier']
-                .forEach(f => delete draftCache[draftKey(quote, 'TRUCK', f)]);
+      ['Base Rate','Chassis','Pre-Pull','Yard Storage','Driver Waiting','Over Weight','Chassis Split','Toll','Reefer Fee','Bond Fee','Carrier']
+        .forEach(f => delete draftCache[draftKey(quote,'TRUCK',f)]);
 
-            } finally {
-              chk.disabled = false;
-            }
-          };
+    } finally {
+      chk.disabled = false;
+    }
+  };
+  wrap.appendChild(chk);
 
-        };
-        wrap.appendChild(chk);
+  // ➕ ADD (只新增 TRUCK 子行)
+  const addBtn = document.createElement('button');
+  addBtn.className = 'action-button';
+  addBtn.textContent = '➕';
+  addBtn.title = '新增 TRUCK 子行';
+  addBtn.disabled = scopeConfirmed(item, 'TRUCK');
+  addBtn.onclick = async () => {
+    if (!confirm('確定新增一條 TRUCK 子行？')) return;
 
-        // ➕ ADD (只新增 TRUCK 子行)
-        const addBtn = document.createElement('button');
-        addBtn.className = 'action-button';
-        addBtn.textContent = '➕';
-        addBtn.title = '新增 TRUCK 子行';
-        addBtn.disabled = scopeConfirmed(item, 'TRUCK'); // Confirm 后锁死
-        addBtn.onclick = async () => {
-          if (!confirm('確定新增一條 TRUCK 子行？')) return;
+    await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
 
-          await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
+    const parent = String(mainKey || '').trim();
+    const all = await fetchAllInquiries();
+    const newQuote = nextTruckQuote(parent, all);
 
-          const parent = String(mainKey || '').trim();
-          const all = await fetchAllInquiries();
-          const newQuote = nextTruckQuote(parent, all);
+    const newItem = {
+      'Quotation #': newQuote,
+      'Parent Quotation #': parent,
+      'Type': 'TRUCK',
+      'Date': new Date().toLocaleDateString(),
+      'Customer ID': item['Customer ID'] || '',
+      'Requested By': item['Requested By'] || '',
+      'Inquiry Type': item['Inquiry Type'] || '',
+      'Commodity': item['Commodity'] || '',
+      'Selected': 'false'
+    };
 
-          const newItem = {
-            'Quotation #': newQuote,
-            'Parent Quotation #': parent,
-            'Type': 'TRUCK',
-            'Date': new Date().toLocaleDateString(),
-            'Customer ID': item['Customer ID'] || '',
-            'Requested By': item['Requested By'] || '',
-            'Inquiry Type': item['Inquiry Type'] || '',
-            'Commodity': item['Commodity'] || '',
-            'Selected': 'false'
-          };
+    const resp = await fetch('/inquiries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newItem)
+    });
 
-          const resp = await fetch('/inquiries', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newItem)
-          });
+    if (!resp.ok) {
+      const t = await resp.text();
+      alert('❌ 新增 TRUCK 子行失败：' + t);
+      return;
+    }
 
-          if (!resp.ok) {
-            const t = await resp.text();
-            alert('❌ 新增 TRUCK 子行失败：' + t);
-            return;
-          }
+    await loadInquiries(); // ADD 后需要刷新列表
+  };
+  wrap.appendChild(addBtn);
 
-          await loadInquiries();
-        };
-        wrap.appendChild(addBtn);
+  // 🗑️ DELETE (只删除 TRUCK 子行)
+  const delBtn = document.createElement('button');
+  delBtn.className = 'action-button';
+  delBtn.textContent = '🗑️';
+  delBtn.title = '删除 TRUCK 子行';
 
-        // 🗑️ DELETE (只删除 TRUCK 子行)
-        const delBtn = document.createElement('button');
-        delBtn.className = 'action-button';
-        delBtn.textContent = '🗑️';
-        delBtn.title = '删除 TRUCK 子行';
+  const qDel = String(quote || '').trim();
+  const parentDel = String(mainKey || '').trim();
+  const isTruckSubDel = (qDel !== parentDel) && /-\d+$/.test(qDel);
 
-        const qDel = String(quote || '').trim();
-        const parentDel = String(mainKey || '').trim();
-        const isTruckSubDel = (qDel !== parentDel) && /-\d+$/.test(qDel);
+  const canDelete = isTruckSubDel && !hardLocked;
+  delBtn.disabled = !canDelete;
+  delBtn.style.opacity = canDelete ? '1' : '0.25';
+  delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
+  delBtn.title = canDelete ? '删除 TRUCK 子行' : 'Cannot delete: locked';
 
-        const canDelete = isTruckSubDel && !hardLocked;
-        delBtn.disabled = !canDelete;
-        delBtn.style.opacity = canDelete ? '1' : '0.25';
-        delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
-        delBtn.title = canDelete ? '删除 TRUCK 子行' : 'Cannot delete: locked';
+  delBtn.onclick = async () => {
+    if (!canDelete) {
+      alert('❌ TRUCK 只能删除子行（例如 主号-1 / 主号-2...），主行不能删：\n' + qDel);
+      return;
+    }
 
-        delBtn.onclick = async () => {
-          if (!canDelete) {
-            alert('❌ TRUCK 只能删除子行（例如 主号-1 / 主号-2...），主行不能删：\n' + qDel);
-            return;
-          }
+    if (!confirm(`确定删除这条 TRUCK 子行？\n${qDel}`)) return;
 
-          if (!confirm(`确定删除这条 TRUCK 子行？\n${qDel}`)) return;
+    const resp = await fetch('/delete_inquiry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quoteId: qDel })
+    });
 
-          const resp = await fetch('/delete_inquiry', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quoteId: qDel })
-          });
+    const raw = await resp.text();
+    let j = {};
+    try { j = JSON.parse(raw); } catch { }
 
-          const raw = await resp.text();
-          let j = {};
-          try { j = JSON.parse(raw); } catch { }
+    if (!resp.ok || j.success === false) {
+      alert('❌ 删除失败：\n' + (j.message || raw || resp.statusText));
+      return;
+    }
 
-          if (!resp.ok || j.success === false) {
-            alert('❌ 删除失败：\n' + (j.message || raw || resp.statusText));
-            return;
-          }
+    await loadInquiries();
+  };
+  wrap.appendChild(delBtn);
 
-          wrap.appendChild(delBtn);
-
-          td.appendChild(wrap);
-          return td;
-        }
+  td.appendChild(wrap);
+  return td;
+}
 
         function actionCellWH(item, quote, mainKey) {
           const td = document.createElement('td');

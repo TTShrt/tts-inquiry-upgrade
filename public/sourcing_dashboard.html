@@ -1547,109 +1547,123 @@
           chk.className = 'w-5 h-5 accent-blue-600 cursor-pointer';
           chk.onchange = async () => {
             const want = chk.checked;
+            chk.disabled = true; // 防连点
 
-            if (want) {
-              const okSave = await autosaveScopeIfHasAnyValue(quote, 'TRUCK');
-              if (!okSave) { chk.checked = false; return; }
-              await setFlags(quote, { [costSavedField]: 'true' });
+            try {
+              if (want) {
+                const okSave = await autosaveScopeIfHasAnyValue(quote, 'TRUCK');
+                if (!okSave) { chk.checked = false; return; }
+                const okFlag1 = await setFlags(quote, { [costSavedField]: 'true' });
+                if (!okFlag1) { chk.checked = false; return; }
+              }
+
+              const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
+              if (!okFlag2) { chk.checked = !want; return; }
+
+              // ✅ 成功后：锁行 + 上色（不再 loadInquiries，不再清缓存导致“看起来清空”）
+              lockRow(quote, 'TRUCK');
+
+              const row = findRowByQuoteScope(quote, 'TRUCK');
+              if (row) {
+                row.classList.remove('new-inquiry', 'row-confirmed');
+                row.classList.toggle('row-sent', want);
+                if (!want) row.classList.add('cost-saved'); // 取消 sent，但仍是已保存
+              }
+
+              // ✅ 清掉该行 TRUCK draftCache（避免下次 render 用旧草稿覆盖）
+              ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier']
+                .forEach(f => delete draftCache[draftKey(quote, 'TRUCK', f)]);
+
+            } finally {
+              chk.disabled = false;
             }
-
-            const updates = {
-              [costSentField]: want ? 'true' : 'false'
-            };
-
-
-            const ok = await setFlags(quote, updates);
-            if (!ok) chk.checked = !want;
-
-            await loadInquiries(); // ✅ CHECK 后建议重新 fetch（因为状态色/锁定要跟后端一致）
           };
-          wrap.appendChild(chk);
 
-          // ➕ ADD (只新增 TRUCK 子行)
-          const addBtn = document.createElement('button');
-          addBtn.className = 'action-button';
-          addBtn.textContent = '➕';
-          addBtn.title = '新增 TRUCK 子行';
-          addBtn.disabled = scopeConfirmed(item, 'TRUCK'); // Confirm 后锁死
-          addBtn.onclick = async () => {
-            if (!confirm('確定新增一條 TRUCK 子行？')) return;
+        };
+        wrap.appendChild(chk);
 
-            await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
+        // ➕ ADD (只新增 TRUCK 子行)
+        const addBtn = document.createElement('button');
+        addBtn.className = 'action-button';
+        addBtn.textContent = '➕';
+        addBtn.title = '新增 TRUCK 子行';
+        addBtn.disabled = scopeConfirmed(item, 'TRUCK'); // Confirm 后锁死
+        addBtn.onclick = async () => {
+          if (!confirm('確定新增一條 TRUCK 子行？')) return;
 
-            const parent = String(mainKey || '').trim();
-            const all = await fetchAllInquiries();
-            const newQuote = nextTruckQuote(parent, all);
+          await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
 
-            const newItem = {
-              'Quotation #': newQuote,
-              'Parent Quotation #': parent,
-              'Type': 'TRUCK',
-              'Date': new Date().toLocaleDateString(),
-              'Customer ID': item['Customer ID'] || '',
-              'Requested By': item['Requested By'] || '',
-              'Inquiry Type': item['Inquiry Type'] || '',
-              'Commodity': item['Commodity'] || '',
-              'Selected': 'false'
-            };
+          const parent = String(mainKey || '').trim();
+          const all = await fetchAllInquiries();
+          const newQuote = nextTruckQuote(parent, all);
 
-            const resp = await fetch('/inquiries', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(newItem)
-            });
-
-            if (!resp.ok) {
-              const t = await resp.text();
-              alert('❌ 新增 TRUCK 子行失败：' + t);
-              return;
-            }
-
-            await loadInquiries();
+          const newItem = {
+            'Quotation #': newQuote,
+            'Parent Quotation #': parent,
+            'Type': 'TRUCK',
+            'Date': new Date().toLocaleDateString(),
+            'Customer ID': item['Customer ID'] || '',
+            'Requested By': item['Requested By'] || '',
+            'Inquiry Type': item['Inquiry Type'] || '',
+            'Commodity': item['Commodity'] || '',
+            'Selected': 'false'
           };
-          wrap.appendChild(addBtn);
 
-          // 🗑️ DELETE (只删除 TRUCK 子行)
-          const delBtn = document.createElement('button');
-          delBtn.className = 'action-button';
-          delBtn.textContent = '🗑️';
-          delBtn.title = '删除 TRUCK 子行';
+          const resp = await fetch('/inquiries', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newItem)
+          });
 
-          const qDel = String(quote || '').trim();
-          const parentDel = String(mainKey || '').trim();
-          const isTruckSubDel = (qDel !== parentDel) && /-\d+$/.test(qDel);
+          if (!resp.ok) {
+            const t = await resp.text();
+            alert('❌ 新增 TRUCK 子行失败：' + t);
+            return;
+          }
 
-          const canDelete = isTruckSubDel && !hardLocked;
-          delBtn.disabled = !canDelete;
-          delBtn.style.opacity = canDelete ? '1' : '0.25';
-          delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
-          delBtn.title = canDelete ? '删除 TRUCK 子行' : 'Cannot delete: locked';
+          await loadInquiries();
+        };
+        wrap.appendChild(addBtn);
 
-          delBtn.onclick = async () => {
-            if (!canDelete) {
-              alert('❌ TRUCK 只能删除子行（例如 主号-1 / 主号-2...），主行不能删：\n' + qDel);
-              return;
-            }
+        // 🗑️ DELETE (只删除 TRUCK 子行)
+        const delBtn = document.createElement('button');
+        delBtn.className = 'action-button';
+        delBtn.textContent = '🗑️';
+        delBtn.title = '删除 TRUCK 子行';
 
-            if (!confirm(`确定删除这条 TRUCK 子行？\n${qDel}`)) return;
+        const qDel = String(quote || '').trim();
+        const parentDel = String(mainKey || '').trim();
+        const isTruckSubDel = (qDel !== parentDel) && /-\d+$/.test(qDel);
 
-            const resp = await fetch('/delete_inquiry', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ quoteId: qDel })
-            });
+        const canDelete = isTruckSubDel && !hardLocked;
+        delBtn.disabled = !canDelete;
+        delBtn.style.opacity = canDelete ? '1' : '0.25';
+        delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
+        delBtn.title = canDelete ? '删除 TRUCK 子行' : 'Cannot delete: locked';
 
-            const raw = await resp.text();
-            let j = {};
-            try { j = JSON.parse(raw); } catch { }
+        delBtn.onclick = async () => {
+          if (!canDelete) {
+            alert('❌ TRUCK 只能删除子行（例如 主号-1 / 主号-2...），主行不能删：\n' + qDel);
+            return;
+          }
 
-            if (!resp.ok || j.success === false) {
-              alert('❌ 删除失败：\n' + (j.message || raw || resp.statusText));
-              return;
-            }
+          if (!confirm(`确定删除这条 TRUCK 子行？\n${qDel}`)) return;
 
-            await loadInquiries();
-          };
+          const resp = await fetch('/delete_inquiry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quoteId: qDel })
+          });
+
+          const raw = await resp.text();
+          let j = {};
+          try { j = JSON.parse(raw); } catch { }
+
+          if (!resp.ok || j.success === false) {
+            alert('❌ 删除失败：\n' + (j.message || raw || resp.statusText));
+            return;
+          }
+
           wrap.appendChild(delBtn);
 
           td.appendChild(wrap);
@@ -1715,21 +1729,34 @@
           chk.className = 'w-5 h-5 accent-blue-600 cursor-pointer';
           chk.onchange = async () => {
             const want = chk.checked;
+            chk.disabled = true;
 
-            if (want) {
-              const okSave = await autosaveScopeIfHasAnyValue(quote, 'WH');
-              if (!okSave) { chk.checked = false; return; }
-              await setFlags(quote, { [costSavedField]: 'true' });
+            try {
+              if (want) {
+                const okSave = await autosaveScopeIfHasAnyValue(quote, 'WH');
+                if (!okSave) { chk.checked = false; return; }
+                const okFlag1 = await setFlags(quote, { [costSavedField]: 'true' });
+                if (!okFlag1) { chk.checked = false; return; }
+              }
+
+              const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
+              if (!okFlag2) { chk.checked = !want; return; }
+
+              lockRow(quote, 'WH');
+
+              const row = findRowByQuoteScope(quote, 'WH');
+              if (row) {
+                row.classList.remove('new-inquiry', 'row-confirmed');
+                row.classList.toggle('row-sent', want);
+                if (!want) row.classList.add('cost-saved');
+              }
+
+              ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound', 'Vendor']
+                .forEach(f => delete draftCache[draftKey(quote, 'WH', f)]);
+
+            } finally {
+              chk.disabled = false;
             }
-
-            const updates = {
-              [costSentField]: want ? 'true' : 'false'
-            };
-
-            const ok = await setFlags(quote, updates);
-            if (!ok) chk.checked = !want;
-
-            await loadInquiries();
           };
           wrap.appendChild(chk);
 

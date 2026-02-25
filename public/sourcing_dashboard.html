@@ -1190,7 +1190,7 @@
 
           const serverVal = (value ?? '');
           // ✅ only non-empty cache overrides server (prevents "blank cache" from hiding Mongo values after reload)
-          input.value = (cached !== null && String(cached) !== '') ? cached : serverVal;
+          input.value = (cached !== null && String(cached).trim() !== '') ? cached : serverVal;
 
           input.className = `w-full border text-xs px-1 py-0.5 ${alignLeft ? 'text-left' : 'text-right'}`;
           input.setAttribute('data-quote', qTrim);
@@ -2093,7 +2093,7 @@
           const parentDoc = (filteredData || []).find(x => String(x['Quotation #'] || '').trim() === String(mainKey || '').trim());
           const baseExt = String(parentDoc?.['External Quotation #'] || '').trim();
           const suffix = String(quote || '').match(/-\d+$/)?.[0] || '';
-          const displayQ = (isSub && baseExt) ? (baseExt + suffix) : (isSub ? q : '');
+          const displayQ = (isSub && baseExt) ? (baseExt + suffix) : q;
           const r4 = document.createElement('tr');
           r4.className = 'row-truck-val';
           if (isSub) r4.classList.add('sub-row');

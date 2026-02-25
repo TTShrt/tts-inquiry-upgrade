@@ -1184,7 +1184,8 @@
           const k = draftKey(quote, scope, field);
           const cached = Object.prototype.hasOwnProperty.call(draftCache, k) ? draftCache[k] : null;
 
-          input.value = (cached !== null) ? cached : (value ?? '');
+          const serverVal = (value ?? '');
+          input.value = (cached !== null && String(cached) !== '') ? cached : serverVal;
 
           input.className = `w-full border text-xs px-1 py-0.5 ${alignLeft ? 'text-left' : 'text-right'}`;
           input.setAttribute('data-quote', quote);

@@ -1181,21 +1181,26 @@
         function makeInput(value, field, quote, locked, scope, alignLeft = false) {
           const input = document.createElement('input');
 
-          const k = draftKey(quote, scope, field);
+          const qTrim = String(quote || '').trim();
+          const fTrim = String(field || '').trim();
+          const sTrim = String(scope || '').trim();
+
+          const k = draftKey(qTrim, sTrim, fTrim);
           const cached = Object.prototype.hasOwnProperty.call(draftCache, k) ? draftCache[k] : null;
 
           const serverVal = (value ?? '');
+          // ✅ only non-empty cache overrides server (prevents "blank cache" from hiding Mongo values after reload)
           input.value = (cached !== null && String(cached) !== '') ? cached : serverVal;
 
           input.className = `w-full border text-xs px-1 py-0.5 ${alignLeft ? 'text-left' : 'text-right'}`;
-          input.setAttribute('data-quote', quote);
-          input.setAttribute('data-field', field);
-          input.setAttribute('data-scope', scope);
+          input.setAttribute('data-quote', qTrim);
+          input.setAttribute('data-field', fTrim);
+          input.setAttribute('data-scope', sTrim);
 
           input.disabled = !!locked;
           if (locked) input.classList.add('saved-input');
 
-          // ✅ 只要用户在输入，就写入 draftCache
+          // ✅ draft cache only (no server write here)
           input.addEventListener('input', () => {
             draftCache[k] = input.value;
           });
@@ -1227,29 +1232,11 @@
           return scopeConfirmed(item, scope) || isTruthy(item[costSentField]) || isTruthy(item[costSavedField]);
         }
 
-        function getGroupQuotes(mainKey, scope) {
-          const base = String(mainKey || '').trim();
-          if (!base) return [];
-
-          // 你数据里有 Type 字段（TRUCK / WH），并且子行 Quotation # 有后缀
-          const isTruck = (it) => String(it.Type || '').toUpperCase() === 'TRUCK' || /-\d+$/.test(String(it['Quotation #'] || ''));
-          const isWH = (it) => String(it.Type || '').toUpperCase() === 'WH' || /-[A-Z]$/i.test(String(it['Quotation #'] || ''));
-
-          const pred = scope === 'TRUCK' ? isTruck : isWH;
-
-          // 取出同一主单下的所有行（含主行 + 子行）
-          return (filteredData || [])
-            .filter(it => pred(it))
-            .map(it => String(it['Quotation #'] || '').trim())
-            .filter(q => q === base || q.startsWith(base + '-'))
-            .filter(Boolean);
-        }
-
         async function postUpdate(payload) {
           const res = await fetch('/inquiries/update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include', // ✅ 必须：保证 cookie role/username 一定带上
+            credentials: 'include',
             body: JSON.stringify(payload)
           });
 
@@ -1258,77 +1245,94 @@
             console.error('Update failed:', text);
             return { ok: false, text };
           }
-
-          // 尝试 parse JSON（不强求）
-          try { return { ok: true, data: JSON.parse(text) }; }
-          catch { return { ok: true, data: text }; }
+          return { ok: true, text };
         }
 
         async function saveFields(quote, fields, scope) {
-  const qTrim = String(quote || '').trim();
+          const qTrim = String(quote || '').trim();
+          const sTrim = String(scope || '').trim();
 
-  const payload = {
-    'Quotation #': qTrim,
-    'Saved': 'true'
-  };
+          const payload = {
+            'Quotation #': qTrim,
+            'Saved': 'true'
+          };
 
-  // ✅ 直接抓这一行所有 input（以 data-quote + scope 精准定位）
-  const inputs = Array.from(document.querySelectorAll(`input[data-scope="${scope}"]`))
-    .filter(el => String(el.getAttribute('data-quote') || '').trim() === qTrim);
+          // ✅ Best-effort: include Inquiry Type so backend GP logic can run
+          try {
+            const base = qTrim.split('-')[0];
+            const basicRows = document.querySelectorAll('tr.row-basic-val');
+            for (const row of basicRows) {
+              const quoteTd = row.querySelector('td:nth-child(17)'); // this cell shows External Quotation # OR key
+              const shown = String(quoteTd?.textContent || '').trim();
+              if (shown === base || shown === qTrim) {
+                const inquiryTypeTd = row.querySelector('td:nth-child(5)');
+                if (inquiryTypeTd) payload['Inquiry Type'] = String(inquiryTypeTd.textContent || '').trim();
+                break;
+              }
+            }
+          } catch (e) { /* ignore */ }
 
-  // ✅ 如果一个都抓不到，直接报错（这就是你现在刷新后全空的主因）
-  if (!inputs.length) {
-    const msg = `❌ SAVE failed: cannot find inputs for quote=${qTrim}, scope=${scope}`;
-    console.error(msg);
-    alert(msg);
-    return false;
-  }
+          const inputs = Array.from(document.querySelectorAll(`input[data-scope="${sTrim}"]`))
+            .filter(el => String(el.getAttribute('data-quote') || '').trim() === qTrim);
 
-  // ✅ 把这一行所有 data-field 都塞进 payload（不再依赖 fields 白名单，避免漏字段）
-  for (const el of inputs) {
-    const f = String(el.getAttribute('data-field') || '').trim();
-    if (!f) continue;
+          if (!inputs.length) {
+            const msg = `❌ SAVE failed: cannot find inputs for quote=${qTrim}, scope=${sTrim}`;
+            console.error(msg);
+            alert(msg);
+            return false;
+          }
 
-    // checkbox
-    if (el.type === 'checkbox') {
-      payload[f] = !!el.checked;
-      continue;
-    }
+          // Build allowlist from fields (plus safety: sometimes Carrier/Vendor live here)
+          const allow = new Set((fields || []).map(x => String(x || '').trim()).filter(Boolean));
 
-    const v = String(el.value ?? '').trim();
+          for (const el of inputs) {
+            const f = String(el.getAttribute('data-field') || '').trim();
+            if (!f) continue;
 
-    // ✅ 不用空字串覆盖旧值（你原本的保护逻辑保留）
-    if (v === '') continue;
+            // Respect allowlist if provided
+            if (allow.size && !allow.has(f)) continue;
 
-    payload[f] = v;
-  }
+            if (el.type === 'checkbox') {
+              payload[f] = !!el.checked;
+              continue;
+            }
 
-  // debug：你可以看浏览器 console 里到底送了什么
-  console.log('[SAVE payload]', payload);
+            const v = String(el.value ?? '').trim();
+            // ✅ do not send empty strings (avoid overwriting)
+            if (v === '') continue;
+            payload[f] = v;
+          }
 
-  const r = await postUpdate(payload);
-  if (!r.ok) alert('❌ Save failed: ' + (r.text || ''));
-  return r.ok;
-}
+          console.log('[SAVE payload]', payload);
+
+          const r = await postUpdate(payload);
+          if (!r.ok) alert('❌ Save failed: ' + (r.text || ''));
+          return r.ok;
+        }
+
 
         async function autosaveScopeIfHasAnyValue(quote, scope) {
           const qTrim = String(quote || '').trim();
-          const inputs = Array.from(document.querySelectorAll(`input[data-scope="${scope}"]`))
+          const sTrim = String(scope || '').trim();
+
+          const inputs = Array.from(document.querySelectorAll(`input[data-scope="${sTrim}"]`))
             .filter(el => String(el.getAttribute('data-quote') || '').trim() === qTrim);
+
           const hasValue = inputs.some(el => String(el.value || '').trim() !== '');
           if (!hasValue) return true;
 
-          const fields = scope === 'TRUCK'
+          const fields = sTrim === 'TRUCK'
             ? ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier']
             : ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound', 'Vendor'];
 
-          return await saveFields(qTrim, fields, scope);
+          return await saveFields(qTrim, fields, sTrim);
         }
 
         async function setFlags(quote, updates) {
-          const payload = { 'Quotation #': quote, 'Saved': 'true', ...updates };
+          const qTrim = String(quote || '').trim();
+          const payload = { 'Quotation #': qTrim, 'Saved': 'true', ...updates };
           const r = await postUpdate(payload);
-          if (!r.ok) alert('❌ Update failed.');
+          if (!r.ok) alert('❌ Update failed: ' + (r.text || ''));
           return r.ok;
         }
 
@@ -1400,7 +1404,7 @@
 
         // 拉全量 inquiries（用于算下一个编号）
         async function fetchAllInquiries() {
-          const res = await fetch('/inquiries');
+          const res = await fetch('/inquiries', { credentials: 'include' });
           const data = await res.json();
           return Array.isArray(data) ? data : [];
         }
@@ -1548,18 +1552,12 @@
               const okSave = await autosaveScopeIfHasAnyValue(quote, 'TRUCK');
               if (!okSave) { chk.checked = false; return; }
               await setFlags(quote, { [costSavedField]: 'true' });
-
-              // ✅ 关键：CHECK 后也要清掉 draftCache，否则 reload 会用空缓存覆盖 Mongo 值
-              const fields = [
-                'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-                'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier'
-              ];
-              fields.forEach(f => delete draftCache[draftKey(quote, 'TRUCK', f)]);
             }
 
             const updates = {
               [costSentField]: want ? 'true' : 'false'
             };
+
 
             const ok = await setFlags(quote, updates);
             if (!ok) chk.checked = !want;
@@ -1701,6 +1699,8 @@
               'Pallet Fee', 'Storage', 'Outbound', 'Vendor'
             ].forEach(f => delete draftCache[draftKey(quote, 'WH', f)]);
 
+            await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');
+
             markRowSaved(quote, 'WH');
 
           };
@@ -1720,13 +1720,6 @@
               const okSave = await autosaveScopeIfHasAnyValue(quote, 'WH');
               if (!okSave) { chk.checked = false; return; }
               await setFlags(quote, { [costSavedField]: 'true' });
-
-              // ✅ 关键：CHECK 后也要清 cache
-              const fields = [
-                'Order Processing', 'Inbound', 'Sorting', 'Palletizing',
-                'Pallet Fee', 'Storage', 'Outbound', 'Vendor'
-              ];
-              fields.forEach(f => delete draftCache[draftKey(quote, 'WH', f)]);
             }
 
             const updates = {
@@ -2100,7 +2093,7 @@
           const parentDoc = (filteredData || []).find(x => String(x['Quotation #'] || '').trim() === String(mainKey || '').trim());
           const baseExt = String(parentDoc?.['External Quotation #'] || '').trim();
           const suffix = String(quote || '').match(/-\d+$/)?.[0] || '';
-          const displayQ = (isSub && baseExt) ? (baseExt + suffix) : q;
+          const displayQ = (isSub && baseExt) ? (baseExt + suffix) : (isSub ? q : '');
           const r4 = document.createElement('tr');
           r4.className = 'row-truck-val';
           if (isSub) r4.classList.add('sub-row');
@@ -2125,17 +2118,18 @@
           r4.appendChild(tdCell(displayQ, 'text-left font-semibold'));
 
 
-          const brInp = makeInput(item['Base Rate'] ?? '', 'Base Rate', quote, lockedTruck, 'TRUCK');
+          const brInp = makeInput(item['Base Rate'] || '', 'Base Rate', quote, lockedTruck, 'TRUCK');
           const tdBr = document.createElement('td'); tdBr.appendChild(brInp); r4.appendChild(tdBr);
 
           r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—'));
+
           ['Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee'].forEach(cF => {
-            const ci = makeInput(item[cF] ?? '', cF, quote, lockedTruck, 'TRUCK');
+            const ci = makeInput(item[cF] || '', cF, quote, lockedTruck, 'TRUCK');
             const tc = document.createElement('td'); tc.appendChild(ci); r4.appendChild(tc);
             r4.appendChild(tdCell('—'));
           });
 
-          const carrierInp = makeInput(item['Carrier'] ?? '', 'Carrier', quote, lockedTruck, 'TRUCK', true);
+          const carrierInp = makeInput(item['Carrier'] || '', 'Carrier', quote, lockedTruck, 'TRUCK', true);
           const tdCar = document.createElement('td'); tdCar.appendChild(carrierInp); r4.appendChild(tdCar);
 
           // ✅ Vendor Note (Column 26) — only Sourcing can edit/save
@@ -2190,7 +2184,7 @@
 
           // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
           ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {
-            const ci = makeInput(item[cF] ?? '', cF, quote, lockedWH, 'WH');
+            const ci = makeInput(item[cF] || '', cF, quote, lockedWH, 'WH');
             const tc = document.createElement('td');
             tc.appendChild(ci);
             r6.appendChild(tc);
@@ -2198,7 +2192,7 @@
           });
 
           // ✅ (WH) Column 16: Vendor (恢复这一格)
-          const vendorInp = makeInput(item['Vendor'] ?? '', 'Vendor', quote, lockedWH, 'WH', true);
+          const vendorInp = makeInput(item['Vendor'] || '', 'Vendor', quote, lockedWH, 'WH', true);
           const tdVen = document.createElement('td');
           tdVen.appendChild(vendorInp);
           r6.appendChild(tdVen);
@@ -2465,7 +2459,7 @@
 
         async function loadInquiries() {
           try {
-            const res = await fetch('/inquiries');
+            const res = await fetch('/inquiries', { credentials: 'include' });
             const data = await res.json();
             if (!Array.isArray(data)) {
               console.error('Server did not return array:', data);
@@ -2473,11 +2467,11 @@
               return;
             }
             filteredData = data;
-            // ✅ 加在这里
+
+            // ✅ Always clear draft cache after a fresh fetch (avoid stale cache hiding Mongo values)
             for (const k of Object.keys(draftCache)) delete draftCache[k];
+
             filteredData = applySearchFilter(filteredData, searchTerm);
-
-
             renderPage();
           } catch (e) {
             console.error('Failed to load inquiries:', e);

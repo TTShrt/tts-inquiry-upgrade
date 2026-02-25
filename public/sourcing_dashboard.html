@@ -1249,60 +1249,67 @@
           const res = await fetch('/inquiries/update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', // ✅ 必须：保证 cookie role/username 一定带上
             body: JSON.stringify(payload)
           });
+
+          const text = await res.text();
           if (!res.ok) {
-            const t = await res.text();
-            console.error('Update failed:', t);
-            return { ok: false, text: t };
+            console.error('Update failed:', text);
+            return { ok: false, text };
           }
-          return { ok: true };
+
+          // 尝试 parse JSON（不强求）
+          try { return { ok: true, data: JSON.parse(text) }; }
+          catch { return { ok: true, data: text }; }
         }
 
         async function saveFields(quote, fields, scope) {
-          const payload = {
-            'Quotation #': quote,
-            'Saved': 'true'
-          };
+  const qTrim = String(quote || '').trim();
 
-          // ✅ 強制加入 Inquiry Type，讓 GP 計算能正常執行
-          // ✅ 強制加入 Inquiry Type，讓 GP 計算能正常執行
-          // Inquiry Type 在 basic val row 的第 5 個 td (index 4)
-          const basicRows = document.querySelectorAll('tr.row-basic-val');
-          for (const row of basicRows) {
-            const quoteTd = row.querySelector('td:nth-child(17)'); // Quotation # 在第 17 欄
-            if (quoteTd && quoteTd.textContent.trim() === quote) {
-              const inquiryTypeTd = row.querySelector('td:nth-child(5)'); // Inquiry Type 在第 5 欄
-              if (inquiryTypeTd) {
-                payload['Inquiry Type'] = inquiryTypeTd.textContent.trim();
-              }
-              break;
-            }
-          }
+  const payload = {
+    'Quotation #': qTrim,
+    'Saved': 'true'
+  };
 
-          const inputs = Array.from(document.querySelectorAll(`input[data-scope="${scope}"]`))
-            .filter(el => el.getAttribute('data-quote') === quote);
+  // ✅ 直接抓这一行所有 input（以 data-quote + scope 精准定位）
+  const inputs = Array.from(document.querySelectorAll(`input[data-scope="${scope}"]`))
+    .filter(el => String(el.getAttribute('data-quote') || '').trim() === qTrim);
 
-          const map = new Map();
-          inputs.forEach(el => {
-            const f = el.getAttribute('data-field');
-            if (f) map.set(f, el.value);
-          });
+  // ✅ 如果一个都抓不到，直接报错（这就是你现在刷新后全空的主因）
+  if (!inputs.length) {
+    const msg = `❌ SAVE failed: cannot find inputs for quote=${qTrim}, scope=${scope}`;
+    console.error(msg);
+    alert(msg);
+    return false;
+  }
 
-          fields.forEach(f => {
-            if (!map.has(f)) return;
-            const val = map.get(f);
+  // ✅ 把这一行所有 data-field 都塞进 payload（不再依赖 fields 白名单，避免漏字段）
+  for (const el of inputs) {
+    const f = String(el.getAttribute('data-field') || '').trim();
+    if (!f) continue;
 
-            // ✅ 不要用空字串覆盖旧值（避免 CHECK/autosave 清空数据）
-            if (val === '' || val === null || typeof val === 'undefined') return;
+    // checkbox
+    if (el.type === 'checkbox') {
+      payload[f] = !!el.checked;
+      continue;
+    }
 
-            payload[f] = val;
-          });
+    const v = String(el.value ?? '').trim();
 
-          const r = await postUpdate(payload);
-          if (!r.ok) alert('❌ Save failed: ' + (r.text || ''));
-          return r.ok;
-        }
+    // ✅ 不用空字串覆盖旧值（你原本的保护逻辑保留）
+    if (v === '') continue;
+
+    payload[f] = v;
+  }
+
+  // debug：你可以看浏览器 console 里到底送了什么
+  console.log('[SAVE payload]', payload);
+
+  const r = await postUpdate(payload);
+  if (!r.ok) alert('❌ Save failed: ' + (r.text || ''));
+  return r.ok;
+}
 
         async function autosaveScopeIfHasAnyValue(quote, scope) {
           const qTrim = String(quote || '').trim();
@@ -1315,7 +1322,7 @@
             ? ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier']
             : ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound', 'Vendor'];
 
-          return await saveFields(quote, fields, scope);
+          return await saveFields(qTrim, fields, scope);
         }
 
         async function setFlags(quote, updates) {
@@ -1693,8 +1700,6 @@
               'Order Processing', 'Inbound', 'Sorting', 'Palletizing',
               'Pallet Fee', 'Storage', 'Outbound', 'Vendor'
             ].forEach(f => delete draftCache[draftKey(quote, 'WH', f)]);
-
-            await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');
 
             markRowSaved(quote, 'WH');
 

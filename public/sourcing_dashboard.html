@@ -1607,6 +1607,7 @@
             const resp = await fetch('/inquiries', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
               body: JSON.stringify(newItem)
             });
 
@@ -1767,13 +1768,17 @@
           addBtn.title = '新增 WAREHOUSE 子行';
           addBtn.disabled = scopeConfirmed(item, 'WH'); // ✅ checked(成本已送出) 仍允许新增子行；仅在 Sales/Manager Confirm 后锁死
           addBtn.onclick = async () => {
-            if (!confirm('確定新增一條 WAREHOUSE 子行？')) return;
-            await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');
+            if (!confirm('確定新增一條 TRUCK 子行？')) return;
 
-            const parent = String(mainKey || '').trim();   // ✅ 永远用主号
+            const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
+            if (!okAuto) {
+              alert('❌ 先保存当前 COST 失败，所以不会新增子行（避免数据丢失）。');
+              return;
+            }
 
+            const parent = String(mainKey || '').trim();
             const all = await fetchAllInquiries();
-            const newQuote = nextWhQuote(parent, all);
+            const newQuote = nextTruckQuote(parent, all);
 
             const newItem = {
               'Quotation #': newQuote,
@@ -1790,6 +1795,7 @@
             const resp = await fetch('/inquiries', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
               body: JSON.stringify(newItem)
             });
 
@@ -1829,6 +1835,7 @@
             const resp = await fetch('/delete_inquiry', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
               body: JSON.stringify({ quoteId: qDel })
             });
 
@@ -1873,202 +1880,202 @@
           return icons.join(' ');
         }
 
-function renderPage() {
-  const tbody = document.getElementById('summaryBody');
-  if (!tbody) return;
-  tbody.innerHTML = '';
+        function renderPage() {
+          const tbody = document.getElementById('summaryBody');
+          if (!tbody) return;
+          tbody.innerHTML = '';
 
-  const TOTAL_COLS = 27;
-  const BASIC_HEAD = ['#', 'Date', 'Customer ID', 'Requested By', 'Inquiry Type', 'Container Size', 'Commodity', 'Packages', 'Flags', 'Dry Van Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop', 'From', 'To', 'QTY', 'Quotation #'];
+          const TOTAL_COLS = 27;
+          const BASIC_HEAD = ['#', 'Date', 'Customer ID', 'Requested By', 'Inquiry Type', 'Container Size', 'Commodity', 'Packages', 'Flags', 'Dry Van Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop', 'From', 'To', 'QTY', 'Quotation #'];
 
-  const TRUCK_HEADERS = ['', 'Base Rate', 'Price', 'GP', 'Adjusted Price', 'Adjusted GP',
-    'Chassis Cost', 'Chassis Price', 'Pre-Pull Cost', 'Pre-Pull Price', 'Yard Storage Cost', 'Yard Storage Price',
-    'Driver Waiting Cost', 'Driver Waiting Price', 'Over Weight Cost', 'Over Weight Price', 'Chassis Split Cost', 'Chassis Split Price',
-    'Toll Cost', 'Toll Price', 'Reefer Fee Cost', 'Reefer Fee Price', 'Bond Fee Cost', 'Bond Fee Price', 'Carrier', '', 'Action'];
+          const TRUCK_HEADERS = ['', 'Base Rate', 'Price', 'GP', 'Adjusted Price', 'Adjusted GP',
+            'Chassis Cost', 'Chassis Price', 'Pre-Pull Cost', 'Pre-Pull Price', 'Yard Storage Cost', 'Yard Storage Price',
+            'Driver Waiting Cost', 'Driver Waiting Price', 'Over Weight Cost', 'Over Weight Price', 'Chassis Split Cost', 'Chassis Split Price',
+            'Toll Cost', 'Toll Price', 'Reefer Fee Cost', 'Reefer Fee Price', 'Bond Fee Cost', 'Bond Fee Price', 'Carrier', '', 'Action'];
 
-  const WH_LEFT_HEADERS = ['', 'WH Order Proc', 'WH Order Proc Price', 'WH Inbound', 'WH Inbound Price', 'WH Sorting', 'WH Sorting Price',
-    'WH Palletizing', 'WH Palletizing Price', 'WH Pallet', 'WH Pallet Price', 'WH Storage', 'WH Storage Price', 'WH Outbound', 'WH Outbound Price', 'Vendor'];
+          const WH_LEFT_HEADERS = ['', 'WH Order Proc', 'WH Order Proc Price', 'WH Inbound', 'WH Inbound Price', 'WH Sorting', 'WH Sorting Price',
+            'WH Palletizing', 'WH Palletizing Price', 'WH Pallet', 'WH Pallet Price', 'WH Storage', 'WH Storage Price', 'WH Outbound', 'WH Outbound Price', 'Vendor'];
 
-  // ✅ 全量排序（不要先 slice）
-  const data = (filteredData || []).slice().sort(naturalQuotationSort);
+          // ✅ 全量排序（不要先 slice）
+          const data = (filteredData || []).slice().sort(naturalQuotationSort);
 
-  // ✅ 1) 先用“全量 data”建 groupMap（按主号）
-  const groupMap = new Map();
-  function normalizeParentKey(it) {
-    const q = String(it['Quotation #'] || '').trim();
-    const p = String(it['Parent Quotation #'] || '').trim();
-    return p || q;
-  }
+          // ✅ 1) 先用“全量 data”建 groupMap（按主号）
+          const groupMap = new Map();
+          function normalizeParentKey(it) {
+            const q = String(it['Quotation #'] || '').trim();
+            const p = String(it['Parent Quotation #'] || '').trim();
+            return p || q;
+          }
 
-  data.forEach(it => {
-    const key = normalizeParentKey(it);
-    if (!key) return;
-    if (!groupMap.has(key)) groupMap.set(key, []);
-    groupMap.get(key).push(it);
-  });
+          data.forEach(it => {
+            const key = normalizeParentKey(it);
+            if (!key) return;
+            if (!groupMap.has(key)) groupMap.set(key, []);
+            groupMap.get(key).push(it);
+          });
 
-  // ✅ 2) 主号 keys（按主号排序）
-  const allKeys = Array.from(groupMap.keys()).sort((a, b) =>
-    naturalQuotationSort({ 'Quotation #': a }, { 'Quotation #': b })
-  );
+          // ✅ 2) 主号 keys（按主号排序）
+          const allKeys = Array.from(groupMap.keys()).sort((a, b) =>
+            naturalQuotationSort({ 'Quotation #': a }, { 'Quotation #': b })
+          );
 
-  // ✅ 3) 按“主号数量”分页（这一步是修复你 ADD 后看起来清零的核心）
-  const maxPage = Math.ceil(allKeys.length / pageSize) || 1;
-  if (currentPage > maxPage) currentPage = maxPage;
-  if (currentPage < 1) currentPage = 1;
+          // ✅ 3) 按“主号数量”分页（这一步是修复你 ADD 后看起来清零的核心）
+          const maxPage = Math.ceil(allKeys.length / pageSize) || 1;
+          if (currentPage > maxPage) currentPage = maxPage;
+          if (currentPage < 1) currentPage = 1;
 
-  const startKey = (currentPage - 1) * pageSize;
-  const pageKeys = allKeys.slice(startKey, startKey + pageSize);
+          const startKey = (currentPage - 1) * pageSize;
+          const pageKeys = allKeys.slice(startKey, startKey + pageSize);
 
-  // ✅ index #（按主号计数）
-  const getIndex = (idxInPage) => startKey + idxInPage + 1;
+          // ✅ index #（按主号计数）
+          const getIndex = (idxInPage) => startKey + idxInPage + 1;
 
-  // ✅ 4) 渲染当前页每个主号 block（整组渲染：主行 + 子行）
-  pageKeys.forEach((key, idxInPage) => {
-    const group = (groupMap.get(key) || []).slice();
-    if (!group.length) return;
+          // ✅ 4) 渲染当前页每个主号 block（整组渲染：主行 + 子行）
+          pageKeys.forEach((key, idxInPage) => {
+            const group = (groupMap.get(key) || []).slice();
+            if (!group.length) return;
 
-    // group 内部排序，确保主行/子行稳定排列
-    group.sort(naturalQuotationSort);
+            // group 内部排序，确保主行/子行稳定排列
+            group.sort(naturalQuotationSort);
 
-    const idx = String(getIndex(idxInPage));
+            const idx = String(getIndex(idxInPage));
 
-    // 选 main：优先 Quotation# == key，否则 fallback group[0]
-    const main = group.find(it => String(it['Quotation #'] || '').trim() === key) || group[0];
+            // 选 main：优先 Quotation# == key，否则 fallback group[0]
+            const main = group.find(it => String(it['Quotation #'] || '').trim() === key) || group[0];
 
-    // 子行筛选（你原本逻辑保持）
-    const truckSubs = group.filter(it => {
-      const q = String(it['Quotation #'] || '').trim();
-      return q !== key && /-\d+$/.test(q);
-    });
+            // 子行筛选（你原本逻辑保持）
+            const truckSubs = group.filter(it => {
+              const q = String(it['Quotation #'] || '').trim();
+              return q !== key && /-\d+$/.test(q);
+            });
 
-    const whSubs = group.filter(it => {
-      const q = String(it['Quotation #'] || '').trim();
-      return q !== key && /-[A-Z]$/i.test(q);
-    });
+            const whSubs = group.filter(it => {
+              const q = String(it['Quotation #'] || '').trim();
+              return q !== key && /-[A-Z]$/i.test(q);
+            });
 
-    // ========= BASIC header =========
-    const r1 = document.createElement('tr');
-    r1.className = 'row-basic-head';
-    BASIC_HEAD.forEach(h => r1.appendChild(tdHeader(h)));
+            // ========= BASIC header =========
+            const r1 = document.createElement('tr');
+            r1.className = 'row-basic-head';
+            BASIC_HEAD.forEach(h => r1.appendChild(tdHeader(h)));
 
-    const noteHead = tdHeader('NOTE');
-    noteHead.colSpan = 8;          // ✅ 18~25
-    noteHead.classList.add('text-left');
-    r1.appendChild(noteHead);
+            const noteHead = tdHeader('NOTE');
+            noteHead.colSpan = 8;          // ✅ 18~25
+            noteHead.classList.add('text-left');
+            r1.appendChild(noteHead);
 
-    r1.appendChild(tdHeader(''));          // ✅ 第26空白
-    r1.appendChild(tdHeader('ACTION'));    // ✅ 第27
-    tbody.appendChild(r1);
+            r1.appendChild(tdHeader(''));          // ✅ 第26空白
+            r1.appendChild(tdHeader('ACTION'));    // ✅ 第27
+            tbody.appendChild(r1);
 
-    // ========= BASIC values =========
-    const r2 = document.createElement('tr');
-    r2.className = 'row-basic-val';
+            // ========= BASIC values =========
+            const r2 = document.createElement('tr');
+            r2.className = 'row-basic-val';
 
-    const vals = [
-      idx,
-      main['Date'] || '',
-      main['Customer ID'] || '',
-      main['Requested By'] || main.username || '',
-      main['Inquiry Type'] || '',
-      main['Container Size'] || '',
-      (main['Commodity'] || '').toString().trim(),
-      main['Packages Per Container'] || '',
-      flagIcons(main),
-      main['Dry Van Type'] || '',
-      main['Legal or Over Weight'] || '',
-      main['Gross Weight'] || '',
-      main['Live or Drop'] || '',
-      main['From'] || '',
-      composeTo2(main),
-      main['QTY'] || '',
-      (main['External Quotation #'] || key)
-    ];
-    vals.forEach(v => r2.appendChild(tdCell(v, 'text-center')));
+            const vals = [
+              idx,
+              main['Date'] || '',
+              main['Customer ID'] || '',
+              main['Requested By'] || main.username || '',
+              main['Inquiry Type'] || '',
+              main['Container Size'] || '',
+              (main['Commodity'] || '').toString().trim(),
+              main['Packages Per Container'] || '',
+              flagIcons(main),
+              main['Dry Van Type'] || '',
+              main['Legal or Over Weight'] || '',
+              main['Gross Weight'] || '',
+              main['Live or Drop'] || '',
+              main['From'] || '',
+              composeTo2(main),
+              main['QTY'] || '',
+              (main['External Quotation #'] || key)
+            ];
+            vals.forEach(v => r2.appendChild(tdCell(v, 'text-center')));
 
-    const company = String(main['Customer Company'] || main['Company Name'] || '').trim();
-    const contact = String(main['Customer Contact'] || main['Contact Name'] || '').trim();
-    const email = String(main['Customer Email'] || '').trim();
-    const phone = String(main['Customer Phone'] || '').trim();
+            const company = String(main['Customer Company'] || main['Company Name'] || '').trim();
+            const contact = String(main['Customer Contact'] || main['Contact Name'] || '').trim();
+            const email = String(main['Customer Email'] || '').trim();
+            const phone = String(main['Customer Phone'] || '').trim();
 
-    const customerInfoLine = (company || contact || email || phone)
-      ? `Customer Info: ${[
-        company ? `Company=${company}` : '',
-        contact ? `Contact=${contact}` : '',
-        email ? `Email=${email}` : '',
-        phone ? `Phone=${phone}` : ''
-      ].filter(Boolean).join(' | ')}`
-      : '';
+            const customerInfoLine = (company || contact || email || phone)
+              ? `Customer Info: ${[
+                company ? `Company=${company}` : '',
+                contact ? `Contact=${contact}` : '',
+                email ? `Email=${email}` : '',
+                phone ? `Phone=${phone}` : ''
+              ].filter(Boolean).join(' | ')}`
+              : '';
 
-    const noteBody = String(main['Note'] || '').trim();
-    const fullGeneralNote = [customerInfoLine, noteBody].filter(Boolean).join('\n');
-    const previewGeneralNote = fullGeneralNote.replace(/\s+/g, ' ').trim();
+            const noteBody = String(main['Note'] || '').trim();
+            const fullGeneralNote = [customerInfoLine, noteBody].filter(Boolean).join('\n');
+            const previewGeneralNote = fullGeneralNote.replace(/\s+/g, ' ').trim();
 
-    const noteTd = tdCell('', 'note-preview');
-    noteTd.colSpan = 8;
-    noteTd.dataset.fullNote = fullGeneralNote;
-    noteTd.dataset.which = 'GENERAL NOTE';
-    noteTd.style.textAlign = 'left';
+            const noteTd = tdCell('', 'note-preview');
+            noteTd.colSpan = 8;
+            noteTd.dataset.fullNote = fullGeneralNote;
+            noteTd.dataset.which = 'GENERAL NOTE';
+            noteTd.style.textAlign = 'left';
 
-    const line = document.createElement('div');
-    line.className = 'note-line';
-    line.textContent = previewGeneralNote;
-    noteTd.appendChild(line);
+            const line = document.createElement('div');
+            line.className = 'note-line';
+            line.textContent = previewGeneralNote;
+            noteTd.appendChild(line);
 
-    r2.appendChild(noteTd);
+            r2.appendChild(noteTd);
 
-    r2.appendChild(tdCell(''));                  // ✅ 第26空白
-    r2.appendChild(tdCell('🔒', 'text-center'));  // ✅ 第27
-    tbody.appendChild(r2);
+            r2.appendChild(tdCell(''));                  // ✅ 第26空白
+            r2.appendChild(tdCell('🔒', 'text-center'));  // ✅ 第27
+            tbody.appendChild(r2);
 
-    // ========= TRUCK header =========
-    const r3 = document.createElement('tr');
-    r3.className = 'row-truck-head';
-    TRUCK_HEADERS.forEach((h, i) => {
-      if (i === 0) r3.appendChild(tdHeader(key, 'text-left'));
-      else r3.appendChild(tdHeader(h));
-    });
-    tbody.appendChild(r3);
+            // ========= TRUCK header =========
+            const r3 = document.createElement('tr');
+            r3.className = 'row-truck-head';
+            TRUCK_HEADERS.forEach((h, i) => {
+              if (i === 0) r3.appendChild(tdHeader(key, 'text-left'));
+              else r3.appendChild(tdHeader(h));
+            });
+            tbody.appendChild(r3);
 
-    // TRUCK main + subs（你原本函数保持）
-    tbody.appendChild(renderTruckRow(main, key, false, key));
-    truckSubs.forEach(sub => tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key)));
+            // TRUCK main + subs（你原本函数保持）
+            tbody.appendChild(renderTruckRow(main, key, false, key));
+            truckSubs.forEach(sub => tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key)));
 
-    // ========= WH header =========
-    const r5 = document.createElement('tr');
-    r5.className = 'row-wh-head';
+            // ========= WH header =========
+            const r5 = document.createElement('tr');
+            r5.className = 'row-wh-head';
 
-    WH_LEFT_HEADERS.forEach((h, i) => {
-      if (i === 0) r5.appendChild(tdHeader(key, 'text-left'));
-      else r5.appendChild(tdHeader(h));
-    });
+            WH_LEFT_HEADERS.forEach((h, i) => {
+              if (i === 0) r5.appendChild(tdHeader(key, 'text-left'));
+              else r5.appendChild(tdHeader(h));
+            });
 
-    r5.appendChild(tdHeader('')); // 第17留空
-    const whNoteHead = tdHeader('NOTE');
-    whNoteHead.colSpan = 8;
-    whNoteHead.classList.add('text-left');
-    r5.appendChild(whNoteHead);
+            r5.appendChild(tdHeader('')); // 第17留空
+            const whNoteHead = tdHeader('NOTE');
+            whNoteHead.colSpan = 8;
+            whNoteHead.classList.add('text-left');
+            r5.appendChild(whNoteHead);
 
-    r5.appendChild(tdHeader('', 'spacer-col')); // 第26
-    r5.appendChild(tdHeader('Action'));         // 第27
-    tbody.appendChild(r5);
+            r5.appendChild(tdHeader('', 'spacer-col')); // 第26
+            r5.appendChild(tdHeader('Action'));         // 第27
+            tbody.appendChild(r5);
 
-    // WH main + subs（你原本函数保持）
-    tbody.appendChild(renderWhRow(main, key, false, key));
-    whSubs.forEach(sub => tbody.appendChild(renderWhRow(sub, sub['Quotation #'], true, key)));
+            // WH main + subs（你原本函数保持）
+            tbody.appendChild(renderWhRow(main, key, false, key));
+            whSubs.forEach(sub => tbody.appendChild(renderWhRow(sub, sub['Quotation #'], true, key)));
 
-    // 分隔行
-    const sep = document.createElement('tr');
-    sep.className = 'row-sep';
-    const tdSep = document.createElement('td');
-    tdSep.colSpan = TOTAL_COLS;
-    sep.appendChild(tdSep);
-    tbody.appendChild(sep);
-  });
+            // 分隔行
+            const sep = document.createElement('tr');
+            sep.className = 'row-sep';
+            const tdSep = document.createElement('td');
+            tdSep.colSpan = TOTAL_COLS;
+            sep.appendChild(tdSep);
+            tbody.appendChild(sep);
+          });
 
-  const pageInfo = document.getElementById('pageInfo');
-  if (pageInfo) pageInfo.textContent = `Page ${currentPage}`;
-}
+          const pageInfo = document.getElementById('pageInfo');
+          if (pageInfo) pageInfo.textContent = `Page ${currentPage}`;
+        }
 
         function renderTruckRow(item, quote, isSub, mainKey) {
           const q = String(quote || '').trim();
@@ -2167,7 +2174,7 @@ function renderPage() {
 
           // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
           ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {
-            const ci = makeInput(item[cF] ??'', cF, quote, lockedWH, 'WH');
+            const ci = makeInput(item[cF] ?? '', cF, quote, lockedWH, 'WH');
             const tc = document.createElement('td');
             tc.appendChild(ci);
             r6.appendChild(tc);

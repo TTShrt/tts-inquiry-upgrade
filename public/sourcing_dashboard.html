@@ -1244,7 +1244,7 @@
             .filter(q => q === base || q.startsWith(base + '-'))
             .filter(Boolean);
         }
-        
+
         async function postUpdate(payload) {
           const res = await fetch('/inquiries/update', {
             method: 'POST',
@@ -1305,8 +1305,9 @@
         }
 
         async function autosaveScopeIfHasAnyValue(quote, scope) {
+          const qTrim = String(quote || '').trim();
           const inputs = Array.from(document.querySelectorAll(`input[data-scope="${scope}"]`))
-            .filter(el => el.getAttribute('data-quote') === quote);
+            .filter(el => String(el.getAttribute('data-quote') || '').trim() === qTrim);
           const hasValue = inputs.some(el => String(el.value || '').trim() !== '');
           if (!hasValue) return true;
 
@@ -2094,7 +2095,7 @@
           const parentDoc = (filteredData || []).find(x => String(x['Quotation #'] || '').trim() === String(mainKey || '').trim());
           const baseExt = String(parentDoc?.['External Quotation #'] || '').trim();
           const suffix = String(quote || '').match(/-\d+$/)?.[0] || '';
-          const displayQ = (isSub && baseExt) ? (baseExt + suffix) : (isSub ? q : '');
+          const displayQ = (isSub && baseExt) ? (baseExt + suffix) : q;
           const r4 = document.createElement('tr');
           r4.className = 'row-truck-val';
           if (isSub) r4.classList.add('sub-row');

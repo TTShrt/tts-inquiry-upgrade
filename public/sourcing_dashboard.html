@@ -1878,10 +1878,7 @@
           if (!tbody) return;
           tbody.innerHTML = '';
 
-          const TOTAL_COLS = 27; // 你的表格最大列数（TRUCK_HEADERS 长度）
-          const data = (filteredData || []).slice().sort(naturalQuotationSort);
-          const start = (currentPage - 1) * pageSize;
-          const pageData = data.slice(start, start + pageSize);
+          const TOTAL_COLS = 27;
           const BASIC_HEAD = ['#', 'Date', 'Customer ID', 'Requested By', 'Inquiry Type', 'Container Size', 'Commodity', 'Packages', 'Flags', 'Dry Van Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop', 'From', 'To', 'QTY', 'Quotation #'];
 
           const TRUCK_HEADERS = ['', 'Base Rate', 'Price', 'GP', 'Adjusted Price', 'Adjusted GP',
@@ -1892,78 +1889,54 @@
           const WH_LEFT_HEADERS = ['', 'WH Order Proc', 'WH Order Proc Price', 'WH Inbound', 'WH Inbound Price', 'WH Sorting', 'WH Sorting Price',
             'WH Palletizing', 'WH Palletizing Price', 'WH Pallet', 'WH Pallet Price', 'WH Storage', 'WH Storage Price', 'WH Outbound', 'WH Outbound Price', 'Vendor'];
 
-          // ===== 1) 将所有 items 归到“主号 key” =====
-          const groupMap = new Map();
+          // ✅ 全量排序（不要先 slice）
+          const data = (filteredData || []).slice().sort(naturalQuotationSort);
 
+          // ✅ 1) 先用“全量 data”建 groupMap（按主号）
+          const groupMap = new Map();
           function normalizeParentKey(it) {
             const q = String(it['Quotation #'] || '').trim();
             const p = String(it['Parent Quotation #'] || '').trim();
             return p || q;
           }
 
-          pageData.forEach(it => {
+          data.forEach(it => {
             const key = normalizeParentKey(it);
+            if (!key) return;
             if (!groupMap.has(key)) groupMap.set(key, []);
             groupMap.get(key).push(it);
           });
 
-          // keys：所有主号（包括只有子行的主号）
-          const keys = Array.from(groupMap.keys()).sort((a, b) =>
+          // ✅ 2) 主号 keys（按主号排序）
+          const allKeys = Array.from(groupMap.keys()).sort((a, b) =>
             naturalQuotationSort({ 'Quotation #': a }, { 'Quotation #': b })
           );
 
-          // index #（按主号计数）
-          const baseIndex = new Map();
-          const getIndex = (key) => {
-            if (!baseIndex.has(key)) baseIndex.set(key, baseIndex.size + 1 + start);
-            return baseIndex.get(key);
-          };
+          // ✅ 3) 按“主号数量”分页（这一步是修复你 ADD 后看起来清零的核心）
+          const maxPage = Math.ceil(allKeys.length / pageSize) || 1;
+          if (currentPage > maxPage) currentPage = maxPage;
+          if (currentPage < 1) currentPage = 1;
 
-          // ===== 2) 从一个 group 中挑 “最像主行”的记录 =====
-          function scoreAsMain(it, key) {
-            const q = String(it['Quotation #'] || '').trim();
-            const t = String(it.Type || '').toUpperCase();
-            const parent = String(it['Parent Quotation #'] || '').trim();
+          const startKey = (currentPage - 1) * pageSize;
+          const pageKeys = allKeys.slice(startKey, startKey + pageSize);
 
-            let s = 0;
-            if (q === key) s += 50;
-            if (t === 'MAIN' || t === 'MAINLINE') s += 50;
-            if (!parent) s += 10;
-            if (!/-\d+$/.test(q) && !/-[A-Z]$/i.test(q)) s += 10;
+          // ✅ index #（按主号计数）
+          const getIndex = (idxInPage) => startKey + idxInPage + 1;
 
-            // 有完整 Basic 字段的更像主行
-            const fields = ['Customer ID', 'Inquiry Type', 'From', 'To', 'Container Size', 'Gross Weight'];
-            fields.forEach(f => { if (String(it[f] || '').trim()) s += 3; });
-
-            return s;
-          }
-
-          // ===== 3) 渲染每个主号 block =====
-          keys.forEach(key => {
-            const group = groupMap.get(key) || [];
+          // ✅ 4) 渲染当前页每个主号 block（整组渲染：主行 + 子行）
+          pageKeys.forEach((key, idxInPage) => {
+            const group = (groupMap.get(key) || []).slice();
             if (!group.length) return;
 
-            const idx = getIndex(key);
+            // group 内部排序，确保主行/子行稳定排列
+            group.sort(naturalQuotationSort);
 
-            // 选 main
-            const mainCandidates = group.filter(it =>
-              String(it['Quotation #'] || '').trim() === key
-            );
+            const idx = String(getIndex(idxInPage));
 
-            const main = mainCandidates.length ? mainCandidates[0] : group[0];
+            // 选 main：优先 Quotation# == key，否则 fallback group[0]
+            const main = group.find(it => String(it['Quotation #'] || '').trim() === key) || group[0];
 
-            // 子行分类（不靠 Parent 是否存在，靠 Type / 后缀）
-            const isTruckSub = (it) => {
-              const t = String(it.Type || '').toUpperCase();
-              const q = String(it['Quotation #'] || '').trim();
-              return t === 'TRUCK' || /-\d+$/.test(q);
-            };
-            const isWhSub = (it) => {
-              const t = String(it.Type || '').toUpperCase();
-              const q = String(it['Quotation #'] || '').trim();
-              return t === 'WAREHOUSE' || /-[A-Z]$/i.test(q);
-            };
-
+            // 子行筛选（你原本逻辑保持）
             const truckSubs = group.filter(it => {
               const q = String(it['Quotation #'] || '').trim();
               return q !== key && /-\d+$/.test(q);
@@ -1984,8 +1957,8 @@
             noteHead.classList.add('text-left');
             r1.appendChild(noteHead);
 
-            r1.appendChild(tdHeader(''));  // ✅ 第26空白
-            r1.appendChild(tdHeader('ACTION')); // ✅ 第27
+            r1.appendChild(tdHeader(''));          // ✅ 第26空白
+            r1.appendChild(tdHeader('ACTION'));    // ✅ 第27
             tbody.appendChild(r1);
 
             // ========= BASIC values =========
@@ -1993,7 +1966,7 @@
             r2.className = 'row-basic-val';
 
             const vals = [
-              String(idx),
+              idx,
               main['Date'] || '',
               main['Customer ID'] || '',
               main['Requested By'] || main.username || '',
@@ -2028,16 +2001,13 @@
               : '';
 
             const noteBody = String(main['Note'] || '').trim();
-
-            // ✅ 最终 GENERAL NOTE：客户信息在第一行，下面才是原 Note
             const fullGeneralNote = [customerInfoLine, noteBody].filter(Boolean).join('\n');
             const previewGeneralNote = fullGeneralNote.replace(/\s+/g, ' ').trim();
+
             const noteTd = tdCell('', 'note-preview');
             noteTd.colSpan = 8;
             noteTd.dataset.fullNote = fullGeneralNote;
             noteTd.dataset.which = 'GENERAL NOTE';
-
-            // ✅ 强制左对齐（保险）
             noteTd.style.textAlign = 'left';
 
             const line = document.createElement('div');
@@ -2048,61 +2018,50 @@
             r2.appendChild(noteTd);
 
             r2.appendChild(tdCell(''));                  // ✅ 第26空白
-            r2.appendChild(tdCell('🔒', 'text-center'));  // ✅ 第27（你想用锁就放这里）
-
+            r2.appendChild(tdCell('🔒', 'text-center'));  // ✅ 第27
             tbody.appendChild(r2);
 
             // ========= TRUCK header =========
             const r3 = document.createElement('tr');
             r3.className = 'row-truck-head';
-
             TRUCK_HEADERS.forEach((h, i) => {
-              if (i === 0) r3.appendChild(tdHeader(key, 'text-left'));   // ✅ 第3行显示主号
+              if (i === 0) r3.appendChild(tdHeader(key, 'text-left'));
               else r3.appendChild(tdHeader(h));
             });
-
             tbody.appendChild(r3);
 
-            // TRUCK main row（永远显示，可在这里点 + 新增）
+            // TRUCK main + subs（你原本函数保持）
             tbody.appendChild(renderTruckRow(main, key, false, key));
             truckSubs.forEach(sub => tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key)));
 
+            // ========= WH header =========
             const r5 = document.createElement('tr');
             r5.className = 'row-wh-head';
 
             WH_LEFT_HEADERS.forEach((h, i) => {
-              if (i === 0) r5.appendChild(tdHeader(key, 'text-left'));  // ✅ 用 key
+              if (i === 0) r5.appendChild(tdHeader(key, 'text-left'));
               else r5.appendChild(tdHeader(h));
             });
 
-            // ✅ 第17栏：留空（Sales 的 EST GP 留位）
-            r5.appendChild(tdHeader(''));
-
-            // ✅ NOTE 从第18栏开始（18~25 => 8列）
+            r5.appendChild(tdHeader('')); // 第17留空
             const whNoteHead = tdHeader('NOTE');
             whNoteHead.colSpan = 8;
             whNoteHead.classList.add('text-left');
             r5.appendChild(whNoteHead);
 
-            // ✅ 第26栏 spacer（你CSS里用 nth-child(26) 也行，但建议统一 class）
-            r5.appendChild(tdHeader('', 'spacer-col'));
-
-            // 第27栏 Action
-            r5.appendChild(tdHeader('Action'));
-
+            r5.appendChild(tdHeader('', 'spacer-col')); // 第26
+            r5.appendChild(tdHeader('Action'));         // 第27
             tbody.appendChild(r5);
 
-
-            // WH main row
+            // WH main + subs（你原本函数保持）
             tbody.appendChild(renderWhRow(main, key, false, key));
             whSubs.forEach(sub => tbody.appendChild(renderWhRow(sub, sub['Quotation #'], true, key)));
 
-
-            // 分隔行（可选）
+            // 分隔行
             const sep = document.createElement('tr');
             sep.className = 'row-sep';
             const tdSep = document.createElement('td');
-            tdSep.colSpan = 27;
+            tdSep.colSpan = TOTAL_COLS;
             sep.appendChild(tdSep);
             tbody.appendChild(sep);
           });
@@ -2208,7 +2167,7 @@
 
           // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
           ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {
-            const ci = makeInput(item[cF] ??'', cF, quote, lockedWH, 'WH');
+            const ci = makeInput(item[cF] ?? '', cF, quote, lockedWH, 'WH');
             const tc = document.createElement('td');
             tc.appendChild(ci);
             r6.appendChild(tc);
@@ -2508,7 +2467,10 @@
             if (currentPage > 1) { currentPage--; renderPage(); }
           });
           document.getElementById('nextPage')?.addEventListener('click', () => {
-            const maxPage = Math.ceil((filteredData.length || 0) / pageSize) || 1;
+            const keys = new Set((filteredData || []).map(it =>
+              String(it['Parent Quotation #'] || it['Quotation #'] || '').trim()
+            ).filter(Boolean));
+            const maxPage = Math.ceil(keys.size / pageSize) || 1;
             if (currentPage < maxPage) { currentPage++; renderPage(); }
           });
           document.getElementById('exitBtn')?.addEventListener('click', () => {

@@ -389,14 +389,6 @@ function isTruthy(val) {
   return s === 'true' || s === '1' || s === 'yes' || s === 'y';
 }
 
-
-// ==============================
-// ✅ Global safe patch helper
-// - Keeps primary key immutable
-// - Allows empty strings (front-end may intentionally clear fields)
-// ==============================
-
-
 function setIfEmpty(doc, key, value) {
   const cur = doc[key];
   const empty = cur === undefined || cur === null || String(cur).trim() === '';
@@ -1442,8 +1434,10 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     return res.status(500).json({ error: 'Error fetching quotation ref' });
   }
 
-    const fullQuoteId = String(inquiry['Quotation #'] || '').trim();
-  const alreadyPushed = await Inquiry.findOne({ 'Quotation #': fullQuoteId, 'Pushed To GF': 'true' });
+  const alreadyPushed = await Inquiry.findOne({
+    'Quotation #': fullQuoteId,
+    'Pushed To GF': 'true'
+  });
   if (alreadyPushed) {
     return res.status(200).send('Already pushed');
   }
@@ -1499,13 +1493,9 @@ app.post('/api/push-to-gofreight', async (req, res) => {
         raw: result
       });
     }
-    // ✅ Mark pushed (minimal, avoids undefined vars)
-    if (fullQuoteId) {
-      await Inquiry.updateOne(
-        { 'Quotation #': fullQuoteId },
-        { $set: { 'Pushed To GF': 'true', 'Pushed To GF At': new Date().toISOString() } }
-      );
-    }
+
+    const patch = buildSafePatch(incoming);
+    await Inquiry.updateOne({ 'Quotation #': quotationId }, { $set: patch });
 
     res.status(gfRes.status).json(resultJson);
   } catch (err) {
@@ -1671,7 +1661,16 @@ app.post('/delete_inquiry', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Cannot delete: row is locked (cost sent or price confirmed).' });
     }
 
-    const result = await Inquiry.deleteOne({ 'Quotation #': quoteId });
+    
+    // ✅ Only allow deleting sub-lines (prevent deleting the main quotation line)
+    const qDel = String(quoteId || '').trim();
+    const isTruckSub = /-\d+$/.test(qDel);
+    const isWhSub = /-[A-Z]$/i.test(qDel);
+    if (!isTruckSub && !isWhSub) {
+      return res.status(403).json({ success: false, message: 'Cannot delete: main line cannot be deleted.' });
+    }
+
+const result = await Inquiry.deleteOne({ 'Quotation #': quoteId });
 
     console.log(`[DEBUG] Deleted inquiry: ${quoteId}`);
     io.emit('inquiryUpdated', { quotationId: quoteId });

@@ -976,25 +976,37 @@ app.post('/inquiries/update', async (req, res) => {
     const quotationId = incoming['Quotation #'];
 
     function buildSafePatch(payload) {
-      const patch = {};
-      for (const [k, v] of Object.entries(payload || {})) {
-        if (k === '_id' || k === 'Quotation #' || k === 'Quotation # ') continue;
+  const patch = {};
 
-        if (typeof v === 'boolean') { patch[k] = v; continue; }
-        if (typeof v === 'number') { patch[k] = v; continue; }
+  for (const [k, v] of Object.entries(payload || {})) {
 
-        if (typeof v === 'string') {
-          if (v.trim() === '') continue;
-          patch[k] = v;
-          continue;
-        }
+    // ❌ 不允许改主键
+    if (k === '_id' || k === 'Quotation #' || k === 'Quotation # ') continue;
 
-        if (v === null || v === undefined) continue;
-
-        patch[k] = v;
-      }
-      return patch;
+    // ✅ boolean 一定允许
+    if (typeof v === 'boolean') {
+      patch[k] = v;
+      continue;
     }
+
+    // ✅ number 一定允许（包括 0）
+    if (typeof v === 'number') {
+      patch[k] = v;
+      continue;
+    }
+
+    // ✅ string —— 允许空字符串写入
+    if (typeof v === 'string') {
+      patch[k] = v;
+      continue;
+    }
+
+    // 其他类型也允许写入
+    patch[k] = v;
+  }
+
+  return patch;
+}
 
     if (!quotationId || String(quotationId).trim() === '') {
       return res.status(400).json({ success: false, message: 'Missing Quotation #' });
@@ -1202,27 +1214,34 @@ app.post('/inquiries/update', async (req, res) => {
     }
 
     console.log('[UPDATE BLOCKED]', blocked);
-    if (blocked.length) {
-      // ✅ Sourcing: ignore blocked keys (front-end may send extra meta fields),
-      // but still allow saving permitted cost fields to prevent "save looks ok then clears on reload".
-      if (role === 'sourcing') {
-        console.warn('[UPDATE] sourcing ignored blocked fields:', blocked.map(b => b.field));
-        // continue without 403
-      } else {
-        // Keep behavior strict for others to avoid silent data drift
-        return res.status(403).json({
-          success: false,
-          message: 'Update blocked by permission/lock rules',
-          blocked
-        });
-      }
-    }
 
-// ========= Apply updates =========
+// ✅ Sourcing: ignore blocked keys and continue saving allowed fields (prevents "save then reload clears")
+if (blocked.length && role === 'sourcing') {
+  console.warn('[UPDATE] sourcing ignored blocked fields:', blocked.map(b => b.field));
+  // continue (do NOT 403)
+} else if (blocked.length) {
+  // Keep behavior strict for other roles to avoid silent data drift
+  return res.status(403).json({
+    success: false,
+    message: 'Update blocked by permission/lock rules',
+    blocked
+  });
+}
+
+    // ========= Apply updates =========
     const patch = buildSafePatch(filtered);
     Object.keys(patch).forEach(key => {
       existing[key] = patch[key];
     });
+
+
+    // ✅ Backward-compatible flags so Sales/Manager pages (older logic) can "receive" Cost Sent
+    if (role === 'sourcing') {
+      const anyCostSent =
+        isTruthy(existing['truckingCostSent']) || isTruthy(existing['warehouseCostSent']);
+      existing['Cost Sent'] = anyCostSent ? 'true' : 'false';
+      existing['Selected'] = anyCostSent ? 'true' : 'false';
+    }
 
     // Always apply units and auto rules
     applyTruckingUnits(existing);
@@ -1603,8 +1622,24 @@ app.post('/delete_inquiry', async (req, res) => {
   try {
     // ✅ Mock mode branch (same pattern as /inquiries/update)
     if (USE_MOCK || !conn || conn.readyState !== 1 || !Inquiry) {
+      const targetId = String(quoteId).trim();
+      const target = mockInquiries.find(x => String(x['Quotation #'] || '').trim() === targetId);
+
+      if (!target) {
+        return res.status(404).json({ success: false, message: 'Quotation # not found (mock)' });
+      }
+
+      const locked =
+        isTruthy(target['truckingCostSent']) || isTruthy(target['warehouseCostSent']) ||
+        isTruthy(target['truckingSalesConfirmed']) || isTruthy(target['truckingManagerConfirmed']) ||
+        isTruthy(target['warehouseSalesConfirmed']) || isTruthy(target['warehouseManagerConfirmed']);
+
+      if (locked) {
+        return res.status(403).json({ success: false, message: 'Cannot delete: row is locked (cost sent or price confirmed).' });
+      }
+
       const before = mockInquiries.length;
-      mockInquiries = mockInquiries.filter(x => String(x['Quotation #'] || '').trim() !== String(quoteId).trim());
+      mockInquiries = mockInquiries.filter(x => String(x['Quotation #'] || '').trim() !== targetId);
       const after = mockInquiries.length;
 
       if (after === before) {
@@ -1617,10 +1652,21 @@ app.post('/delete_inquiry', async (req, res) => {
     }
 
     // ✅ MongoDB branch
-    const result = await Inquiry.deleteOne({ 'Quotation #': quoteId });
-    if (result.deletedCount === 0) {
+    const doc = await Inquiry.findOne({ 'Quotation #': quoteId });
+    if (!doc) {
       return res.status(404).json({ success: false, message: 'Quotation # not found' });
     }
+
+    const locked =
+      isTruthy(doc['truckingCostSent']) || isTruthy(doc['warehouseCostSent']) ||
+      isTruthy(doc['truckingSalesConfirmed']) || isTruthy(doc['truckingManagerConfirmed']) ||
+      isTruthy(doc['warehouseSalesConfirmed']) || isTruthy(doc['warehouseManagerConfirmed']);
+
+    if (locked) {
+      return res.status(403).json({ success: false, message: 'Cannot delete: row is locked (cost sent or price confirmed).' });
+    }
+
+    const result = await Inquiry.deleteOne({ 'Quotation #': quoteId });
 
     console.log(`[DEBUG] Deleted inquiry: ${quoteId}`);
     io.emit('inquiryUpdated', { quotationId: quoteId });

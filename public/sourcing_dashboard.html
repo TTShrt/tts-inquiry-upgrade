@@ -1254,23 +1254,10 @@
 
           const payload = {
             'Quotation #': qTrim,
-            'Saved': 'true'
+            'Saved': 'true',
+            ...(sTrim === 'TRUCK' ? { truckingCostSaved: true } : { warehouseCostSaved: true })
           };
-
-          // ✅ Best-effort: include Inquiry Type so backend GP logic can run
-          try {
-            const base = qTrim.split('-')[0];
-            const basicRows = document.querySelectorAll('tr.row-basic-val');
-            for (const row of basicRows) {
-              const quoteTd = row.querySelector('td:nth-child(17)'); // this cell shows External Quotation # OR key
-              const shown = String(quoteTd?.textContent || '').trim();
-              if (shown === base || shown === qTrim) {
-                const inquiryTypeTd = row.querySelector('td:nth-child(5)');
-                if (inquiryTypeTd) payload['Inquiry Type'] = String(inquiryTypeTd.textContent || '').trim();
-                break;
-              }
-            }
-          } catch (e) { /* ignore */ }
+          // (Removed) Do not send 'Inquiry Type' from Sourcing to avoid backend permission blocking.
 
           const inputs = Array.from(document.querySelectorAll(`input[data-scope="${sTrim}"]`))
             .filter(el => String(el.getAttribute('data-quote') || '').trim() === qTrim);
@@ -1529,24 +1516,7 @@
             lockRow(quote, 'TRUCK');
 
             fields.forEach(f => delete draftCache[draftKey(quote, 'TRUCK', f)]);
-            
-
-              // ✅ After checking Cost Sent, immediately lock/unlock delete button (no reload)
-              {
-                const delBtnEl = wrap.querySelector("button[title='删除 TRUCK 子行']");
-                if (delBtnEl) {
-                  const qDelNow = String(quote || '').trim();
-                  const parentNow = String(mainKey || '').trim();
-                  const isTruckSubNow = (qDelNow !== parentNow) && /-\d+$/.test(qDelNow);
-                  const hardLockNow = scopeConfirmed(item, 'TRUCK') || want;
-                  const canDeleteNow = isTruckSubNow && !hardLockNow;
-
-                  delBtnEl.disabled = want ? true : !canDeleteNow;
-                  delBtnEl.style.opacity = (want ? false : canDeleteNow) ? '1' : '0.25';
-                  delBtnEl.style.pointerEvents = (want ? false : canDeleteNow) ? 'auto' : 'none';
-                }
-              }
-markRowSaved(quote, 'TRUCK');
+            markRowSaved(quote, 'TRUCK');
           };
           wrap.appendChild(saveBtn);
 
@@ -1789,18 +1759,15 @@ markRowSaved(quote, 'TRUCK');
                 .forEach(f => delete draftCache[draftKey(quote, 'WH', f)]);
 
               // ✅ After checking Cost Sent, immediately lock/unlock delete button (no reload)
-              {
-                const delBtnEl = wrap.querySelector("button[title='删除 WAREHOUSE 子行']");
-                if (delBtnEl) {
-                  const qDelNow = String(quote || '').trim();
-                  const parentNow = String(mainKey || '').trim();
-                  const isWhSubNow = (qDelNow !== parentNow) && /-[A-Z]$/i.test(qDelNow);
-                  const hardLockNow = scopeConfirmed(item, 'WH') || want;
-                  const canDeleteNow = isWhSubNow && !hardLockNow;
-
-                  delBtnEl.disabled = want ? true : !canDeleteNow;
-                  delBtnEl.style.opacity = (want ? false : canDeleteNow) ? '1' : '0.25';
-                  delBtnEl.style.pointerEvents = (want ? false : canDeleteNow) ? 'auto' : 'none';
+              if (typeof delBtn !== 'undefined') {
+                if (want) {
+                  delBtn.disabled = true;
+                  delBtn.style.opacity = '0.25';
+                  delBtn.style.pointerEvents = 'none';
+                } else {
+                  delBtn.disabled = !canDelete;
+                  delBtn.style.opacity = canDelete ? '1' : '0.25';
+                  delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
                 }
               }
 
@@ -2007,18 +1974,6 @@ markRowSaved(quote, 'TRUCK');
               const q = String(it['Quotation #'] || '').trim();
               return q !== key && /-[A-Z]$/i.test(q);
             });
-
-            // ✅ Stable sub-line ordering (prevents 0001-2 above 0001-1, and prevents new rows inserting between main & subs)
-            const truckNo = (q) => {
-              const mm = String(q || '').match(/-(\d+)$/);
-              return mm ? parseInt(mm[1], 10) : 0;
-            };
-            const whLetter = (q) => {
-              const mm = String(q || '').match(/-([A-Z])$/i);
-              return mm ? mm[1].toUpperCase() : '';
-            };
-            truckSubs.sort((a, b) => truckNo(a['Quotation #']) - truckNo(b['Quotation #']));
-            whSubs.sort((a, b) => whLetter(a['Quotation #']).localeCompare(whLetter(b['Quotation #'])));
 
             // ========= BASIC header =========
             const r1 = document.createElement('tr');

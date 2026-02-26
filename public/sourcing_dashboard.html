@@ -1571,6 +1571,19 @@
               ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier']
                 .forEach(f => delete draftCache[draftKey(quote, 'TRUCK', f)]);
 
+              // ✅ After checking Cost Sent, immediately lock/unlock delete button (no reload)
+              if (typeof delBtn !== 'undefined') {
+                if (want) {
+                  delBtn.disabled = true;
+                  delBtn.style.opacity = '0.25';
+                  delBtn.style.pointerEvents = 'none';
+                } else {
+                  delBtn.disabled = !canDelete;
+                  delBtn.style.opacity = canDelete ? '1' : '0.25';
+                  delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
+                }
+              }
+
             } finally {
               chk.disabled = false;
             }
@@ -1586,7 +1599,12 @@
           addBtn.onclick = async () => {
             if (!confirm('確定新增一條 TRUCK 子行？')) return;
 
-            await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
+            const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
+            if (!okAuto) {
+              alert('❌ 先保存当前 TRUCK COST 失败，所以不会新增子行（避免数据丢失）。');
+              return;
+            }
+
 
             const parent = String(mainKey || '').trim();
             const all = await fetchAllInquiries();
@@ -1648,6 +1666,7 @@
             const resp = await fetch('/delete_inquiry', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
               body: JSON.stringify({ quoteId: qDel })
             });
 
@@ -1752,6 +1771,19 @@
               ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound', 'Vendor']
                 .forEach(f => delete draftCache[draftKey(quote, 'WH', f)]);
 
+              // ✅ After checking Cost Sent, immediately lock/unlock delete button (no reload)
+              if (typeof delBtn !== 'undefined') {
+                if (want) {
+                  delBtn.disabled = true;
+                  delBtn.style.opacity = '0.25';
+                  delBtn.style.pointerEvents = 'none';
+                } else {
+                  delBtn.disabled = !canDelete;
+                  delBtn.style.opacity = canDelete ? '1' : '0.25';
+                  delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
+                }
+              }
+
             } finally {
               chk.disabled = false;
             }
@@ -1768,17 +1800,18 @@
           addBtn.title = '新增 WAREHOUSE 子行';
           addBtn.disabled = scopeConfirmed(item, 'WH'); // ✅ checked(成本已送出) 仍允许新增子行；仅在 Sales/Manager Confirm 后锁死
           addBtn.onclick = async () => {
-            if (!confirm('確定新增一條 TRUCK 子行？')) return;
+            if (!confirm('確定新增一條 WAREHOUSE 子行？')) return;
 
-            const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
+            // ✅ 先 autosave 自己这个 WH scope（不是 TRUCK）
+            const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');
             if (!okAuto) {
-              alert('❌ 先保存当前 COST 失败，所以不会新增子行（避免数据丢失）。');
+              alert('❌ 先保存当前 WH COST 失败，所以不会新增子行（避免数据丢失）。');
               return;
             }
 
             const parent = String(mainKey || '').trim();
             const all = await fetchAllInquiries();
-            const newQuote = nextTruckQuote(parent, all);
+            const newQuote = nextWhQuote(parent, all);
 
             const newItem = {
               'Quotation #': newQuote,
@@ -1805,6 +1838,7 @@
               return;
             }
             await loadInquiries();
+
           };
           wrap.appendChild(addBtn);
 

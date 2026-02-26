@@ -1217,6 +1217,15 @@ app.post('/inquiries/update', async (req, res) => {
       existing[key] = patch[key];
     });
 
+
+    // ✅ Backward-compatible flags so Sales/Manager pages (older logic) can "receive" Cost Sent
+    if (role === 'sourcing') {
+      const anyCostSent =
+        isTruthy(existing['truckingCostSent']) || isTruthy(existing['warehouseCostSent']);
+      existing['Cost Sent'] = anyCostSent ? 'true' : 'false';
+      existing['Selected'] = anyCostSent ? 'true' : 'false';
+    }
+
     // Always apply units and auto rules
     applyTruckingUnits(existing);
     applyWarehouseUnits(existing);
@@ -1596,8 +1605,24 @@ app.post('/delete_inquiry', async (req, res) => {
   try {
     // ✅ Mock mode branch (same pattern as /inquiries/update)
     if (USE_MOCK || !conn || conn.readyState !== 1 || !Inquiry) {
+      const targetId = String(quoteId).trim();
+      const target = mockInquiries.find(x => String(x['Quotation #'] || '').trim() === targetId);
+
+      if (!target) {
+        return res.status(404).json({ success: false, message: 'Quotation # not found (mock)' });
+      }
+
+      const locked =
+        isTruthy(target['truckingCostSent']) || isTruthy(target['warehouseCostSent']) ||
+        isTruthy(target['truckingSalesConfirmed']) || isTruthy(target['truckingManagerConfirmed']) ||
+        isTruthy(target['warehouseSalesConfirmed']) || isTruthy(target['warehouseManagerConfirmed']);
+
+      if (locked) {
+        return res.status(403).json({ success: false, message: 'Cannot delete: row is locked (cost sent or price confirmed).' });
+      }
+
       const before = mockInquiries.length;
-      mockInquiries = mockInquiries.filter(x => String(x['Quotation #'] || '').trim() !== String(quoteId).trim());
+      mockInquiries = mockInquiries.filter(x => String(x['Quotation #'] || '').trim() !== targetId);
       const after = mockInquiries.length;
 
       if (after === before) {
@@ -1610,10 +1635,21 @@ app.post('/delete_inquiry', async (req, res) => {
     }
 
     // ✅ MongoDB branch
-    const result = await Inquiry.deleteOne({ 'Quotation #': quoteId });
-    if (result.deletedCount === 0) {
+    const doc = await Inquiry.findOne({ 'Quotation #': quoteId });
+    if (!doc) {
       return res.status(404).json({ success: false, message: 'Quotation # not found' });
     }
+
+    const locked =
+      isTruthy(doc['truckingCostSent']) || isTruthy(doc['warehouseCostSent']) ||
+      isTruthy(doc['truckingSalesConfirmed']) || isTruthy(doc['truckingManagerConfirmed']) ||
+      isTruthy(doc['warehouseSalesConfirmed']) || isTruthy(doc['warehouseManagerConfirmed']);
+
+    if (locked) {
+      return res.status(403).json({ success: false, message: 'Cannot delete: row is locked (cost sent or price confirmed).' });
+    }
+
+    const result = await Inquiry.deleteOne({ 'Quotation #': quoteId });
 
     console.log(`[DEBUG] Deleted inquiry: ${quoteId}`);
     io.emit('inquiryUpdated', { quotationId: quoteId });

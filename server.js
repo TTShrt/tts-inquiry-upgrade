@@ -976,25 +976,37 @@ app.post('/inquiries/update', async (req, res) => {
     const quotationId = incoming['Quotation #'];
 
     function buildSafePatch(payload) {
-      const patch = {};
-      for (const [k, v] of Object.entries(payload || {})) {
-        if (k === '_id' || k === 'Quotation #' || k === 'Quotation # ') continue;
+  const patch = {};
 
-        if (typeof v === 'boolean') { patch[k] = v; continue; }
-        if (typeof v === 'number') { patch[k] = v; continue; }
+  for (const [k, v] of Object.entries(payload || {})) {
 
-        if (typeof v === 'string') {
-          if (v.trim() === '') continue;
-          patch[k] = v;
-          continue;
-        }
+    // ❌ 不允许改主键
+    if (k === '_id' || k === 'Quotation #' || k === 'Quotation # ') continue;
 
-        if (v === null || v === undefined) continue;
-
-        patch[k] = v;
-      }
-      return patch;
+    // ✅ boolean 一定允许
+    if (typeof v === 'boolean') {
+      patch[k] = v;
+      continue;
     }
+
+    // ✅ number 一定允许（包括 0）
+    if (typeof v === 'number') {
+      patch[k] = v;
+      continue;
+    }
+
+    // ✅ string —— 允许空字符串写入
+    if (typeof v === 'string') {
+      patch[k] = v;
+      continue;
+    }
+
+    // 其他类型也允许写入
+    patch[k] = v;
+  }
+
+  return patch;
+}
 
     if (!quotationId || String(quotationId).trim() === '') {
       return res.status(400).json({ success: false, message: 'Missing Quotation #' });

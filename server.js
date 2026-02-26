@@ -931,67 +931,32 @@ app.get('/sourcing_dashboard.html', requireRole('sourcing'), (req, res) => {
 app.get('/inquiries', async (req, res) => {
   try {
     const mongoReady = !!conn && conn.readyState === 1 && !!Inquiry;
+
     const role = String(req.cookies?.role || '').toLowerCase();
     const salesGroup = String(req.cookies?.salesGroup || '').trim();
 
-    let inquiries;
+    // ✅ read source
+    // ✅ read source
+    if (!mongoReady) return res.json([]);   // 关键：Mongo不通就不要用mock
+    const inquiries = await Inquiry.find({}).lean();
 
-    if (!mongoReady) {
-      // mock 模式下直接用 mockInquiries
-      inquiries = [...mockInquiries];
-    } else {
-      // MongoDB 模式
-      inquiries = await Inquiry.find({}).lean();
-    }
-
-    let data = inquiries;  // 這是關鍵：先把查到的資料賦值給 data
-
-    // manager 看全部
+    // ✅ manager sees all
     if (role === 'manager') {
-      // 直接回傳，不過濾
-    }
-    // sourcing 只看已提交 + 它的所有子行
-    else if (role === 'sourcing') {
-      // 先找出主行（已提交且無 Parent）
-      const mains = data.filter(i =>
-        isTruthy(i['Submitted To Sourcing']) && !i['Parent Quotation #']
-      );
-
-      // 收集所有相關的子行
-      const subs = [];
-      for (const main of mains) {
-        const quote = main['Quotation #'];
-        const relatedSubs = data.filter(sub => sub['Parent Quotation #'] === quote);
-        subs.push(...relatedSubs);
-      }
-
-      // 合併主行 + 子行
-      data = [...mains, ...subs];
-    }
-    // sales / ops_view 只看自己的 salesGroup
-    else if ((role === 'sales' || role === 'ops_view') && salesGroup) {
-      data = data.filter(it => String(it.salesGroup || '').trim() === salesGroup);
-    }
-    // 其他角色看不到
-    else {
-      return res.json([]);
+      return res.json(inquiries);
     }
 
-    // 排序（最新日期優先，相同日期則報價號碼降冪）
-    data.sort((a, b) => {
-      const da = new Date(a.Date);
-      const db = new Date(b.Date);
-      if (db > da) return 1;
-      if (db < da) return -1;
-      return String(b['Quotation #'] || '0').localeCompare(
-        String(a['Quotation #'] || '0'),
-        undefined,
-        { numeric: true }
-      );
-    });
+    // ✅ sourcing sees only "Submitted To Sourcing" inquiries
+    if (role === 'sourcing') {
+      return res.json(inquiries.filter(it => String(it['Submitted To Sourcing'] || '').toLowerCase().trim() === 'true'));
+    }
 
-    res.json(data);
+    // ✅ sales/ops_view: filter by salesGroup
+    if ((role === 'sales' || role === 'ops_view') && salesGroup) {
+      return res.json(inquiries.filter(it => String(it.salesGroup || '').trim() === salesGroup));
+    }
 
+    // fallback: no group = nothing
+    return res.json([]);
   } catch (err) {
     console.error('❌ /inquiries error:', err);
     return res.status(500).json({ success: false, message: 'Server error while loading inquiries' });
@@ -1012,34 +977,22 @@ app.post('/inquiries/update', async (req, res) => {
 
     function buildSafePatch(payload) {
       const patch = {};
-
       for (const [k, v] of Object.entries(payload || {})) {
-
-        // ❌ 不允许改主键
         if (k === '_id' || k === 'Quotation #' || k === 'Quotation # ') continue;
 
-        // ✅ boolean 一定允许
-        if (typeof v === 'boolean') {
-          patch[k] = v;
-          continue;
-        }
+        if (typeof v === 'boolean') { patch[k] = v; continue; }
+        if (typeof v === 'number') { patch[k] = v; continue; }
 
-        // ✅ number 一定允许（包括 0）
-        if (typeof v === 'number') {
-          patch[k] = v;
-          continue;
-        }
-
-        // ✅ string —— 允许空字符串写入
         if (typeof v === 'string') {
+          if (v.trim() === '') continue;
           patch[k] = v;
           continue;
         }
 
-        // 其他类型也允许写入
+        if (v === null || v === undefined) continue;
+
         patch[k] = v;
       }
-
       return patch;
     }
 
@@ -1249,33 +1202,27 @@ app.post('/inquiries/update', async (req, res) => {
     }
 
     console.log('[UPDATE BLOCKED]', blocked);
-
-    // ✅ Sourcing: ignore blocked keys and continue saving allowed fields
-    if (blocked.length && role === 'sourcing') {
-      console.warn('[UPDATE] sourcing ignored blocked fields:', blocked.map(b => b.field));
-      // continue (do NOT 403)
-    } else if (blocked.length) {
-      // ✅ Sales/Manager still strict
-      return res.status(403).json({
-        success: false,
-        message: 'Update blocked by permission/lock rules',
-        blocked
-      });
+    if (blocked.length) {
+      // ✅ Sourcing: ignore blocked keys (front-end may send extra meta fields),
+      // but still allow saving permitted cost fields to prevent "save looks ok then clears on reload".
+      if (role === 'sourcing') {
+        console.warn('[UPDATE] sourcing ignored blocked fields:', blocked.map(b => b.field));
+        // continue without 403
+      } else {
+        // Keep behavior strict for others to avoid silent data drift
+        return res.status(403).json({
+          success: false,
+          message: 'Update blocked by permission/lock rules',
+          blocked
+        });
+      }
     }
 
-    // ========= Apply updates =========
+// ========= Apply updates =========
     const patch = buildSafePatch(filtered);
     Object.keys(patch).forEach(key => {
       existing[key] = patch[key];
     });
-
-    // ✅ Backward-compatible flags so Sales/Manager pages (older logic) can "receive" Cost Sent
-    if (role === 'sourcing') {
-      const anyCostSent =
-        isTruthy(existing['truckingCostSent']) || isTruthy(existing['warehouseCostSent']);
-      existing['Cost Sent'] = anyCostSent ? 'true' : 'false';
-      existing['Selected'] = anyCostSent ? 'true' : 'false';
-    }
 
     // Always apply units and auto rules
     applyTruckingUnits(existing);
@@ -1656,24 +1603,8 @@ app.post('/delete_inquiry', async (req, res) => {
   try {
     // ✅ Mock mode branch (same pattern as /inquiries/update)
     if (USE_MOCK || !conn || conn.readyState !== 1 || !Inquiry) {
-      const targetId = String(quoteId).trim();
-      const target = mockInquiries.find(x => String(x['Quotation #'] || '').trim() === targetId);
-
-      if (!target) {
-        return res.status(404).json({ success: false, message: 'Quotation # not found (mock)' });
-      }
-
-      const locked =
-        isTruthy(target['truckingCostSent']) || isTruthy(target['warehouseCostSent']) ||
-        isTruthy(target['truckingSalesConfirmed']) || isTruthy(target['truckingManagerConfirmed']) ||
-        isTruthy(target['warehouseSalesConfirmed']) || isTruthy(target['warehouseManagerConfirmed']);
-
-      if (locked) {
-        return res.status(403).json({ success: false, message: 'Cannot delete: row is locked (cost sent or price confirmed).' });
-      }
-
       const before = mockInquiries.length;
-      mockInquiries = mockInquiries.filter(x => String(x['Quotation #'] || '').trim() !== targetId);
+      mockInquiries = mockInquiries.filter(x => String(x['Quotation #'] || '').trim() !== String(quoteId).trim());
       const after = mockInquiries.length;
 
       if (after === before) {
@@ -1686,30 +1617,10 @@ app.post('/delete_inquiry', async (req, res) => {
     }
 
     // ✅ MongoDB branch
-    const doc = await Inquiry.findOne({ 'Quotation #': quoteId });
-    if (!doc) {
+    const result = await Inquiry.deleteOne({ 'Quotation #': quoteId });
+    if (result.deletedCount === 0) {
       return res.status(404).json({ success: false, message: 'Quotation # not found' });
     }
-
-    const locked =
-      isTruthy(doc['truckingCostSent']) || isTruthy(doc['warehouseCostSent']) ||
-      isTruthy(doc['truckingSalesConfirmed']) || isTruthy(doc['truckingManagerConfirmed']) ||
-      isTruthy(doc['warehouseSalesConfirmed']) || isTruthy(doc['warehouseManagerConfirmed']);
-
-    if (locked) {
-      return res.status(403).json({ success: false, message: 'Cannot delete: row is locked (cost sent or price confirmed).' });
-    }
-
-
-    // ✅ Only allow deleting sub-lines (prevent deleting the main quotation line)
-    const qDel = String(quoteId || '').trim();
-    const isTruckSub = /-\d+$/.test(qDel);
-    const isWhSub = /-[A-Z]$/i.test(qDel);
-    if (!isTruckSub && !isWhSub) {
-      return res.status(403).json({ success: false, message: 'Cannot delete: main line cannot be deleted.' });
-    }
-
-    const result = await Inquiry.deleteOne({ 'Quotation #': quoteId });
 
     console.log(`[DEBUG] Deleted inquiry: ${quoteId}`);
     io.emit('inquiryUpdated', { quotationId: quoteId });

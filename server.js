@@ -1214,8 +1214,13 @@ app.post('/inquiries/update', async (req, res) => {
     }
 
     console.log('[UPDATE BLOCKED]', blocked);
-    if (blocked.length) {
-      // Keep behavior strict to avoid silent data drift
+
+    // ✅ Sourcing: ignore blocked keys and continue saving allowed fields
+    if (blocked.length && role === 'sourcing') {
+      console.warn('[UPDATE] sourcing ignored blocked fields:', blocked.map(b => b.field));
+      // continue (do NOT 403)
+    } else if (blocked.length) {
+      // ✅ Sales/Manager still strict
       return res.status(403).json({
         success: false,
         message: 'Update blocked by permission/lock rules',
@@ -1228,7 +1233,6 @@ app.post('/inquiries/update', async (req, res) => {
     Object.keys(patch).forEach(key => {
       existing[key] = patch[key];
     });
-
 
     // ✅ Backward-compatible flags so Sales/Manager pages (older logic) can "receive" Cost Sent
     if (role === 'sourcing') {

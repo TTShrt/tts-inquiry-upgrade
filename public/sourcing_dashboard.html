@@ -1254,10 +1254,8 @@
 
           const payload = {
             'Quotation #': qTrim,
-            'Saved': 'true',
-            ...(sTrim === 'TRUCK' ? { truckingCostSaved: true } : { warehouseCostSaved: true })
+            'Saved': 'true'
           };
-          // (Removed) Do not send 'Inquiry Type' from Sourcing to avoid backend permission blocking.
 
           const inputs = Array.from(document.querySelectorAll(`input[data-scope="${sTrim}"]`))
             .filter(el => String(el.getAttribute('data-quote') || '').trim() === qTrim);
@@ -1314,6 +1312,37 @@
 
           return await saveFields(qTrim, fields, sTrim);
         }
+
+        // ✅ Flush all visible draft inputs before ADD/DELETE so nothing "clears" after reload
+        // This prevents unsaved edits from disappearing when we call loadInquiries() (full re-render).
+        async function flushAllDrafts() {
+          try {
+            const pairs = new Set();
+            const inputs = Array.from(document.querySelectorAll('input[data-quote][data-scope]'));
+            for (const el of inputs) {
+              const q = String(el.getAttribute('data-quote') || '').trim();
+              const s = String(el.getAttribute('data-scope') || '').trim();
+              if (!q || !s) continue;
+
+              const v = String(el.value ?? '').trim();
+              // include if user typed something OR row currently unlocked (editing)
+              if (v !== '' || el.disabled === false) {
+                pairs.add(q + '||' + s);
+              }
+            }
+
+            for (const key of pairs) {
+              const [q, s] = key.split('||');
+              const ok = await autosaveScopeIfHasAnyValue(q, s);
+              if (!ok) return false;
+            }
+            return true;
+          } catch (e) {
+            console.error('flushAllDrafts failed:', e);
+            return false;
+          }
+        }
+
 
         async function setFlags(quote, updates) {
           const qTrim = String(quote || '').trim();
@@ -1648,7 +1677,11 @@
               return;
             }
 
-            if (!confirm(`确定删除这条 TRUCK 子行？\n${qDel}`)) return;
+            if (!confirm(`确定删除这条 TRUCK 子行？
+${qDel}`)) return;
+
+            const okFlush = await flushAllDrafts();
+            if (!okFlush) { alert('❌ 自动保存失败，已取消删除（避免数据丢失）。'); return; }
 
             const resp = await fetch('/delete_inquiry', {
               method: 'POST',
@@ -1789,6 +1822,9 @@
           addBtn.onclick = async () => {
             if (!confirm('確定新增一條 WAREHOUSE 子行？')) return;
 
+            const okFlush = await flushAllDrafts();
+            if (!okFlush) { alert('❌ 自动保存失败，已取消新增（避免数据丢失）。'); return; }
+
             // ✅ 先 autosave 自己这个 WH scope（不是 TRUCK）
             const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');
             if (!okAuto) {
@@ -1851,7 +1887,11 @@
               return;
             }
 
-            if (!confirm(`确定删除这条 WAREHOUSE 子行？\n${qDel}`)) return;
+            if (!confirm(`确定删除这条 WAREHOUSE 子行？
+${qDel}`)) return;
+
+            const okFlush = await flushAllDrafts();
+            if (!okFlush) { alert('❌ 自动保存失败，已取消删除（避免数据丢失）。'); return; }
 
             const resp = await fetch('/delete_inquiry', {
               method: 'POST',
@@ -2345,6 +2385,7 @@
             const response = await fetch('/inquiries', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
               body: JSON.stringify(newItem)
             });
 

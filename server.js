@@ -389,6 +389,14 @@ function isTruthy(val) {
   return s === 'true' || s === '1' || s === 'yes' || s === 'y';
 }
 
+
+// ==============================
+// ✅ Global safe patch helper
+// - Keeps primary key immutable
+// - Allows empty strings (front-end may intentionally clear fields)
+// ==============================
+
+
 function setIfEmpty(doc, key, value) {
   const cur = doc[key];
   const empty = cur === undefined || cur === null || String(cur).trim() === '';
@@ -1434,10 +1442,8 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     return res.status(500).json({ error: 'Error fetching quotation ref' });
   }
 
-  const alreadyPushed = await Inquiry.findOne({
-    'Quotation #': fullQuoteId,
-    'Pushed To GF': 'true'
-  });
+    const fullQuoteId = String(inquiry['Quotation #'] || '').trim();
+  const alreadyPushed = await Inquiry.findOne({ 'Quotation #': fullQuoteId, 'Pushed To GF': 'true' });
   if (alreadyPushed) {
     return res.status(200).send('Already pushed');
   }
@@ -1493,9 +1499,13 @@ app.post('/api/push-to-gofreight', async (req, res) => {
         raw: result
       });
     }
-
-    const patch = buildSafePatch(incoming);
-    await Inquiry.updateOne({ 'Quotation #': quotationId }, { $set: patch });
+    // ✅ Mark pushed (minimal, avoids undefined vars)
+    if (fullQuoteId) {
+      await Inquiry.updateOne(
+        { 'Quotation #': fullQuoteId },
+        { $set: { 'Pushed To GF': 'true', 'Pushed To GF At': new Date().toISOString() } }
+      );
+    }
 
     res.status(gfRes.status).json(resultJson);
   } catch (err) {

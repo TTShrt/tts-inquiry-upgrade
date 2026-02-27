@@ -2740,10 +2740,9 @@
                 // ✅ 子行统一锁定状态（一定要在任何 makeInput 之前定义）
 
                 const lockedSub = viewOnly
-                  || isTruthy(sub['Saved'])
+                  || isTruthy(sub['truckingPriceSaved'])   // ✅ 用 priceSaved
                   || isTruthy(sub['truckingManagerConfirmed'])
                   || isTruthy(sub['truckingSalesConfirmed']);
-
 
                 // Base Rate (Cost)
                 r4s.appendChild(tdCell(fmt2(sub['Base Rate'])));
@@ -3079,7 +3078,7 @@
 
                   // Price：input（Sales 填价）
                   const lockedSub = viewOnly
-                    || isTruthy(sub['Saved'])
+                    || isTruthy(sub['warehousePriceSaved'])
                     || isTruthy(sub['warehouseManagerConfirmed'])
                     || isTruthy(sub['warehouseSalesConfirmed']);
 

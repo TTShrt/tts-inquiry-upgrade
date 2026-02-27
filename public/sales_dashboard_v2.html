@@ -2731,9 +2731,13 @@
                 r4s.dataset.scope = 'TRUCK';
                 r4s.className = 'row-truck-val sub-row';
 
-                const baseExt = (item['External Quotation #'] || quote || '').trim();  // 主单 external
-                const suffix = String(subQuote).includes('-') ? '-' + String(subQuote).split('-').pop() : '';
-                r4s.appendChild(tdCell((baseExt ? (baseExt + suffix) : subQuote), 'text-center font-semibold nowrap-limit'));
+                const baseExt = (item['External Quotation #'] || quote || '').trim();
+
+                // ✅ 显示用连续编号：-1, -2, -3 ...（不看真实 -7/-8）
+                const displaySuffix = `-${i + 1}`;
+
+                // ✅ 只改显示，不改真实 quote（真实 quote 仍用于保存/删除/权限）
+                r4s.appendChild(tdCell((baseExt ? (baseExt + displaySuffix) : (quote + displaySuffix)), 'text-center font-semibold nowrap-limit'));
 
                 // ✅ 子行统一锁定状态（一定要在任何 makeInput 之前定义）
 
@@ -3055,8 +3059,11 @@
                 r6s.className = 'row-wh-val sub-row';
 
                 const baseExt = (item['External Quotation #'] || quote || '').trim();
-                const suffix = String(subQuote).match(/-[A-Z]$/i)?.[0] || '';
-                r6s.appendChild(tdCell((baseExt ? (baseExt + suffix) : subQuote), 'text-center font-semibold nowrap-limit'));
+
+                // ✅ 显示用连续字母：-A, -B, -C ...
+                const displaySuffix = '-' + String.fromCharCode(65 + i);
+
+                r6s.appendChild(tdCell((baseExt ? (baseExt + displaySuffix) : (quote + displaySuffix)), 'text-center font-semibold nowrap-limit'));
 
                 const whPairsSub = [
                   ['Order Processing', 'Order Processing Price'],
@@ -3337,20 +3344,19 @@
           try {
             const socket = io();
             socket.on('inquiryUpdated', async () => {
-              await window.loadInquiries?.();
+              if (typeof window.loadInquiries === 'function') {
+                await window.loadInquiries();
+              }
             });
           } catch (e) {
             console.warn('socket disabled', e);
           }
 
-
           window.setMode?.('inquiry');            // ✅ 默认隐藏 Summary
           document.getElementById('fixed-scroll-wrapper')?.scrollTo(0, 0); // 可选
 
-
           document.body.classList.add('inquiry-only');
           document.body.classList.remove('summary-only');
-
 
           // ===== Top buttons hard-bind (debug + fix) =====
           const btnToggle = document.getElementById('toggleInquiry');
@@ -3358,7 +3364,6 @@
           const btnNext = document.getElementById('nextPage');
           const btnExit = document.getElementById('exitBtn');
           const formGroup = document.getElementById('formGroup');
-
 
           function setMode(mode) {
             if (mode === 'summary') {

@@ -1254,12 +1254,10 @@
 
           const payload = {
             'Quotation #': qTrim,
-            'Saved': 'true'
+            'Saved': 'true',
+            ...(sTrim === 'TRUCK' ? { truckingCostSaved: true } : { warehouseCostSaved: true })
           };
-
-          // ✅ Persist scope-level saved flag so UI state survives re-render/reload
-          if (sTrim === 'TRUCK') payload['truckingCostSaved'] = 'true';
-          if (sTrim === 'WH') payload['warehouseCostSaved'] = 'true';
+          // (Removed) Do not send 'Inquiry Type' from Sourcing to avoid backend permission blocking.
 
           const inputs = Array.from(document.querySelectorAll(`input[data-scope="${sTrim}"]`))
             .filter(el => String(el.getAttribute('data-quote') || '').trim() === qTrim);
@@ -1316,37 +1314,6 @@
 
           return await saveFields(qTrim, fields, sTrim);
         }
-
-        // ✅ Flush all visible draft inputs before ADD/DELETE so nothing "clears" after reload
-        // This prevents unsaved edits from disappearing when we call loadInquiries() (full re-render).
-        async function flushAllDrafts() {
-          try {
-            const pairs = new Set();
-            const inputs = Array.from(document.querySelectorAll('input[data-quote][data-scope]'));
-            for (const el of inputs) {
-              const q = String(el.getAttribute('data-quote') || '').trim();
-              const s = String(el.getAttribute('data-scope') || '').trim();
-              if (!q || !s) continue;
-
-              const v = String(el.value ?? '').trim();
-              // include if user typed something OR row currently unlocked (editing)
-              if (v !== '' || el.disabled === false) {
-                pairs.add(q + '||' + s);
-              }
-            }
-
-            for (const key of pairs) {
-              const [q, s] = key.split('||');
-              const ok = await autosaveScopeIfHasAnyValue(q, s);
-              if (!ok) return false;
-            }
-            return true;
-          } catch (e) {
-            console.error('flushAllDrafts failed:', e);
-            return false;
-          }
-        }
-
 
         async function setFlags(quote, updates) {
           const qTrim = String(quote || '').trim();
@@ -1576,7 +1543,6 @@
 
               const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
               if (!okFlag2) { chk.checked = !want; return; }
-              await loadInquiries();
 
               // ✅ 不 reload，不 loadInquiries
               lockRow(quote, 'TRUCK');
@@ -1618,8 +1584,6 @@
           addBtn.title = '新增 TRUCK 子行';
           addBtn.disabled = scopeConfirmed(item, 'TRUCK');
           addBtn.onclick = async () => {
-            const okFlush = await flushAllDrafts();
-            if (!okFlush) return;
             if (!confirm('確定新增一條 TRUCK 子行？')) return;
 
             const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
@@ -1684,11 +1648,14 @@
               return;
             }
 
-            if (!confirm(`确定删除这条 TRUCK 子行？
-${qDel}`)) return;
+            if (!confirm(`确定删除这条 TRUCK 子行？\n${qDel}`)) return;
 
+            // ✅ 插在这里
             const okFlush = await flushAllDrafts();
-            if (!okFlush) { alert('❌ 自动保存失败，已取消删除（避免数据丢失）。'); return; }
+            if (!okFlush) {
+              alert('❌ 自动保存失败，已取消删除（避免数据丢失）。');
+              return;
+            }
 
             const resp = await fetch('/delete_inquiry', {
               method: 'POST',
@@ -1827,14 +1794,14 @@ ${qDel}`)) return;
           addBtn.title = '新增 WAREHOUSE 子行';
           addBtn.disabled = scopeConfirmed(item, 'WH'); // ✅ checked(成本已送出) 仍允许新增子行；仅在 Sales/Manager Confirm 后锁死
           addBtn.onclick = async () => {
-            const okFlush = await flushAllDrafts();
-            if (!okFlush) return;
-            if (!confirm('確定新增一條 WAREHOUSE 子行？')) return;
+            if (!confirm('確定新增一條 TRUCK 子行？')) return;
 
-            // ✅ 先 autosave 自己这个 WH scope（不是 TRUCK）
-            const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');
+            const okFlush = await flushAllDrafts();
+            if (!okFlush) { alert('❌ 自动保存失败，已取消新增（避免数据丢失）。'); return; }
+
+            const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
             if (!okAuto) {
-              alert('❌ 先保存当前 WH COST 失败，所以不会新增子行（避免数据丢失）。');
+              alert('❌ 先保存当前 TRUCK COST 失败，所以不会新增子行（避免数据丢失）。');
               return;
             }
 
@@ -1893,11 +1860,7 @@ ${qDel}`)) return;
               return;
             }
 
-            if (!confirm(`确定删除这条 WAREHOUSE 子行？
-${qDel}`)) return;
-
-            const okFlush = await flushAllDrafts();
-            if (!okFlush) { alert('❌ 自动保存失败，已取消删除（避免数据丢失）。'); return; }
+            if (!confirm(`确定删除这条 WAREHOUSE 子行？\n${qDel}`)) return;
 
             const resp = await fetch('/delete_inquiry', {
               method: 'POST',
@@ -2020,21 +1983,6 @@ ${qDel}`)) return;
               const q = String(it['Quotation #'] || '').trim();
               return q !== key && /-[A-Z]$/i.test(q);
             });
-
-            // ✅ Stable sub-line order (match Sales/Manager):
-            //    TRUCK: -1, -2, -3 ... ascending
-            //    WH:    -A, -B, -C ... ascending
-            const truckNo = (q) => {
-              const m = String(q || '').match(/-(\d+)$/);
-              return m ? parseInt(m[1], 10) : 0;
-            };
-            const whLetter = (q) => {
-              const m = String(q || '').match(/-([A-Z])$/i);
-              return m ? m[1].toUpperCase() : '';
-            };
-            truckSubs.sort((a, b) => truckNo(a['Quotation #']) - truckNo(b['Quotation #']));
-            whSubs.sort((a, b) => whLetter(a['Quotation #']).localeCompare(whLetter(b['Quotation #'])));
-
 
             // ========= BASIC header =========
             const r1 = document.createElement('tr');
@@ -2406,7 +2354,6 @@ ${qDel}`)) return;
             const response = await fetch('/inquiries', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
               body: JSON.stringify(newItem)
             });
 

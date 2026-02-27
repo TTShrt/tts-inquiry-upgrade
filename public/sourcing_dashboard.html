@@ -1257,6 +1257,10 @@
             'Saved': 'true'
           };
 
+          // ✅ Persist scope-level saved flag so UI state survives re-render/reload
+          if (sTrim === 'TRUCK') payload['truckingCostSaved'] = 'true';
+          if (sTrim === 'WH') payload['warehouseCostSaved'] = 'true';
+
           const inputs = Array.from(document.querySelectorAll(`input[data-scope="${sTrim}"]`))
             .filter(el => String(el.getAttribute('data-quote') || '').trim() === qTrim);
 
@@ -2014,6 +2018,21 @@ ${qDel}`)) return;
               const q = String(it['Quotation #'] || '').trim();
               return q !== key && /-[A-Z]$/i.test(q);
             });
+
+            // ✅ Stable sub-line order (match Sales/Manager):
+            //    TRUCK: -1, -2, -3 ... ascending
+            //    WH:    -A, -B, -C ... ascending
+            const truckNo = (q) => {
+              const m = String(q || '').match(/-(\d+)$/);
+              return m ? parseInt(m[1], 10) : 0;
+            };
+            const whLetter = (q) => {
+              const m = String(q || '').match(/-([A-Z])$/i);
+              return m ? m[1].toUpperCase() : '';
+            };
+            truckSubs.sort((a, b) => truckNo(a['Quotation #']) - truckNo(b['Quotation #']));
+            whSubs.sort((a, b) => whLetter(a['Quotation #']).localeCompare(whLetter(b['Quotation #'])));
+
 
             // ========= BASIC header =========
             const r1 = document.createElement('tr');

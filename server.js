@@ -1619,7 +1619,16 @@ app.post('/delete_inquiry', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Missing quoteId' });
   }
 
-  try {
+  
+  // ✅ Safety: only allow deleting sub-lines (e.g., 000001-1 or 000001-A). Never delete main line.
+  const qDel = String(quoteId).trim();
+  const isTruckSub = /-\d+$/.test(qDel);
+  const isWhSub = /-[A-Z]$/i.test(qDel);
+  if (!isTruckSub && !isWhSub) {
+    return res.status(403).json({ success: false, message: 'Cannot delete: main line cannot be deleted.' });
+  }
+
+try {
     // ✅ Mock mode branch (same pattern as /inquiries/update)
     if (USE_MOCK || !conn || conn.readyState !== 1 || !Inquiry) {
       const targetId = String(quoteId).trim();

@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sales Dashboard</title>
+  <script src="/socket.io/socket.io.js"></script>
   <script src="/customer_map.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -1844,7 +1845,11 @@
               return v > 0;
             });
 
-            const anyConfirm = isTruthyFlag(it['Selected']) || isTruthyFlag(it['Cost Sent']);
+            const anyConfirm =
+  isTruthyFlag(it['truckingCostSent']) ||
+  isTruthyFlag(it['truckingCostSaved']) ||
+  isTruthyFlag(it['Selected']) ||
+  isTruthyFlag(it['Cost Sent']);
             return anyCost || anyConfirm;
           }
 
@@ -1858,9 +1863,11 @@
               return v > 0;
             });
 
-            const anyConfirm = isTruthyFlag(it['warehouseCostSent'])
-              || isTruthyFlag(it['Selected'])
-              || isTruthyFlag(it['Cost Sent']);
+            const anyConfirm =
+  isTruthyFlag(it['warehouseCostSent']) ||
+  isTruthyFlag(it['warehouseCostSaved']) ||
+  isTruthyFlag(it['Selected']) ||
+  isTruthyFlag(it['Cost Sent']);
 
             return anyCost || anyConfirm;
           }
@@ -3324,7 +3331,18 @@
           // 1) user
           await window.getCurrentUser();
           // 2) load data + render
-          await window.loadInquiries();
+        if (typeof window.loadInquiries === 'function') {
+  await window.loadInquiries();
+}
+try {
+  const socket = io();
+  socket.on('inquiryUpdated', async () => {
+    await window.loadInquiries?.();
+  });
+} catch (e) {
+  console.warn('socket disabled', e);
+}
+
 
           window.setMode?.('inquiry');            // ✅ 默认隐藏 Summary
           document.getElementById('fixed-scroll-wrapper')?.scrollTo(0, 0); // 可选
@@ -3370,13 +3388,10 @@
             }
           });
 
-
-
           btnExit?.addEventListener('click', () => {
             console.log('[TOP] exit clicked');
             window.location.href = '/index.html';
           });
-
 
           // 3) warehouse checkbox bind + initial sync
           const whChk = document.getElementById('needWarehouseService');

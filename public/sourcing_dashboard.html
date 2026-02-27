@@ -1586,12 +1586,14 @@
           addBtn.onclick = async () => {
             if (!confirm('確定新增一條 TRUCK 子行？')) return;
 
+            const okFlush = await flushAllDrafts();
+            if (!okFlush) { alert('❌ 自动保存失败，已取消新增（避免数据丢失）。'); return; }
+
             const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
             if (!okAuto) {
               alert('❌ 先保存当前 TRUCK COST 失败，所以不会新增子行（避免数据丢失）。');
               return;
             }
-
 
             const parent = String(mainKey || '').trim();
             const all = await fetchAllInquiries();
@@ -1637,9 +1639,9 @@
           const isTruckSubDel = (qDel !== parentDel) && /-\d+$/.test(qDel);
 
           const canDelete = isTruckSubDel && !hardLocked;
-          delBtn.disabled = !canDelete;
+          delBtn.disabled = false; // 允许点击
+          delBtn.style.pointerEvents = 'auto';
           delBtn.style.opacity = canDelete ? '1' : '0.25';
-          delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
           delBtn.title = canDelete ? '删除 TRUCK 子行' : 'Cannot delete: locked';
 
           delBtn.onclick = async () => {

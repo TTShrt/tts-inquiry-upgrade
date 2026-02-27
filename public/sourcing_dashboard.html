@@ -1575,6 +1575,9 @@
               const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
               if (!okFlag2) { chk.checked = !want; return; }
 
+              await loadInquiries();
+              return;
+
               // ✅ 不 reload，不 loadInquiries
               lockRow(quote, 'TRUCK');
 
@@ -1758,28 +1761,18 @@
 
             try {
               if (want) {
-                const okSave = await autosaveScopeIfHasAnyValue(quote, 'WH');
+                const okSave = await autosaveScopeIfHasAnyValue(quote, 'TRUCK');
                 if (!okSave) { chk.checked = false; return; }
-                const okFlag1 = await setFlags(quote, { [costSavedField]: 'true' });
+
+                const okFlag1 = await setFlags(quote, { truckingCostSaved: 'true' });
                 if (!okFlag1) { chk.checked = false; return; }
               }
 
-              const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
+              const okFlag2 = await setFlags(quote, { truckingCostSent: want ? 'true' : 'false' });
               if (!okFlag2) { chk.checked = !want; return; }
 
-              await loadInquiries();  // 🔥 让状态由数据驱动，而不是手动改按钮
-
-              lockRow(quote, 'WH');
-
-              const row = findRowByQuoteScope(quote, 'WH');
-              if (row) {
-                row.classList.remove('new-inquiry', 'row-confirmed');
-                row.classList.toggle('row-sent', want);
-                if (!want) row.classList.add('cost-saved');
-              }
-
-              ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound', 'Vendor']
-                .forEach(f => delete draftCache[draftKey(quote, 'WH', f)]);
+              await loadInquiries();
+              return;
 
             } finally {
               chk.disabled = false;

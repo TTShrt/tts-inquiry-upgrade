@@ -1544,6 +1544,8 @@
               const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
               if (!okFlag2) { chk.checked = !want; return; }
 
+              await loadInquiries();  // 🔥 让状态由数据驱动，而不是手动改按钮
+
               // ✅ 不 reload，不 loadInquiries
               lockRow(quote, 'TRUCK');
 
@@ -1557,19 +1559,6 @@
 
               ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier']
                 .forEach(f => delete draftCache[draftKey(quote, 'TRUCK', f)]);
-
-              // ✅ After checking Cost Sent, immediately lock/unlock delete button (no reload)
-              if (typeof delBtn !== 'undefined') {
-                if (want) {
-                  delBtn.disabled = true;
-                  delBtn.style.opacity = '0.25';
-                  delBtn.style.pointerEvents = 'none';
-                } else {
-                  delBtn.disabled = !canDelete;
-                  delBtn.style.opacity = canDelete ? '1' : '0.25';
-                  delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
-                }
-              }
 
             } finally {
               chk.disabled = false;
@@ -1755,6 +1744,8 @@
               const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
               if (!okFlag2) { chk.checked = !want; return; }
 
+              await loadInquiries();  // 🔥 让状态由数据驱动，而不是手动改按钮
+
               lockRow(quote, 'WH');
 
               const row = findRowByQuoteScope(quote, 'WH');
@@ -1766,19 +1757,6 @@
 
               ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound', 'Vendor']
                 .forEach(f => delete draftCache[draftKey(quote, 'WH', f)]);
-
-              // ✅ After checking Cost Sent, immediately lock/unlock delete button (no reload)
-              if (typeof delBtn !== 'undefined') {
-                if (want) {
-                  delBtn.disabled = true;
-                  delBtn.style.opacity = '0.25';
-                  delBtn.style.pointerEvents = 'none';
-                } else {
-                  delBtn.disabled = !canDelete;
-                  delBtn.style.opacity = canDelete ? '1' : '0.25';
-                  delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
-                }
-              }
 
             } finally {
               chk.disabled = false;

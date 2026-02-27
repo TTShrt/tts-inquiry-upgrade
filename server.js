@@ -1262,56 +1262,46 @@ if (blocked.length && role === 'sourcing') {
     }
 
     await existing.save();
+    // ✅ If Sourcing updated COST flags on a sub-line, propagate group-level COST status to parent (so Sales always "receives" it)
+    if (role === 'sourcing') {
+      try {
+        const parentKey = String(existing['Parent Quotation #'] || existing['Quotation #'] || '').trim();
+        if (parentKey) {
+          const docs = await Inquiry.find({
+            $or: [
+              { 'Quotation #': parentKey },
+              { 'Parent Quotation #': parentKey }
+            ]
+          });
 
-// ✅ If Sourcing updates a sub-line, mirror aggregated COST flags to its parent
-// This ensures Sales can "receive" cost even if they only look at the main line.
-if (role === 'sourcing') {
-  try {
-    const parentQ = String(existing['Parent Quotation #'] || '').trim();
-    let parentId = parentQ;
+          const anyTruckSent = docs.some(d => isTruthy(d['truckingCostSent']));
+          const anyTruckSaved = docs.some(d => isTruthy(d['truckingCostSaved']));
+          const anyWhSent = docs.some(d => isTruthy(d['warehouseCostSent']));
+          const anyWhSaved = docs.some(d => isTruthy(d['warehouseCostSaved']));
 
-    // If Parent Quotation # missing, infer from suffix patterns
-    if (!parentId) {
-      const q0 = String(existing['Quotation #'] || '').trim();
-      if (/-\d+$/.test(q0)) parentId = q0.replace(/-\d+$/, '');
-      else if (/-[A-Z]$/i.test(q0)) parentId = q0.replace(/-[A-Z]$/i, '');
-    }
+          const anyCostSent = anyTruckSent || anyWhSent;
 
-    if (parentId) {
-      const groupDocs = await Inquiry.find({
-        $or: [
-          { 'Quotation #': parentId },
-          { 'Parent Quotation #': parentId }
-        ]
-      }).lean();
+          // Update parent main row (if exists)
+          const parentDoc = docs.find(d => String(d['Quotation #'] || '').trim() === parentKey);
+          if (parentDoc) {
+            parentDoc['truckingCostSent'] = anyTruckSent ? 'true' : 'false';
+            parentDoc['truckingCostSaved'] = anyTruckSaved ? 'true' : 'false';
+            parentDoc['warehouseCostSent'] = anyWhSent ? 'true' : 'false';
+            parentDoc['warehouseCostSaved'] = anyWhSaved ? 'true' : 'false';
 
-      const anyTruckSent = groupDocs.some(d => isTruthy(d['truckingCostSent']));
-      const anyTruckSaved = groupDocs.some(d => isTruthy(d['truckingCostSaved']));
-      const anyWhSent = groupDocs.some(d => isTruthy(d['warehouseCostSent']));
-      const anyWhSaved = groupDocs.some(d => isTruthy(d['warehouseCostSaved']));
+            // Backward compatible flags for older sales logic
+            parentDoc['Cost Sent'] = anyCostSent ? 'true' : 'false';
+            parentDoc['Selected'] = anyCostSent ? 'true' : 'false';
 
-      const anyCostSent = anyTruckSent || anyWhSent;
-
-      await Inquiry.updateOne(
-        { 'Quotation #': parentId },
-        {
-          $set: {
-            truckingCostSent: anyTruckSent ? 'true' : 'false',
-            truckingCostSaved: anyTruckSaved ? 'true' : 'false',
-            warehouseCostSent: anyWhSent ? 'true' : 'false',
-            warehouseCostSaved: anyWhSaved ? 'true' : 'false',
-
-            // legacy bridge fields (Sales older logic)
-            'Cost Sent': anyCostSent ? 'true' : 'false',
-            'Selected': anyCostSent ? 'true' : 'false',
+            await parentDoc.save();
+            io.emit('inquiryUpdated', { quotationId: parentKey });
           }
         }
-      );
+      } catch (e) {
+        console.warn('[UPDATE] parent cost flag propagate skipped:', e?.message || e);
+      }
     }
-  } catch (e) {
-    console.warn('[UPDATE] parent mirror skipped:', String(e?.message || e));
-  }
-}
+
 
     io.emit('inquiryUpdated', { quotationId });
     return res.json({ success: true, data: existing });

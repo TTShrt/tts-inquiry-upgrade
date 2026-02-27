@@ -1974,10 +1974,19 @@
               return q !== key && /-\d+$/.test(q);
             });
 
+            // ✅ group-level lock: 同一主号下，只要任意一行已 Saved/Sent，就锁整个组（避免子行操作把主行“解锁”）
+            const groupTruckCostLocked = group.some(x =>
+              isTruthy(x['truckingCostSent']) || isTruthy(x['truckingCostSaved'])
+            );
+
             const whSubs = group.filter(it => {
               const q = String(it['Quotation #'] || '').trim();
               return q !== key && /-[A-Z]$/i.test(q);
             });
+
+            const groupWhCostLocked = group.some(x =>
+              isTruthy(x['warehouseCostSent']) || isTruthy(x['warehouseCostSaved'])
+            );
 
             // ========= BASIC header =========
             const r1 = document.createElement('tr');
@@ -2063,8 +2072,10 @@
             tbody.appendChild(r3);
 
             // TRUCK main + subs（你原本函数保持）
-            tbody.appendChild(renderTruckRow(main, key, false, key));
-            truckSubs.forEach(sub => tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key)));
+            tbody.appendChild(renderTruckRow(main, key, false, key, groupTruckCostLocked));
+            truckSubs.forEach(sub =>
+              tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key, groupTruckCostLocked))
+            );
 
             // ========= WH header =========
             const r5 = document.createElement('tr');
@@ -2086,8 +2097,10 @@
             tbody.appendChild(r5);
 
             // WH main + subs（你原本函数保持）
-            tbody.appendChild(renderWhRow(main, key, false, key));
-            whSubs.forEach(sub => tbody.appendChild(renderWhRow(sub, sub['Quotation #'], true, key)));
+            tbody.appendChild(renderWhRow(main, key, false, key, groupWhCostLocked));
+            whSubs.forEach(sub =>
+              tbody.appendChild(renderWhRow(sub, sub['Quotation #'], true, key, groupWhCostLocked))
+            );
 
             // 分隔行
             const sep = document.createElement('tr');
@@ -2102,7 +2115,7 @@
           if (pageInfo) pageInfo.textContent = `Page ${currentPage}`;
         }
 
-        function renderTruckRow(item, quote, isSub, mainKey) {
+        function renderTruckRow(item, quote, isSub, mainKey, groupLocked) {
           const q = String(quote || '').trim();
 
           const parentDoc = (filteredData || []).find(x => String(x['Quotation #'] || '').trim() === String(mainKey || '').trim());
@@ -2127,7 +2140,7 @@
 
           if (costSaved && !costSent && !confirmed) r4.classList.add('cost-saved');
 
-          const lockedTruck = lockState(item, 'TRUCK');
+          const lockedTruck = lockState(item, 'TRUCK') || !!groupLocked;
 
 
           r4.appendChild(tdCell(displayQ, 'text-left font-semibold'));
@@ -2168,7 +2181,7 @@
           return r4;
         }
 
-        function renderWhRow(item, quote, isSub, mainKey) {
+        function renderWhRow(item, quote, isSub, mainKey, groupLocked) {
           const q = String(quote || '').trim();
           const parentDoc = (filteredData || []).find(x => String(x['Quotation #'] || '').trim() === String(mainKey || '').trim());
           const baseExt = String(parentDoc?.['External Quotation #'] || '').trim();
@@ -2193,113 +2206,114 @@
 
           if (costSaved && !costSent && !confirmed) r6.classList.add('cost-saved');
 
-          const lockedWH = lockState(item, 'WH');
+          const lockedWH = lockState(item, 'WH') || !!groupLocked;
+        }
 
-          r6.appendChild(tdCell(displayQ, 'text-left font-semibold'));
+        r6.appendChild(tdCell(displayQ, 'text-left font-semibold'));
 
-          // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
-          ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {
-            const ci = makeInput(item[cF] ?? '', cF, quote, lockedWH, 'WH');
-            const tc = document.createElement('td');
-            tc.appendChild(ci);
-            r6.appendChild(tc);
-            r6.appendChild(tdCell('—'));
-          });
+        // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
+        ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {
+          const ci = makeInput(item[cF] ?? '', cF, quote, lockedWH, 'WH');
+          const tc = document.createElement('td');
+          tc.appendChild(ci);
+          r6.appendChild(tc);
+          r6.appendChild(tdCell('—'));
+        });
 
-          // ✅ (WH) Column 16: Vendor (恢复这一格)
-          const vendorInp = makeInput(item['Vendor'] || '', 'Vendor', quote, lockedWH, 'WH', true);
-          const tdVen = document.createElement('td');
-          tdVen.appendChild(vendorInp);
-          r6.appendChild(tdVen);
+        // ✅ (WH) Column 16: Vendor (恢复这一格)
+        const vendorInp = makeInput(item['Vendor'] || '', 'Vendor', quote, lockedWH, 'WH', true);
+        const tdVen = document.createElement('td');
+        tdVen.appendChild(vendorInp);
+        r6.appendChild(tdVen);
 
-          // ✅ (WH) Column 17: blank placeholder (保持留白)
-          r6.appendChild(tdCell(''));
+        // ✅ (WH) Column 17: blank placeholder (保持留白)
+        r6.appendChild(tdCell(''));
 
-          // ===== Warehouse Requirement summary (from Inquiry form fields) =====
-          const needWH = String(item['Need Warehouse Service'] || '').toLowerCase().trim() === 'true';
+        // ===== Warehouse Requirement summary (from Inquiry form fields) =====
+        const needWH = String(item['Need Warehouse Service'] || '').toLowerCase().trim() === 'true';
 
-          const whServices = String(item['Warehouse Services'] || '').trim();
-          const whDetail = String(item['Warehouse Service Detail'] || '').trim();
-          const estPallets = String(item['Estimated Pallets'] || '').trim();
-          const estBoxes = String(item['Estimated Boxes / Cartons'] || item['Estimated Boxes'] || '').trim();
-          const estSku = String(item['Estimated SKU Count'] || '').trim();
-          const dur = String(item['Storage Duration'] || '').trim();
-          const durUnit = String(item['Storage Duration Unit'] || item['Duration Unit'] || '').trim();
+        const whServices = String(item['Warehouse Services'] || '').trim();
+        const whDetail = String(item['Warehouse Service Detail'] || '').trim();
+        const estPallets = String(item['Estimated Pallets'] || '').trim();
+        const estBoxes = String(item['Estimated Boxes / Cartons'] || item['Estimated Boxes'] || '').trim();
+        const estSku = String(item['Estimated SKU Count'] || '').trim();
+        const dur = String(item['Storage Duration'] || '').trim();
+        const durUnit = String(item['Storage Duration Unit'] || item['Duration Unit'] || '').trim();
 
-          const warehouseNote = String(item['Warehouse Note'] || '').trim();
-          const salesNote = String(item['Note'] || '').trim();
+        const warehouseNote = String(item['Warehouse Note'] || '').trim();
+        const salesNote = String(item['Note'] || '').trim();
 
-          const lines = [];
+        const lines = [];
 
-          // ===== Icons (same as Sales/Manager) =====
-          const icon = (on, emoji) => (String(on || '').toLowerCase().trim() === 'true' ? emoji : '');
-          const needWHIcon = icon(item['Need Warehouse Service'], '🏬');
-          const haz = icon(item['Hazmat'], '☢️');
-          const ree = icon(item['Reefer'], '❄️');
-          const bon = icon(item['Bonded'], '🔒');
+        // ===== Icons (same as Sales/Manager) =====
+        const icon = (on, emoji) => (String(on || '').toLowerCase().trim() === 'true' ? emoji : '');
+        const needWHIcon = icon(item['Need Warehouse Service'], '🏬');
+        const haz = icon(item['Hazmat'], '☢️');
+        const ree = icon(item['Reefer'], '❄️');
+        const bon = icon(item['Bonded'], '🔒');
 
-          const iconLine = [needWHIcon, haz, ree, bon].filter(Boolean).join(' ');
-          if (iconLine) lines.push(iconLine);
+        const iconLine = [needWHIcon, haz, ree, bon].filter(Boolean).join(' ');
+        if (iconLine) lines.push(iconLine);
 
-          // ===== Services line (prefer detail with qty/unit) =====
-          if (needWH) {
-            if (whDetail) lines.push(whDetail);
-            else if (whServices) {
-              const list = whServices
-                .split(';')
-                .map(s => s.trim())
-                .filter(Boolean);
-              if (list.length) lines.push(list.map(s => `✅ ${s}`).join(' '));
-            }
-
-            // Estimated
-            const estParts = [];
-            if (estPallets) estParts.push(`Pallets ${estPallets}`);
-            if (estBoxes) estParts.push(`Boxes ${estBoxes}`);
-            if (estSku) estParts.push(`SKU ${estSku}`);
-            if (estParts.length) lines.push('Est: ' + estParts.join(', '));
-
-            // Duration
-            if (dur || durUnit) lines.push('Storage: ' + [dur, durUnit].filter(Boolean).join(' '));
+        // ===== Services line (prefer detail with qty/unit) =====
+        if (needWH) {
+          if (whDetail) lines.push(whDetail);
+          else if (whServices) {
+            const list = whServices
+              .split(';')
+              .map(s => s.trim())
+              .filter(Boolean);
+            if (list.length) lines.push(list.map(s => `✅ ${s}`).join(' '));
           }
 
-          // Warehouse Note (Inquiry)
-          if (warehouseNote) lines.push(`WH Note: ${warehouseNote}`);
+          // Estimated
+          const estParts = [];
+          if (estPallets) estParts.push(`Pallets ${estPallets}`);
+          if (estBoxes) estParts.push(`Boxes ${estBoxes}`);
+          if (estSku) estParts.push(`SKU ${estSku}`);
+          if (estParts.length) lines.push('Est: ' + estParts.join(', '));
 
-          // Sales Note (General Note)
-          if (salesNote) lines.push(`Sales Note: ${salesNote}`);
+          // Duration
+          if (dur || durUnit) lines.push('Storage: ' + [dur, durUnit].filter(Boolean).join(' '));
+        }
 
-          const whFull = lines.filter(Boolean).join('\n');
-          const whPreview = whFull.replace(/\s+/g, ' ').trim();
+        // Warehouse Note (Inquiry)
+        if (warehouseNote) lines.push(`WH Note: ${warehouseNote}`);
 
-          const whNoteTd = tdCell('', 'text-left note-preview');
-          whNoteTd.colSpan = 8;            // ✅ 18~25
-          whNoteTd.dataset.fullNote = whFull;
-          whNoteTd.dataset.which = 'WAREHOUSE NOTE';
-          whNoteTd.dataset.quote = String(quote || '').trim();  // 当前行 quote（主行/子行都能存）
-          whNoteTd.dataset.field = 'Warehouse Note';
+        // Sales Note (General Note)
+        if (salesNote) lines.push(`Sales Note: ${salesNote}`);
 
-          const line2 = document.createElement('div');
-          line2.className = 'note-line';
-          line2.textContent = whPreview;
-          whNoteTd.appendChild(line2);
+        const whFull = lines.filter(Boolean).join('\n');
+        const whPreview = whFull.replace(/\s+/g, ' ').trim();
 
-          r6.appendChild(whNoteTd);
-          // ✅ Vendor Note (Column 26) — only Sourcing can edit/save
-          const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();
-          const cleanNote = vendorNoteFull.replace(/\s+/g, ' ').trim();
-          const vendorNotePreview = cleanNote.length > 20 ? cleanNote.substring(0, 20) + '...' : cleanNote;
+        const whNoteTd = tdCell('', 'text-left note-preview');
+        whNoteTd.colSpan = 8;            // ✅ 18~25
+        whNoteTd.dataset.fullNote = whFull;
+        whNoteTd.dataset.which = 'WAREHOUSE NOTE';
+        whNoteTd.dataset.quote = String(quote || '').trim();  // 当前行 quote（主行/子行都能存）
+        whNoteTd.dataset.field = 'Warehouse Note';
 
-          const vNoteTd = tdCell(vendorNotePreview, 'text-left note-preview vendor-note-preview');
-          vNoteTd.dataset.fullNote = vendorNoteFull;
-          vNoteTd.dataset.which = 'VENDOR NOTE';
+        const line2 = document.createElement('div');
+        line2.className = 'note-line';
+        line2.textContent = whPreview;
+        whNoteTd.appendChild(line2);
 
-          vNoteTd.dataset.quote = quote;
-          vNoteTd.dataset.field = 'Vendor Note';
+        r6.appendChild(whNoteTd);
+        // ✅ Vendor Note (Column 26) — only Sourcing can edit/save
+        const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();
+        const cleanNote = vendorNoteFull.replace(/\s+/g, ' ').trim();
+        const vendorNotePreview = cleanNote.length > 20 ? cleanNote.substring(0, 20) + '...' : cleanNote;
 
-          r6.appendChild(vNoteTd);
-          r6.appendChild(actionCellWH(item, quote, mainKey)); // 第27栏 Action
-          return r6;
+        const vNoteTd = tdCell(vendorNotePreview, 'text-left note-preview vendor-note-preview');
+        vNoteTd.dataset.fullNote = vendorNoteFull;
+        vNoteTd.dataset.which = 'VENDOR NOTE';
+
+        vNoteTd.dataset.quote = quote;
+        vNoteTd.dataset.field = 'Vendor Note';
+
+        r6.appendChild(vNoteTd);
+        r6.appendChild(actionCellWH(item, quote, mainKey)); // 第27栏 Action
+        return r6;
         }   // ✅ 这一行你必须加
 
         async function addSubLine(parentQuote, scope) {

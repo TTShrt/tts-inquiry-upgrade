@@ -1846,10 +1846,10 @@
             });
 
             const anyConfirm =
-  isTruthyFlag(it['truckingCostSent']) ||
-  isTruthyFlag(it['truckingCostSaved']) ||
-  isTruthyFlag(it['Selected']) ||
-  isTruthyFlag(it['Cost Sent']);
+              isTruthyFlag(it['truckingCostSent']) ||
+              isTruthyFlag(it['truckingCostSaved']) ||
+              isTruthyFlag(it['Selected']) ||
+              isTruthyFlag(it['Cost Sent']);
             return anyCost || anyConfirm;
           }
 
@@ -1864,10 +1864,10 @@
             });
 
             const anyConfirm =
-  isTruthyFlag(it['warehouseCostSent']) ||
-  isTruthyFlag(it['warehouseCostSaved']) ||
-  isTruthyFlag(it['Selected']) ||
-  isTruthyFlag(it['Cost Sent']);
+              isTruthyFlag(it['warehouseCostSent']) ||
+              isTruthyFlag(it['warehouseCostSaved']) ||
+              isTruthyFlag(it['Selected']) ||
+              isTruthyFlag(it['Cost Sent']);
 
             return anyCost || anyConfirm;
           }
@@ -2707,7 +2707,7 @@
               r4.appendChild(actionCellTruck(item, quote, role));
 
 
-              const costReceivedTruck = hasSourcingInput(item);
+              const costReceivedTruck = hasSourcingInput(item) || ((truckSubsByParent.get(quote) || []).some(s => hasSourcingInput(s)));
               const savedTruck = isTruthy(item['truckingPriceSaved']);
               const confirmedTruck =
                 isTruthy(item['truckingSalesConfirmed']) || isTruthy(item['truckingManagerConfirmed']);
@@ -3030,7 +3030,7 @@
               // 27 Action
               r6.appendChild(actionCellWH(item, quote, role));
 
-              const costReceivedWH = hasSourcingWHInput(item);
+              const costReceivedWH = hasSourcingWHInput(item) || ((whSubsByParent.get(quote) || []).some(s => hasSourcingWHInput(s)));
               const savedWH = isTruthy(item['warehousePriceSaved']);
               const confirmedWH =
                 isTruthy(item['warehouseSalesConfirmed']) || isTruthy(item['warehouseManagerConfirmed']);
@@ -3331,17 +3331,17 @@
           // 1) user
           await window.getCurrentUser();
           // 2) load data + render
-        if (typeof window.loadInquiries === 'function') {
-  await window.loadInquiries();
-}
-try {
-  const socket = io();
-  socket.on('inquiryUpdated', async () => {
-    await window.loadInquiries?.();
-  });
-} catch (e) {
-  console.warn('socket disabled', e);
-}
+          if (typeof window.loadInquiries === 'function') {
+            await window.loadInquiries();
+          }
+          try {
+            const socket = io();
+            socket.on('inquiryUpdated', async () => {
+              await window.loadInquiries?.();
+            });
+          } catch (e) {
+            console.warn('socket disabled', e);
+          }
 
 
           window.setMode?.('inquiry');            // ✅ 默认隐藏 Summary

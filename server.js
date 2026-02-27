@@ -1262,6 +1262,57 @@ if (blocked.length && role === 'sourcing') {
     }
 
     await existing.save();
+
+// ✅ If Sourcing updates a sub-line, mirror aggregated COST flags to its parent
+// This ensures Sales can "receive" cost even if they only look at the main line.
+if (role === 'sourcing') {
+  try {
+    const parentQ = String(existing['Parent Quotation #'] || '').trim();
+    let parentId = parentQ;
+
+    // If Parent Quotation # missing, infer from suffix patterns
+    if (!parentId) {
+      const q0 = String(existing['Quotation #'] || '').trim();
+      if (/-\d+$/.test(q0)) parentId = q0.replace(/-\d+$/, '');
+      else if (/-[A-Z]$/i.test(q0)) parentId = q0.replace(/-[A-Z]$/i, '');
+    }
+
+    if (parentId) {
+      const groupDocs = await Inquiry.find({
+        $or: [
+          { 'Quotation #': parentId },
+          { 'Parent Quotation #': parentId }
+        ]
+      }).lean();
+
+      const anyTruckSent = groupDocs.some(d => isTruthy(d['truckingCostSent']));
+      const anyTruckSaved = groupDocs.some(d => isTruthy(d['truckingCostSaved']));
+      const anyWhSent = groupDocs.some(d => isTruthy(d['warehouseCostSent']));
+      const anyWhSaved = groupDocs.some(d => isTruthy(d['warehouseCostSaved']));
+
+      const anyCostSent = anyTruckSent || anyWhSent;
+
+      await Inquiry.updateOne(
+        { 'Quotation #': parentId },
+        {
+          $set: {
+            truckingCostSent: anyTruckSent ? 'true' : 'false',
+            truckingCostSaved: anyTruckSaved ? 'true' : 'false',
+            warehouseCostSent: anyWhSent ? 'true' : 'false',
+            warehouseCostSaved: anyWhSaved ? 'true' : 'false',
+
+            // legacy bridge fields (Sales older logic)
+            'Cost Sent': anyCostSent ? 'true' : 'false',
+            'Selected': anyCostSent ? 'true' : 'false',
+          }
+        }
+      );
+    }
+  } catch (e) {
+    console.warn('[UPDATE] parent mirror skipped:', String(e?.message || e));
+  }
+}
+
     io.emit('inquiryUpdated', { quotationId });
     return res.json({ success: true, data: existing });
 

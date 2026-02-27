@@ -2060,9 +2060,9 @@
             tbody.appendChild(r3);
 
             // TRUCK main + subs（你原本函数保持）
-            tbody.appendChild(renderTruckRow(main, key, false, key, groupTruckCostLocked));
-            truckSubs.forEach(sub =>
-              tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key, groupTruckCostLocked))
+            tbody.appendChild(renderTruckRow(main, key, false, key, groupTruckCostLocked, null));
+            truckSubs.forEach((sub, i) =>
+              tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key, groupTruckCostLocked, i + 1))
             );
 
             // ========= WH header =========
@@ -2085,9 +2085,9 @@
             tbody.appendChild(r5);
 
             // WH main + subs（你原本函数保持）
-            tbody.appendChild(renderWhRow(main, key, false, key, groupWhCostLocked));
-            whSubs.forEach(sub =>
-              tbody.appendChild(renderWhRow(sub, sub['Quotation #'], true, key, groupWhCostLocked))
+            tbody.appendChild(renderWhRow(main, key, false, key, groupWhCostLocked, null));
+            whSubs.forEach((sub, i) =>
+              tbody.appendChild(renderWhRow(sub, sub['Quotation #'], true, key, groupWhCostLocked, i + 1))
             );
 
             // 分隔行
@@ -2103,13 +2103,17 @@
           if (pageInfo) pageInfo.textContent = `Page ${currentPage}`;
         }
 
-        function renderTruckRow(item, quote, isSub, mainKey, groupLocked) {
+        function renderTruckRow(item, quote, isSub, mainKey, groupLocked, displayNo) {
           const q = String(quote || '').trim();
 
           const parentDoc = (filteredData || []).find(x => String(x['Quotation #'] || '').trim() === String(mainKey || '').trim());
           const baseExt = String(parentDoc?.['External Quotation #'] || '').trim();
-          const suffix = String(quote || '').match(/-\d+$/)?.[0] || '';
-          const displayQ = (isSub && baseExt) ? (baseExt + suffix) : q;
+          let suffix = String(quote || '').match(/-\d+$/)?.[0] || '';
+if (isSub && displayNo != null) suffix = '-' + String(displayNo);
+
+const displayQ = (isSub && baseExt)
+  ? (baseExt + suffix)
+  : (isSub && displayNo != null ? q.replace(/-\d+$/, '-' + String(displayNo)) : q);
           const r4 = document.createElement('tr');
           r4.className = 'row-truck-val';
           if (isSub) r4.classList.add('sub-row');
@@ -2169,12 +2173,20 @@
           return r4;
         }
 
-        function renderWhRow(item, quote, isSub, mainKey, groupLocked) {
+        function renderWhRow(item, quote, isSub, mainKey, groupLocked, displayNo) {
           const q = String(quote || '').trim();
           const parentDoc = (filteredData || []).find(x => String(x['Quotation #'] || '').trim() === String(mainKey || '').trim());
           const baseExt = String(parentDoc?.['External Quotation #'] || '').trim();
-          const suffix = String(quote || '').match(/-[A-Z]$/i)?.[0] || '';
-          const displayQ = (isSub && baseExt) ? (baseExt + suffix) : (isSub ? q : '');
+          let suffix = String(quote || '').match(/-[A-Z]$/i)?.[0] || '';
+if (isSub && displayNo != null) {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const idx = Math.max(0, Math.min(25, Number(displayNo) - 1));
+  suffix = '-' + letters[idx];
+}
+
+const displayQ = (isSub && baseExt)
+  ? (baseExt + suffix)
+  : (isSub && displayNo != null ? q.replace(/-[A-Z]$/i, suffix) : (isSub ? q : ''));
 
           const r6 = document.createElement('tr');
           r6.className = 'row-wh-val';

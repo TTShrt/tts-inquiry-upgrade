@@ -2716,13 +2716,11 @@
               else if (savedTruck) r4.classList.add('saved-price');
               else if (costReceivedTruck) r4.classList.add('cost-received');
 
-
               tbody.appendChild(r4);
-
 
               // ===== Insert TRUCK sub-lines under TRUCK main row (Sourcing) =====
               const _truckSubs = truckSubsByParent.get(quote) || [];
-              _truckSubs.forEach(sub => {
+              _truckSubs.forEach((sub, i) => {
                 const subQuote = String(sub['Quotation #'] || '').trim();
                 if (!subQuote) return;
 
@@ -3049,7 +3047,7 @@
 
               // ===== Insert WAREHOUSE sub-lines under WH main row (Sourcing) =====
               const _whSubs = whSubsByParent.get(quote) || [];
-              _whSubs.forEach(sub => {
+              _whSubs.forEach((sub, i) => {
                 const subQuote = String(sub['Quotation #'] || '').trim();
                 if (!subQuote) return;
 

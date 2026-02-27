@@ -1208,7 +1208,6 @@
           return input;
         }
 
-
         function anyConfirmed(item) {
           return isTruthy(item['truckingManagerConfirmed']) || isTruthy(item['truckingSalesConfirmed']) ||
             isTruthy(item['warehouseManagerConfirmed']) || isTruthy(item['warehouseSalesConfirmed']);
@@ -1562,33 +1561,28 @@
             chk.disabled = true;
 
             try {
+              // 1️⃣ 勾选时：先保存当前 TRUCK scope 的输入
               if (want) {
                 const okSave = await autosaveScopeIfHasAnyValue(quote, 'TRUCK');
-                if (!okSave) { chk.checked = false; return; }
+                if (!okSave) { chk.checked = !want; return; }
 
-                const okFlag1 = await setFlags(quote, { [costSavedField]: 'true' });
-                if (!okFlag1) { chk.checked = false; return; }
+                const okFlag1 = await setFlags(quote, { truckingCostSaved: 'true' });
+                if (!okFlag1) { chk.checked = !want; return; }
               }
 
-              const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
+              // 2️⃣ 写入 costSent true/false
+              const okFlag2 = await setFlags(quote, { truckingCostSent: want ? 'true' : 'false' });
               if (!okFlag2) { chk.checked = !want; return; }
 
-              await loadInquiries();  // 🔥 让状态由数据驱动，而不是手动改按钮
+              // 3️⃣ 数据驱动刷新（不要再操作旧 DOM）
+              await loadInquiries();
+              return;
 
-              // ✅ 不 reload，不 loadInquiries
-              lockRow(quote, 'TRUCK');
-
-              const row = findRowByQuoteScope(quote, 'TRUCK');
-              if (row) {
-                row.classList.remove('new-inquiry', 'row-confirmed');
-                row.classList.toggle('row-sent', want);
-                if (!want) row.classList.add('cost-saved');
-                else row.classList.remove('cost-saved');
-              }
             } finally {
               chk.disabled = false;
             }
           };
+
           wrap.appendChild(chk);
 
           // ➕ ADD (只新增 TRUCK 子行)
@@ -1749,24 +1743,18 @@
             try {
               if (want) {
                 const okSave = await autosaveScopeIfHasAnyValue(quote, 'WH');
-                if (!okSave) { chk.checked = false; return; }
+                if (!okSave) { chk.checked = !want; return; }
+
                 const okFlag1 = await setFlags(quote, { [costSavedField]: 'true' });
-                if (!okFlag1) { chk.checked = false; return; }
+                if (!okFlag1) { chk.checked = !want; return; }
               }
 
               const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
               if (!okFlag2) { chk.checked = !want; return; }
 
-              await loadInquiries();  // 🔥 让状态由数据驱动，而不是手动改按钮
+              await loadInquiries();
+              return;
 
-              lockRow(quote, 'WH');
-
-              const row = findRowByQuoteScope(quote, 'WH');
-              if (row) {
-                row.classList.remove('new-inquiry', 'row-confirmed');
-                row.classList.toggle('row-sent', want);
-                if (!want) row.classList.add('cost-saved');
-              }
             } finally {
               chk.disabled = false;
             }
@@ -2206,115 +2194,110 @@
 
           if (costSaved && !costSent && !confirmed) r6.classList.add('cost-saved');
 
+          // ✅ group-level lock
           const lockedWH = lockState(item, 'WH') || !!groupLocked;
-        }
 
-        r6.appendChild(tdCell(displayQ, 'text-left font-semibold'));
+          // ===== Column 1 (Quotation display) =====
+          r6.appendChild(tdCell(displayQ, 'text-left font-semibold'));
 
-        // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
-        ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {
-          const ci = makeInput(item[cF] ?? '', cF, quote, lockedWH, 'WH');
-          const tc = document.createElement('td');
-          tc.appendChild(ci);
-          r6.appendChild(tc);
-          r6.appendChild(tdCell('—'));
-        });
+          // 7个Cost + 每个后面一个 “—” Price 占位
+          ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {
+            const ci = makeInput(item[cF] ?? '', cF, quote, lockedWH, 'WH');
+            const tc = document.createElement('td');
+            tc.appendChild(ci);
+            r6.appendChild(tc);
+            r6.appendChild(tdCell('—'));
+          });
 
-        // ✅ (WH) Column 16: Vendor (恢复这一格)
-        const vendorInp = makeInput(item['Vendor'] || '', 'Vendor', quote, lockedWH, 'WH', true);
-        const tdVen = document.createElement('td');
-        tdVen.appendChild(vendorInp);
-        r6.appendChild(tdVen);
+          // Column 16 Vendor
+          const vendorInp = makeInput(item['Vendor'] || '', 'Vendor', quote, lockedWH, 'WH', true);
+          const tdVen = document.createElement('td');
+          tdVen.appendChild(vendorInp);
+          r6.appendChild(tdVen);
 
-        // ✅ (WH) Column 17: blank placeholder (保持留白)
-        r6.appendChild(tdCell(''));
+          // Column 17 blank
+          r6.appendChild(tdCell(''));
 
-        // ===== Warehouse Requirement summary (from Inquiry form fields) =====
-        const needWH = String(item['Need Warehouse Service'] || '').toLowerCase().trim() === 'true';
+          // ===== Warehouse Requirement summary (from Inquiry form fields) =====
+          const needWH = String(item['Need Warehouse Service'] || '').toLowerCase().trim() === 'true';
 
-        const whServices = String(item['Warehouse Services'] || '').trim();
-        const whDetail = String(item['Warehouse Service Detail'] || '').trim();
-        const estPallets = String(item['Estimated Pallets'] || '').trim();
-        const estBoxes = String(item['Estimated Boxes / Cartons'] || item['Estimated Boxes'] || '').trim();
-        const estSku = String(item['Estimated SKU Count'] || '').trim();
-        const dur = String(item['Storage Duration'] || '').trim();
-        const durUnit = String(item['Storage Duration Unit'] || item['Duration Unit'] || '').trim();
+          const whServices = String(item['Warehouse Services'] || '').trim();
+          const whDetail = String(item['Warehouse Service Detail'] || '').trim();
+          const estPallets = String(item['Estimated Pallets'] || '').trim();
+          const estBoxes = String(item['Estimated Boxes / Cartons'] || item['Estimated Boxes'] || '').trim();
+          const estSku = String(item['Estimated SKU Count'] || '').trim();
+          const dur = String(item['Storage Duration'] || '').trim();
+          const durUnit = String(item['Storage Duration Unit'] || item['Duration Unit'] || '').trim();
 
-        const warehouseNote = String(item['Warehouse Note'] || '').trim();
-        const salesNote = String(item['Note'] || '').trim();
+          const warehouseNote = String(item['Warehouse Note'] || '').trim();
+          const salesNote = String(item['Note'] || '').trim();
 
-        const lines = [];
+          const lines = [];
 
-        // ===== Icons (same as Sales/Manager) =====
-        const icon = (on, emoji) => (String(on || '').toLowerCase().trim() === 'true' ? emoji : '');
-        const needWHIcon = icon(item['Need Warehouse Service'], '🏬');
-        const haz = icon(item['Hazmat'], '☢️');
-        const ree = icon(item['Reefer'], '❄️');
-        const bon = icon(item['Bonded'], '🔒');
+          // Icons
+          const icon = (on, emoji) => (String(on || '').toLowerCase().trim() === 'true' ? emoji : '');
+          const needWHIcon = icon(item['Need Warehouse Service'], '🏬');
+          const haz = icon(item['Hazmat'], '☢️');
+          const ree = icon(item['Reefer'], '❄️');
+          const bon = icon(item['Bonded'], '🔒');
 
-        const iconLine = [needWHIcon, haz, ree, bon].filter(Boolean).join(' ');
-        if (iconLine) lines.push(iconLine);
+          const iconLine = [needWHIcon, haz, ree, bon].filter(Boolean).join(' ');
+          if (iconLine) lines.push(iconLine);
 
-        // ===== Services line (prefer detail with qty/unit) =====
-        if (needWH) {
-          if (whDetail) lines.push(whDetail);
-          else if (whServices) {
-            const list = whServices
-              .split(';')
-              .map(s => s.trim())
-              .filter(Boolean);
-            if (list.length) lines.push(list.map(s => `✅ ${s}`).join(' '));
+          // Services line
+          if (needWH) {
+            if (whDetail) lines.push(whDetail);
+            else if (whServices) {
+              const list = whServices.split(';').map(s => s.trim()).filter(Boolean);
+              if (list.length) lines.push(list.map(s => `✅ ${s}`).join(' '));
+            }
+
+            const estParts = [];
+            if (estPallets) estParts.push(`Pallets ${estPallets}`);
+            if (estBoxes) estParts.push(`Boxes ${estBoxes}`);
+            if (estSku) estParts.push(`SKU ${estSku}`);
+            if (estParts.length) lines.push('Est: ' + estParts.join(', '));
+
+            if (dur || durUnit) lines.push('Storage: ' + [dur, durUnit].filter(Boolean).join(' '));
           }
 
-          // Estimated
-          const estParts = [];
-          if (estPallets) estParts.push(`Pallets ${estPallets}`);
-          if (estBoxes) estParts.push(`Boxes ${estBoxes}`);
-          if (estSku) estParts.push(`SKU ${estSku}`);
-          if (estParts.length) lines.push('Est: ' + estParts.join(', '));
+          if (warehouseNote) lines.push(`WH Note: ${warehouseNote}`);
+          if (salesNote) lines.push(`Sales Note: ${salesNote}`);
 
-          // Duration
-          if (dur || durUnit) lines.push('Storage: ' + [dur, durUnit].filter(Boolean).join(' '));
+          const whFull = lines.filter(Boolean).join('\n');
+          const whPreview = whFull.replace(/\s+/g, ' ').trim();
+
+          const whNoteTd = tdCell('', 'text-left note-preview');
+          whNoteTd.colSpan = 8;
+          whNoteTd.dataset.fullNote = whFull;
+          whNoteTd.dataset.which = 'WAREHOUSE NOTE';
+          whNoteTd.dataset.quote = String(quote || '').trim();
+          whNoteTd.dataset.field = 'Warehouse Note';
+
+          const line2 = document.createElement('div');
+          line2.className = 'note-line';
+          line2.textContent = whPreview;
+          whNoteTd.appendChild(line2);
+
+          r6.appendChild(whNoteTd);
+
+          // Column 26 Vendor Note preview
+          const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();
+          const cleanNote = vendorNoteFull.replace(/\s+/g, ' ').trim();
+          const vendorNotePreview = cleanNote.length > 20 ? cleanNote.substring(0, 20) + '...' : cleanNote;
+
+          const vNoteTd = tdCell(vendorNotePreview, 'text-left note-preview vendor-note-preview');
+          vNoteTd.dataset.fullNote = vendorNoteFull;
+          vNoteTd.dataset.which = 'VENDOR NOTE';
+          vNoteTd.dataset.quote = quote;
+          vNoteTd.dataset.field = 'Vendor Note';
+
+          r6.appendChild(vNoteTd);
+
+          // Action
+          r6.appendChild(actionCellWH(item, quote, mainKey));
+          return r6;
         }
-
-        // Warehouse Note (Inquiry)
-        if (warehouseNote) lines.push(`WH Note: ${warehouseNote}`);
-
-        // Sales Note (General Note)
-        if (salesNote) lines.push(`Sales Note: ${salesNote}`);
-
-        const whFull = lines.filter(Boolean).join('\n');
-        const whPreview = whFull.replace(/\s+/g, ' ').trim();
-
-        const whNoteTd = tdCell('', 'text-left note-preview');
-        whNoteTd.colSpan = 8;            // ✅ 18~25
-        whNoteTd.dataset.fullNote = whFull;
-        whNoteTd.dataset.which = 'WAREHOUSE NOTE';
-        whNoteTd.dataset.quote = String(quote || '').trim();  // 当前行 quote（主行/子行都能存）
-        whNoteTd.dataset.field = 'Warehouse Note';
-
-        const line2 = document.createElement('div');
-        line2.className = 'note-line';
-        line2.textContent = whPreview;
-        whNoteTd.appendChild(line2);
-
-        r6.appendChild(whNoteTd);
-        // ✅ Vendor Note (Column 26) — only Sourcing can edit/save
-        const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();
-        const cleanNote = vendorNoteFull.replace(/\s+/g, ' ').trim();
-        const vendorNotePreview = cleanNote.length > 20 ? cleanNote.substring(0, 20) + '...' : cleanNote;
-
-        const vNoteTd = tdCell(vendorNotePreview, 'text-left note-preview vendor-note-preview');
-        vNoteTd.dataset.fullNote = vendorNoteFull;
-        vNoteTd.dataset.which = 'VENDOR NOTE';
-
-        vNoteTd.dataset.quote = quote;
-        vNoteTd.dataset.field = 'Vendor Note';
-
-        r6.appendChild(vNoteTd);
-        r6.appendChild(actionCellWH(item, quote, mainKey)); // 第27栏 Action
-        return r6;
-        }   // ✅ 这一行你必须加
 
         async function addSubLine(parentQuote, scope) {
           if (!confirm(`確定新增一條 ${scope} 子成本行？`)) return;

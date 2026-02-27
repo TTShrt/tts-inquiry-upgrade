@@ -1576,6 +1576,7 @@
 
               const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
               if (!okFlag2) { chk.checked = !want; return; }
+              await loadInquiries();
 
               // ✅ 不 reload，不 loadInquiries
               lockRow(quote, 'TRUCK');
@@ -1617,6 +1618,8 @@
           addBtn.title = '新增 TRUCK 子行';
           addBtn.disabled = scopeConfirmed(item, 'TRUCK');
           addBtn.onclick = async () => {
+            const okFlush = await flushAllDrafts();
+            if (!okFlush) return;
             if (!confirm('確定新增一條 TRUCK 子行？')) return;
 
             const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
@@ -1824,10 +1827,9 @@ ${qDel}`)) return;
           addBtn.title = '新增 WAREHOUSE 子行';
           addBtn.disabled = scopeConfirmed(item, 'WH'); // ✅ checked(成本已送出) 仍允许新增子行；仅在 Sales/Manager Confirm 后锁死
           addBtn.onclick = async () => {
-            if (!confirm('確定新增一條 WAREHOUSE 子行？')) return;
-
             const okFlush = await flushAllDrafts();
-            if (!okFlush) { alert('❌ 自动保存失败，已取消新增（避免数据丢失）。'); return; }
+            if (!okFlush) return;
+            if (!confirm('確定新增一條 WAREHOUSE 子行？')) return;
 
             // ✅ 先 autosave 自己这个 WH scope（不是 TRUCK）
             const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');

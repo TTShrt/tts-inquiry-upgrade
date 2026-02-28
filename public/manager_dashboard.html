@@ -1966,11 +1966,13 @@
           whReqLine = parts.filter(Boolean).join(' | ');
         }
 
-        // 最终显示：先红圈内容，再 Warehouse Note
+        // 最终显示：先红圈内容，再 Warehouse Note，再 Vendor Note
+        const whVendorNote = (item['Vendor Note'] || item['Carrier Note'] || '').toString().trim();
         const whFull = [
           iconLine,
           whReqLine,
-          whNote ? `WH Note: ${whNote}` : ''
+          whNote ? `WH Note: ${whNote}` : '',
+          whVendorNote ? `Vendor Note: ${whVendorNote}` : ''
         ].filter(Boolean).join('\n');
         const noteTd = tdCell('', 'note-preview'); noteTd.colSpan = 8;
         noteTd.dataset.fullNote = whFull; noteTd.dataset.which = 'WAREHOUSE NOTE';

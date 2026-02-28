@@ -1244,8 +1244,14 @@ if (blocked.length && role === 'sourcing') {
 
     // ========= Apply updates =========
     const patch = buildSafePatch(filtered);
+    // ✅ CRITICAL FIX: Use .set() for Mongoose documents (direct assignment doesn't persist with strict:false)
+    const isMongoDoc = typeof existing.set === 'function' && typeof existing.markModified === 'function';
     Object.keys(patch).forEach(key => {
-      existing[key] = patch[key];
+      if (isMongoDoc) {
+        existing.set(key, patch[key]);
+      } else {
+        existing[key] = patch[key];
+      }
     });
 
 
@@ -1253,8 +1259,13 @@ if (blocked.length && role === 'sourcing') {
     if (role === 'sourcing') {
       const anyCostSent =
         isTruthy(existing['truckingCostSent']) || isTruthy(existing['warehouseCostSent']);
-      existing['Cost Sent'] = anyCostSent ? 'true' : 'false';
-      existing['Selected'] = anyCostSent ? 'true' : 'false';
+      if (isMongoDoc) {
+        existing.set('Cost Sent', anyCostSent ? 'true' : 'false');
+        existing.set('Selected', anyCostSent ? 'true' : 'false');
+      } else {
+        existing['Cost Sent'] = anyCostSent ? 'true' : 'false';
+        existing['Selected'] = anyCostSent ? 'true' : 'false';
+      }
     }
 
     // Always apply units and auto rules
@@ -1298,14 +1309,17 @@ if (blocked.length && role === 'sourcing') {
           // Update parent main row (if exists)
           const parentDoc = docs.find(d => String(d['Quotation #'] || '').trim() === parentKey);
           if (parentDoc) {
-            parentDoc['truckingCostSent'] = anyTruckSent ? 'true' : 'false';
-            parentDoc['truckingCostSaved'] = anyTruckSaved ? 'true' : 'false';
-            parentDoc['warehouseCostSent'] = anyWhSent ? 'true' : 'false';
-            parentDoc['warehouseCostSaved'] = anyWhSaved ? 'true' : 'false';
+            const isParentMongo = typeof parentDoc.set === 'function' && typeof parentDoc.markModified === 'function';
+            const pSet = (k, v) => { if (isParentMongo) parentDoc.set(k, v); else parentDoc[k] = v; };
+
+            pSet('truckingCostSent', anyTruckSent ? 'true' : 'false');
+            pSet('truckingCostSaved', anyTruckSaved ? 'true' : 'false');
+            pSet('warehouseCostSent', anyWhSent ? 'true' : 'false');
+            pSet('warehouseCostSaved', anyWhSaved ? 'true' : 'false');
 
             // Backward compatible flags for older sales logic
-            parentDoc['Cost Sent'] = anyCostSent ? 'true' : 'false';
-            parentDoc['Selected'] = anyCostSent ? 'true' : 'false';
+            pSet('Cost Sent', anyCostSent ? 'true' : 'false');
+            pSet('Selected', anyCostSent ? 'true' : 'false');
 
             await parentDoc.save();
             io.emit('inquiryUpdated', { quotationId: parentKey });

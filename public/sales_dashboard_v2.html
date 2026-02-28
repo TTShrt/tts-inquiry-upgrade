@@ -2172,8 +2172,10 @@
             const addBtn = document.createElement('button');
             addBtn.className = 'action-button';
             addBtn.textContent = '➕';
-            addBtn.title = 'Add Truck Option';
-            addBtn.onclick = () => alert('➕ Truck option will be wired after Excel view is stable.');
+            addBtn.title = 'Add Truck Option (Sourcing only)';
+            addBtn.disabled = true;
+            addBtn.style.opacity = '0.3';
+            addBtn.style.cursor = 'not-allowed';
 
             wrap.appendChild(editBtn);
             wrap.appendChild(saveBtn);
@@ -2286,8 +2288,10 @@
             const addBtn = document.createElement('button');
             addBtn.className = 'action-button';
             addBtn.textContent = '➕';
-            addBtn.title = 'Add Warehouse Option';
-            addBtn.onclick = () => alert('➕ Warehouse option will be wired after Excel view is stable.');
+            addBtn.title = 'Add Warehouse Option (Sourcing only)';
+            addBtn.disabled = true;
+            addBtn.style.opacity = '0.3';
+            addBtn.style.cursor = 'not-allowed';
 
             wrap.appendChild(editBtn);
             wrap.appendChild(saveBtn);
@@ -3082,12 +3086,17 @@
               const whNote = (item['Warehouse Note'] || '').toString().trim();
               const whNoteLine = whNote ? `WH Note: ${whNote}` : '';
 
+              // ✅ 5) Sourcing Vendor Note (from WH cost entry)
+              const whVendorNote = (item['Vendor Note'] || item['Carrier Note'] || '').toString().trim();
+              const whVendorNoteLine = whVendorNote ? `Vendor Note: ${whVendorNote}` : '';
+
               const mergedWhNote = [
                 iconLine,
                 servicesLine,
                 estLine,
                 storageLine,
                 whNoteLine,
+                whVendorNoteLine,
               ].filter(Boolean).join(' | ');
 
 
@@ -3210,11 +3219,13 @@
                 r6s.appendChild(tdEstGPSub);
 
                 // ===== 然后才进入 NOTE =====
-                // ✅ FIX: Show full WH note (icons, services, estimates) inherited from parent — not just sub's own note
+                // ✅ FIX: Show full WH note (icons, services, estimates) inherited from parent + sub's own notes
                 const subWhNote = (sub['Warehouse Note'] || '').toString().trim();
                 const subWhNoteLine = subWhNote ? `WH Note: ${subWhNote}` : '';
-                // Merge parent WH info + sub's own WH Note
-                const whFullS = [mergedWhNote, subWhNoteLine].filter(Boolean).join(' | ');
+                const subWhVendorNote = (sub['Vendor Note'] || sub['Carrier Note'] || '').toString().trim();
+                const subWhVendorNoteLine = subWhVendorNote ? `Vendor Note: ${subWhVendorNote}` : '';
+                // Merge parent WH info + sub's own WH Note + sub's Vendor Note
+                const whFullS = [mergedWhNote, subWhNoteLine, subWhVendorNoteLine].filter(Boolean).join(' | ');
                 const whPreviewS = whFullS.replace(/\s+/g, ' ').trim();
                 const whNoteTdS = tdCell(whPreviewS, 'text-left note-preview');
                 whNoteTdS.colSpan = 8;

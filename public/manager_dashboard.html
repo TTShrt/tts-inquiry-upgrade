@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Manager Dashboard</title>
+  <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
@@ -1351,6 +1352,9 @@
       }
 
       async function postUpdate(payload) {
+        // ✅ FIX: Suppress socket-triggered reloads for 2s after self-initiated save
+        window._selfUpdateUntil = Date.now() + 2000;
+
         const res = await fetch('/inquiries/update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2002,6 +2006,20 @@
         const ok = await getCurrentUser();
         if (!ok) return;
         await loadInquiries();
+
+        // ✅ Socket.io real-time updates (match Sales behavior)
+        try {
+          const socket = io();
+          socket.on('inquiryUpdated', async () => {
+            if (window._selfUpdateUntil && Date.now() < window._selfUpdateUntil) {
+              console.log('[socket] skipping reload (self-update window)');
+              return;
+            }
+            await loadInquiries();
+          });
+        } catch (e) {
+          console.warn('socket disabled', e);
+        }
 
         document.getElementById('prevPage')?.addEventListener('click', () => {
           if (window.currentPage > 1) { window.currentPage--; renderPage(); }

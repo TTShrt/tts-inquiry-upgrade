@@ -1932,6 +1932,10 @@
           }
 
           async function postUpdate(payload) {
+            // ✅ FIX: Suppress socket-triggered reloads for 2s after self-initiated save.
+            //    This prevents loadInquiries() from wiping unsaved sub-line inputs.
+            window._selfUpdateUntil = Date.now() + 2000;
+
             const res = await fetch('/inquiries/update', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -3341,6 +3345,11 @@
           try {
             const socket = io();
             socket.on('inquiryUpdated', async () => {
+              // ✅ FIX: Skip reload if this page just saved (prevents clearing unsaved sub-line inputs)
+              if (window._selfUpdateUntil && Date.now() < window._selfUpdateUntil) {
+                console.log('[socket] skipping reload (self-update window)');
+                return;
+              }
               if (typeof window.loadInquiries === 'function') {
                 await window.loadInquiries();
               }

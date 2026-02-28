@@ -1351,6 +1351,47 @@
         return input;
       }
 
+      // ✅ Frontend copy of server's simulateQuoteFull — used as fallback when Price/GP not yet persisted
+      function simulateQuoteFull(baseRate, type) {
+        baseRate = parseFloat(baseRate) || 0;
+        const result = { finalPrice: 0, gp: 0 };
+        const config = {
+          drayage: { minGP: 0.10, maxGP: 0.25, ranges: { '50-200': { add: 50, minPrice: 250 }, '200-500': { add: 80, minPrice: 298 }, '500-1500': { divide: 0.84, forceAddIfLt: 100 }, '1500-2500': { slope: 0.2, baseAdd: 300 }, '2500-5000': { slope: 0.2, baseAdd: 500 }, '5000-INF': { slope: 0.25, baseAdd: 1000 } } },
+          dryvan: { minGP: 0.18, maxGP: 0.30, ranges: { '50-200': { add: 80, minPrice: 250 }, '200-500': { add: 100, minPrice: 298 }, '500-1500': { divide: 0.80, forceAddIfLt: 100 }, '1500-2500': { slope: 0.2, baseAdd: 400 }, '2500-5000': { slope: 0.24, baseAdd: 600 }, '5000-INF': { slope: 0.325, baseAdd: 1200 } } },
+          flatbed: { minGP: 0.18, maxGP: 0.30, ranges: { '50-200': { add: 80, minPrice: 250 }, '200-500': { add: 100, minPrice: 298 }, '500-1500': { divide: 0.80, forceAddIfLt: 100 }, '1500-2500': { slope: 0.2, baseAdd: 400 }, '2500-5000': { slope: 0.24, baseAdd: 600 }, '5000-INF': { slope: 0.325, baseAdd: 1200 } } }
+        };
+        const normalizedType = (type || '').toLowerCase().replace(/[^a-z]/g, '').replace('drayagewarehouse', 'drayage').replace('drayage+warehouse', 'drayage');
+        const { minGP, maxGP, ranges } = config[normalizedType] || config.drayage;
+        function beautify(price) { const endings = [96,95,90,88,85]; const tP = Math.floor(price/1000)*1000; const hP = Math.floor(price/100)*100; const dT = price-tP; const dH = price-hP; const ok = ((price>=1000&&dT<=150)||(price<1000&&price>=490&&price<=510)||(dH<=10)); if(!ok)return price; for(let e of endings){const c=(Math.floor(price/100)-1)*100+e;const g=(c-baseRate)/c;if(c<price&&g>=minGP)return c;} return price; }
+        function enforceMinGP(price) { const gp=(price-baseRate)/price; if(gp<minGP) return Math.ceil(baseRate/(1-minGP)); return price; }
+        function enforceMaxGP(price) { const gp=(price-baseRate)/price; if(gp>maxGP) return Math.ceil(baseRate/(1-maxGP)); return price; }
+        let price = baseRate;
+        for (let key in ranges) { const [minStr,maxStr]=key.split('-'); const min=parseFloat(minStr); const max=maxStr==='INF'?Infinity:parseFloat(maxStr); const logic=ranges[key]; if(baseRate>=min&&baseRate<max){ if(logic.add!==undefined){price=baseRate+logic.add;if(price<logic.minPrice)price=logic.minPrice;} else if(logic.divide!==undefined){price=baseRate/logic.divide;if((price-baseRate)<logic.forceAddIfLt&&price>1000)price+=logic.forceAddIfLt;} else if(logic.slope!==undefined){const add=logic.baseAdd+(baseRate-min)*logic.slope;price=baseRate+add;price=enforceMinGP(price);if(normalizedType!=='drayage')price=enforceMaxGP(price);} break; } }
+        let beautified=beautify(Math.ceil(price)); let finalGP=(beautified-baseRate)/beautified;
+        if((normalizedType==='dryvan'||normalizedType==='flatbed')&&finalGP<minGP) beautified=Math.ceil(price);
+        result.finalPrice=Math.ceil(beautified); result.gp=parseFloat(((result.finalPrice-baseRate)/result.finalPrice).toFixed(4));
+        return result;
+      }
+
+      function getTruckPriceGP(item) {
+        const serverPrice = Number(item['Price']) || 0;
+        const serverGP = Number(item['GP']);
+        const baseRate = Number(String(item['Base Rate'] || '').replace(/,/g, '')) || 0;
+        const inquiryType = String(item['Inquiry Type'] || '').trim();
+        if (serverPrice > 0 && Number.isFinite(serverGP) && serverGP !== 0) return { price: serverPrice, gp: serverGP };
+        if (baseRate > 0) { const sim = simulateQuoteFull(baseRate, inquiryType); return { price: sim.finalPrice, gp: sim.gp }; }
+        return { price: 0, gp: null };
+      }
+
+      // ✅ WH auto-price: cost * 1.25 (same as sales dashboard)
+      function whAuto(costVal, priceVal) {
+        const c = num(costVal);
+        const p = String(priceVal ?? '').trim();
+        if (p) return p;
+        if (c === null) return '';
+        return String(Math.round(c * 1.25));
+      }
+
       async function postUpdate(payload) {
         // ✅ FIX: Suppress socket-triggered reloads for 2s after self-initiated save
         window._selfUpdateUntil = Date.now() + 2000;
@@ -1793,9 +1834,13 @@
         const displayQuote = (isSub && baseExt) ? (baseExt + suffixNum) : (isSub ? quote : '');
         tr.appendChild(tdCell(displayQuote, isSub ? 'text-center font-semibold' : ''));
         tr.appendChild(tdCell(fmt2(item['Base Rate'])));
-        tr.appendChild(tdCell(item['Price'] ? Number(item['Price']).toFixed(2) : '—'));
-        const gp = Number(item['GP']);
-        tr.appendChild(tdCell(Number.isFinite(gp) ? (gp * 100).toFixed(2) + '%' : '—'));
+        // ✅ FIX: Use frontend fallback when server hasn't persisted Price/GP
+        // Sub-rows may not have Inquiry Type; inherit from parent
+        const itemForCalc = (!item['Inquiry Type'] && parentDoc) ? Object.assign({}, item, { 'Inquiry Type': parentDoc['Inquiry Type'] }) : item;
+        const { price: calcPrice, gp: calcGP } = getTruckPriceGP(itemForCalc);
+        tr.appendChild(tdCell(calcPrice > 0 ? calcPrice.toFixed(2) : '—'));
+        const gpPercent = (calcGP !== null && Number.isFinite(calcGP)) ? (calcGP * 100).toFixed(2) + '%' : '—';
+        tr.appendChild(tdCell(gpPercent));
 
         const adj = makeInput(item['Adjusted Price'] || '', 'Adjusted Price', quote, locked, 'TRUCK');
         const tdAdj = document.createElement('td'); tdAdj.appendChild(adj); tr.appendChild(tdAdj);
@@ -1865,20 +1910,19 @@
 
 
 
-        // ✅ NEW: WH EST GP = (sumPrice - sumCost) / sumPrice
+        // ✅ NEW: WH EST GP = (sumPrice - sumCost) / sumPrice — uses auto-prices as fallback
         const whCostFields = ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'];
         const whPriceFields = ['Order Processing Price', 'Inbound Price', 'Sorting Price', 'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price'];
 
         let sumCost = 0;
         let sumPrice = 0;
 
-        whCostFields.forEach(f => {
+        whCostFields.forEach((f, idx) => {
           const n = num(item[f]);
           if (n !== null) sumCost += n;
-        });
-        whPriceFields.forEach(f => {
-          const n = num(item[f]);
-          if (n !== null) sumPrice += n;
+          // ✅ FIX: Use whAuto (cost*1.25 fallback) when no saved price
+          const autoP = parseFloat(whAuto(item[f], item[whPriceFields[idx]]) || 0);
+          if (!isNaN(autoP)) sumPrice += autoP;
         });
 
         let estGpText = '—';
@@ -1890,24 +1934,26 @@
         tr.appendChild(tdCell(estGpText, 'text-right'));
 
         // ===== Icons (add this block) =====
+        // ✅ FIX: For sub-rows, inherit WH service info from parent document
+        const noteSource = (isSub && parentDoc) ? parentDoc : item;
         const icon = (on, emoji) => (String(on || '').toLowerCase() === 'true' ? emoji : '');
 
-        const needWHIcon = icon(item['Need Warehouse Service'], '🏢'); // or 🏬
-        const haz = icon(item['Hazmat'], '☢️');                       // or ☣️
-        const ree = icon(item['Reefer'], '❄️');
-        const bon = icon(item['Bonded'], '🔒');
+        const needWHIcon = icon(noteSource['Need Warehouse Service'], '🏢'); // or 🏬
+        const haz = icon(noteSource['Hazmat'], '☢️');                       // or ☣️
+        const ree = icon(noteSource['Reefer'], '❄️');
+        const bon = icon(noteSource['Bonded'], '🔒');
 
         const iconLine = [needWHIcon, haz, ree, bon].filter(Boolean).join(' ');
 
-        const needWH = String(item['Need Warehouse Service'] || '').toLowerCase() === 'true';
-        const svcDetail = (item['Warehouse Service Detail'] || '').toString().trim();
-        const svc = (item['Warehouse Services'] || '').toString().trim();
-        const estP = (item['Estimated Pallets'] || '').toString().trim();
-        const estB = (item['Estimated Boxes'] || '').toString().trim();
-        const estSKU = (item['Estimated SKU Count'] || '').toString().trim();
-        const dur = (item['Storage Duration'] || '').toString().trim();
-        const durUnit = (item['Storage Duration Unit'] || '').toString().trim();
-        const whNote = (item['Warehouse Note'] || '').toString().trim();
+        const needWH = String(noteSource['Need Warehouse Service'] || '').toLowerCase() === 'true';
+        const svcDetail = (noteSource['Warehouse Service Detail'] || '').toString().trim();
+        const svc = (noteSource['Warehouse Services'] || '').toString().trim();
+        const estP = (noteSource['Estimated Pallets'] || '').toString().trim();
+        const estB = (noteSource['Estimated Boxes'] || '').toString().trim();
+        const estSKU = (noteSource['Estimated SKU Count'] || '').toString().trim();
+        const dur = (noteSource['Storage Duration'] || '').toString().trim();
+        const durUnit = (noteSource['Storage Duration Unit'] || '').toString().trim();
+        const whNote = (item['Warehouse Note'] || '').toString().trim(); // sub's own note
 
         // 你红圈那块汇总
         let whReqLine = '';

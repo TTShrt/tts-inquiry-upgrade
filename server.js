@@ -392,7 +392,14 @@ function isTruthy(val) {
 function setIfEmpty(doc, key, value) {
   const cur = doc[key];
   const empty = cur === undefined || cur === null || String(cur).trim() === '';
-  if (empty) doc[key] = value;
+  if (empty) {
+    // ✅ FIX: Use .set() for Mongoose documents
+    if (typeof doc.set === 'function' && typeof doc.markModified === 'function') {
+      doc.set(key, value);
+    } else {
+      doc[key] = value;
+    }
+  }
 }
 
 
@@ -442,11 +449,10 @@ function autoPriceTruckingItem(prevDoc, doc, costField, priceField, calcFn) {
     curEmpty ||
     curPriceStr === String(oldAuto).trim();
 
-  if (shouldUpdate) {
-    doc[priceField] = String(newAuto);
-  } else {
-    doc[priceField] = curPriceStr; // keep manual
-  }
+  // ✅ FIX: Use .set() for Mongoose documents
+  const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
+  const val = shouldUpdate ? String(newAuto) : curPriceStr;
+  if (isMongoDoc) { doc.set(priceField, val); } else { doc[priceField] = val; }
 }
 
 // ==================== 新版：25% GP + 美化到最近的10 ====================
@@ -462,8 +468,11 @@ function autoPriceWarehouseItem(prevDoc, doc, costField, priceField) {
 
   // 如果成本为空或无效，清空价格
   const n = toNumber(newCost);
+  // ✅ FIX: Use .set() for Mongoose documents
+  const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
+
   if (!Number.isFinite(n) || n <= 0) {
-    doc[priceField] = '';
+    if (isMongoDoc) { doc.set(priceField, ''); } else { doc[priceField] = ''; }
     return;
   }
 
@@ -485,15 +494,15 @@ function autoPriceWarehouseItem(prevDoc, doc, costField, priceField) {
     curEmpty ||
     curPriceStr === oldAuto;
 
-  if (shouldUpdate) {
-    doc[priceField] = newAuto;
-  } else {
-    // 用户手动改过，就保留手动值
-    doc[priceField] = curPriceStr;
-  }
+  const val = shouldUpdate ? newAuto : curPriceStr;
+  if (isMongoDoc) { doc.set(priceField, val); } else { doc[priceField] = val; }
 }
 
 function applyTruckingAutoPrices(prevDoc, doc) {
+  // ✅ FIX: Use .set() for Mongoose documents
+  const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
+  const safeSet = (key, val) => { if (isMongoDoc) { doc.set(key, val); } else { doc[key] = val; } };
+
   // Fixed (but allow manual override)
   const fixed = [
     { priceField: 'Chassis Price', value: 45 },
@@ -518,7 +527,7 @@ function applyTruckingAutoPrices(prevDoc, doc) {
       curStr === String(prevPrice || '').trim() && String(prevPrice || '').trim() === oldFixed ||
       curStr === oldFixed;
 
-    if (shouldUpdate) doc[f.priceField] = oldFixed;
+    if (shouldUpdate) safeSet(f.priceField, oldFixed);
   }
 
   // Pre-Pull Price = Cost + $25
@@ -590,20 +599,24 @@ function applyBaseRateAutoPriceAndGP(doc) {
 
   const simulated = simulateQuoteFull(baseRate, inquiryType);
 
+  // ✅ FIX: Use .set() for Mongoose documents (direct assignment doesn't persist with strict:false)
+  const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
+
   // Price
-  doc['Price'] = simulated.finalPrice ? Math.round(Number(simulated.finalPrice)) : '';
+  const priceVal = simulated.finalPrice ? Math.round(Number(simulated.finalPrice)) : '';
+  if (isMongoDoc) { doc.set('Price', priceVal); } else { doc['Price'] = priceVal; }
 
   // GP —— 強制存成數字（0.1603），不再存字串
   const finalPrice = Number(simulated.finalPrice) || 0;
   const baseRateNum = Number(baseRate) || 0;
-  // GP - 存成純數字（0.1603），不存字串
   let gpNumber = 0;
   if (finalPrice > 0) {
     gpNumber = (finalPrice - baseRate) / finalPrice;
   }
-  doc['GP'] = isNaN(gpNumber) ? 0 : gpNumber;  // 存 0.1603 這種數字
+  const gpVal = isNaN(gpNumber) ? 0 : gpNumber;
+  if (isMongoDoc) { doc.set('GP', gpVal); } else { doc['GP'] = gpVal; }
 
-  console.log('[GP FINAL FIX] 寫入的 GP 數字 =', doc['GP']);
+  console.log('[GP FINAL FIX] 寫入的 GP 數字 =', gpVal);
 
   // Adjusted GP（保持原樣，已正常）
   const adjPrice = Number(doc['Adjusted Price']) || 0;
@@ -611,13 +624,14 @@ function applyBaseRateAutoPriceAndGP(doc) {
   if (adjPrice > 0) {
     adjGPNumber = (adjPrice - baseRateNum) / adjPrice;
   }
-  doc['Adjusted GP'] = isNaN(adjGPNumber) || !isFinite(adjGPNumber) ? '—' : (adjGPNumber * 100).toFixed(2) + '%';
+  const adjGPVal = isNaN(adjGPNumber) || !isFinite(adjGPNumber) ? '—' : (adjGPNumber * 100).toFixed(2) + '%';
+  if (isMongoDoc) { doc.set('Adjusted GP', adjGPVal); } else { doc['Adjusted GP'] = adjGPVal; }
 
   console.log('[GP FIX] 寫入結果：', {
-    Price: doc['Price'],
-    GP: doc['GP'],
+    Price: priceVal,
+    GP: gpVal,
     'Adjusted Price': doc['Adjusted Price'],
-    'Adjusted GP': doc['Adjusted GP']
+    'Adjusted GP': adjGPVal
   });
 }
 
@@ -1230,18 +1244,8 @@ if (blocked.length && role === 'sourcing') {
 
     // ========= Apply updates =========
     const patch = buildSafePatch(filtered);
-
-    // ✅ FIX: Use .set() for Mongoose change detection with strict:false schema.
-    //    Direct assignment (existing[key] = value) does NOT trigger Mongoose change
-    //    tracking for dynamic fields, so .save() would silently skip writing to MongoDB.
-    const isMongoDoc = typeof existing.set === 'function' && typeof existing.markModified === 'function';
-
     Object.keys(patch).forEach(key => {
-      if (isMongoDoc) {
-        existing.set(key, patch[key]);
-      } else {
-        existing[key] = patch[key];
-      }
+      existing[key] = patch[key];
     });
 
 
@@ -1249,13 +1253,8 @@ if (blocked.length && role === 'sourcing') {
     if (role === 'sourcing') {
       const anyCostSent =
         isTruthy(existing['truckingCostSent']) || isTruthy(existing['warehouseCostSent']);
-      if (isMongoDoc) {
-        existing.set('Cost Sent', anyCostSent ? 'true' : 'false');
-        existing.set('Selected', anyCostSent ? 'true' : 'false');
-      } else {
-        existing['Cost Sent'] = anyCostSent ? 'true' : 'false';
-        existing['Selected'] = anyCostSent ? 'true' : 'false';
-      }
+      existing['Cost Sent'] = anyCostSent ? 'true' : 'false';
+      existing['Selected'] = anyCostSent ? 'true' : 'false';
     }
 
     // Always apply units and auto rules
@@ -1268,32 +1267,6 @@ if (blocked.length && role === 'sourcing') {
     // Auto for other items (preserve manual overrides based on prevSnapshot)
     applyTruckingAutoPrices(prevSnapshot, existing);
     applyWarehouseAutoPrices(prevSnapshot, existing);
-
-    // ✅ FIX: Mark auto-computed fields as modified so Mongoose persists them.
-    //    The helper functions above use direct assignment (doc[key] = value) which
-    //    Mongoose doesn't track for strict:false dynamic fields.
-    if (isMongoDoc) {
-      const autoFields = [
-        'Price', 'GP', 'Adjusted GP', 'Cost Sent', 'Selected', 'Saved',
-        'Base Rate Unit', 'Chassis Unit', 'Pre-Pull Unit', 'Yard Storage Unit',
-        'Driver Waiting Unit', 'Chassis Split Unit', 'Over Weight Unit',
-        'Toll Unit', 'Reefer Fee Unit', 'Bond Fee Unit',
-        'Order Processing Unit', 'Inbound Unit', 'Outbound Unit', 'Sorting Unit',
-        'Palletizing Unit', 'Pallet Fee Unit', 'Storage Unit', 'Label Unit', 'Cross Dock Unit',
-        'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
-        'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price',
-        'Order Processing Price', 'Inbound Price', 'Outbound Price', 'Sorting Price',
-        'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Label Price', 'Cross Dock Price',
-        'truckingCostSaved', 'truckingCostSent', 'warehouseCostSaved', 'warehouseCostSent'
-      ];
-      for (const f of autoFields) {
-        if (existing[f] !== undefined) {
-          existing.markModified(f);
-        }
-      }
-      // Also mark every patch key (in case helpers didn't cover it)
-      Object.keys(patch).forEach(key => existing.markModified(key));
-    }
 
     // ========= Save =========
     if (loaded.mode === 'mock') {
@@ -1325,23 +1298,14 @@ if (blocked.length && role === 'sourcing') {
           // Update parent main row (if exists)
           const parentDoc = docs.find(d => String(d['Quotation #'] || '').trim() === parentKey);
           if (parentDoc) {
-            const isParentMongo = typeof parentDoc.set === 'function' && typeof parentDoc.markModified === 'function';
+            parentDoc['truckingCostSent'] = anyTruckSent ? 'true' : 'false';
+            parentDoc['truckingCostSaved'] = anyTruckSaved ? 'true' : 'false';
+            parentDoc['warehouseCostSent'] = anyWhSent ? 'true' : 'false';
+            parentDoc['warehouseCostSaved'] = anyWhSaved ? 'true' : 'false';
 
-            if (isParentMongo) {
-              parentDoc.set('truckingCostSent', anyTruckSent ? 'true' : 'false');
-              parentDoc.set('truckingCostSaved', anyTruckSaved ? 'true' : 'false');
-              parentDoc.set('warehouseCostSent', anyWhSent ? 'true' : 'false');
-              parentDoc.set('warehouseCostSaved', anyWhSaved ? 'true' : 'false');
-              parentDoc.set('Cost Sent', anyCostSent ? 'true' : 'false');
-              parentDoc.set('Selected', anyCostSent ? 'true' : 'false');
-            } else {
-              parentDoc['truckingCostSent'] = anyTruckSent ? 'true' : 'false';
-              parentDoc['truckingCostSaved'] = anyTruckSaved ? 'true' : 'false';
-              parentDoc['warehouseCostSent'] = anyWhSent ? 'true' : 'false';
-              parentDoc['warehouseCostSaved'] = anyWhSaved ? 'true' : 'false';
-              parentDoc['Cost Sent'] = anyCostSent ? 'true' : 'false';
-              parentDoc['Selected'] = anyCostSent ? 'true' : 'false';
-            }
+            // Backward compatible flags for older sales logic
+            parentDoc['Cost Sent'] = anyCostSent ? 'true' : 'false';
+            parentDoc['Selected'] = anyCostSent ? 'true' : 'false';
 
             await parentDoc.save();
             io.emit('inquiryUpdated', { quotationId: parentKey });

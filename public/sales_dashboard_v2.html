@@ -1931,6 +1931,75 @@
             return input;
           }
 
+          // ✅ Frontend copy of server's simulateQuoteFull — used as fallback when Price/GP not yet persisted
+          function simulateQuoteFull(baseRate, type) {
+            baseRate = parseFloat(baseRate) || 0;
+            const result = { finalPrice: 0, gp: 0 };
+            const config = {
+              drayage: { minGP: 0.10, maxGP: 0.25, ranges: { '50-200': { add: 50, minPrice: 250 }, '200-500': { add: 80, minPrice: 298 }, '500-1500': { divide: 0.84, forceAddIfLt: 100 }, '1500-2500': { slope: 0.2, baseAdd: 300 }, '2500-5000': { slope: 0.2, baseAdd: 500 }, '5000-INF': { slope: 0.25, baseAdd: 1000 } } },
+              dryvan: { minGP: 0.18, maxGP: 0.30, ranges: { '50-200': { add: 80, minPrice: 250 }, '200-500': { add: 100, minPrice: 298 }, '500-1500': { divide: 0.80, forceAddIfLt: 100 }, '1500-2500': { slope: 0.2, baseAdd: 400 }, '2500-5000': { slope: 0.24, baseAdd: 600 }, '5000-INF': { slope: 0.325, baseAdd: 1200 } } },
+              flatbed: { minGP: 0.18, maxGP: 0.30, ranges: { '50-200': { add: 80, minPrice: 250 }, '200-500': { add: 100, minPrice: 298 }, '500-1500': { divide: 0.80, forceAddIfLt: 100 }, '1500-2500': { slope: 0.2, baseAdd: 400 }, '2500-5000': { slope: 0.24, baseAdd: 600 }, '5000-INF': { slope: 0.325, baseAdd: 1200 } } }
+            };
+            const normalizedType = (type || '').toLowerCase().replace(/[^a-z]/g, '').replace('drayagewarehouse', 'drayage').replace('drayage+warehouse', 'drayage');
+            const { minGP, maxGP, ranges } = config[normalizedType] || config.drayage;
+
+            function beautify(price) {
+              const endings = [96, 95, 90, 88, 85];
+              const thousandPart = Math.floor(price / 1000) * 1000;
+              const hundredPart = Math.floor(price / 100) * 100;
+              const deltaToThousand = price - thousandPart;
+              const deltaToHundred = price - hundredPart;
+              const allowBeautify = ((price >= 1000 && deltaToThousand <= 150) || (price < 1000 && price >= 490 && price <= 510) || (deltaToHundred <= 10));
+              if (!allowBeautify) return price;
+              for (let end of endings) {
+                const candidate = (Math.floor(price / 100) - 1) * 100 + end;
+                const gp = (candidate - baseRate) / candidate;
+                if (candidate < price && gp >= minGP) return candidate;
+              }
+              return price;
+            }
+            function enforceMinGP(price) { const gp = (price - baseRate) / price; if (gp < minGP) return Math.ceil(baseRate / (1 - minGP)); return price; }
+            function enforceMaxGP(price) { const gp = (price - baseRate) / price; if (gp > maxGP) return Math.ceil(baseRate / (1 - maxGP)); return price; }
+
+            let price = baseRate;
+            for (let key in ranges) {
+              const [minStr, maxStr] = key.split('-');
+              const min = parseFloat(minStr);
+              const max = maxStr === 'INF' ? Infinity : parseFloat(maxStr);
+              const logic = ranges[key];
+              if (baseRate >= min && baseRate < max) {
+                if (logic.add !== undefined) { price = baseRate + logic.add; if (price < logic.minPrice) price = logic.minPrice; }
+                else if (logic.divide !== undefined) { price = baseRate / logic.divide; if ((price - baseRate) < logic.forceAddIfLt && price > 1000) price += logic.forceAddIfLt; }
+                else if (logic.slope !== undefined) { const add = logic.baseAdd + (baseRate - min) * logic.slope; price = baseRate + add; price = enforceMinGP(price); if (normalizedType !== 'drayage') price = enforceMaxGP(price); }
+                break;
+              }
+            }
+            let beautified = beautify(Math.ceil(price));
+            let finalGP = (beautified - baseRate) / beautified;
+            if ((normalizedType === 'dryvan' || normalizedType === 'flatbed') && finalGP < minGP) beautified = Math.ceil(price);
+            result.finalPrice = Math.ceil(beautified);
+            result.gp = parseFloat(((result.finalPrice - baseRate) / result.finalPrice).toFixed(4));
+            return result;
+          }
+
+          // Helper: get Price/GP with frontend fallback when server hasn't persisted
+          function getTruckPriceGP(item) {
+            const serverPrice = Number(item['Price']) || 0;
+            const serverGP = Number(item['GP']);
+            const baseRate = Number(String(item['Base Rate'] || '').replace(/,/g, '')) || 0;
+            const inquiryType = String(item['Inquiry Type'] || '').trim();
+
+            if (serverPrice > 0 && Number.isFinite(serverGP) && serverGP !== 0) {
+              return { price: serverPrice, gp: serverGP };
+            }
+            // Fallback: calculate on frontend
+            if (baseRate > 0) {
+              const sim = simulateQuoteFull(baseRate, inquiryType);
+              return { price: sim.finalPrice, gp: sim.gp };
+            }
+            return { price: 0, gp: null };
+          }
+
           async function postUpdate(payload) {
             // ✅ FIX: Suppress socket-triggered reloads for 2s after self-initiated save.
             //    This prevents loadInquiries() from wiping unsaved sub-line inputs.
@@ -2636,13 +2705,12 @@
               // Base Rate
               r4.appendChild(tdCell(fmt2(item['Base Rate'])));
 
-              // Price（顯示兩位小數）
-              const priceVal = Number(item['Price']) || 0;
-              r4.appendChild(tdCell(isNaN(priceVal) ? '—' : priceVal.toFixed(2)));
+              // Price（顯示兩位小數）— ✅ FIX: Use frontend fallback when server hasn't persisted
+              const { price: calcPrice, gp: calcGP } = getTruckPriceGP(item);
+              r4.appendChild(tdCell(calcPrice > 0 ? calcPrice.toFixed(2) : '—'));
 
               // GP（防 NaN，轉成百分比）
-              const gpRaw = Number(item['GP']) || 0;
-              const gpPercent = isNaN(gpRaw) || !isFinite(gpRaw) ? '—' : (gpRaw * 100).toFixed(2) + '%';
+              const gpPercent = (calcGP !== null && Number.isFinite(calcGP)) ? (calcGP * 100).toFixed(2) + '%' : '—';
               r4.appendChild(tdCell(gpPercent));
 
               // Adjusted Price（可編輯）
@@ -2751,11 +2819,14 @@
                 // Base Rate (Cost)
                 r4s.appendChild(tdCell(fmt2(sub['Base Rate'])));
 
-                // Price / GP（从 server 字段显示）
-                r4s.appendChild(tdCell(sub['Price'] ? Number(sub['Price']).toFixed(2) : '—'));
+                // Price / GP — ✅ FIX: Use frontend fallback when server hasn't persisted
+                // Sub-line may not have Inquiry Type; inherit from parent
+                const subForCalc = Object.assign({}, sub);
+                if (!subForCalc['Inquiry Type']) subForCalc['Inquiry Type'] = item['Inquiry Type'];
+                const { price: calcPriceSub, gp: calcGPSub } = getTruckPriceGP(subForCalc);
+                r4s.appendChild(tdCell(calcPriceSub > 0 ? calcPriceSub.toFixed(2) : '—'));
 
-                const gpRawSub = Number(sub['GP']);
-                const gpPercentSub = (!isFinite(gpRawSub) ? '—' : (gpRawSub * 100).toFixed(2) + '%');
+                const gpPercentSub = (calcGPSub !== null && Number.isFinite(calcGPSub)) ? (calcGPSub * 100).toFixed(2) + '%' : '—';
                 r4s.appendChild(tdCell(gpPercentSub));
 
                 // Adjusted Price（input）
@@ -2808,7 +2879,16 @@
                 tdCar.appendChild(carInp);
                 r4s.appendChild(tdCar);
 
-                r4s.appendChild(tdCell('')); // Note 占位，保证列数对齐
+                // ✅ FIX: Show Vendor Note on sub-line (was empty placeholder)
+                const subVendorNoteFull = String(sub['Vendor Note'] || sub['Carrier Note'] || '').trim();
+                const subCleanNote = subVendorNoteFull.replace(/\s+/g, ' ').trim();
+                const subVendorNotePreview = subCleanNote.length > 20 ? subCleanNote.substring(0, 20) + '...' : subCleanNote;
+
+                const subVNoteTd = tdCell(subVendorNotePreview, 'text-left note-preview vendor-note-preview');
+                subVNoteTd.dataset.fullNote = subVendorNoteFull;
+                subVNoteTd.dataset.which = 'VENDOR NOTE';
+                r4s.appendChild(subVNoteTd);
+
                 r4s.appendChild(actionCellTruck(sub, subQuote, role));
 
                 if (isTruthy(sub['truckingSalesConfirmed']) || isTruthy(sub['truckingManagerConfirmed'])) {
@@ -2931,14 +3011,12 @@
               let sumCost = 0;
               let sumPrice = 0;
 
-              whCostFields.forEach(f => {
+              // ✅ FIX: Use whAuto values (includes auto-calculated prices) for GP calculation
+              whCostFields.forEach((f, idx) => {
                 const n = parseFloat(item[f] || 0);
                 if (!isNaN(n)) sumCost += n;
-              });
-
-              whPriceFields.forEach(f => {
-                const n = parseFloat(item[f] || 0);
-                if (!isNaN(n)) sumPrice += n;
+                const autoP = parseFloat(whAuto(item[f], item[whPriceFields[idx]]) || 0);
+                if (!isNaN(autoP)) sumPrice += autoP;
               });
 
               let estGpText = '—';
@@ -3080,13 +3158,13 @@
                   // Cost：文本
                   r6s.appendChild(tdCell(fmt2(sub[cF])));
 
-                  // Price：input（Sales 填价）
+                  // Price：input（Sales 填价）— ✅ FIX: Use whAuto for auto-suggested price (same as main row)
                   const lockedSub = viewOnly
                     || isTruthy(sub['warehousePriceSaved'])
                     || isTruthy(sub['warehouseManagerConfirmed'])
                     || isTruthy(sub['warehouseSalesConfirmed']);
 
-                  const pi = makeInput(sub[pF] || '', pF, subQuote, lockedSub, 'WH');
+                  const pi = makeInput(whAuto(sub[cF], sub[pF]), pF, subQuote, lockedSub, 'WH');
                   const tdP = document.createElement('td');
                   tdP.appendChild(pi);
                   r6s.appendChild(tdP);
@@ -3112,13 +3190,12 @@
                 let sumCostSub = 0;
                 let sumPriceSub = 0;
 
-                whCostFieldsSub.forEach(f => {
+                // ✅ FIX: Use whAuto values (includes auto-calculated prices) for GP calculation
+                whCostFieldsSub.forEach((f, idx) => {
                   const n = parseFloat(sub[f] || 0);
                   if (!isNaN(n)) sumCostSub += n;
-                });
-                whPriceFieldsSub.forEach(f => {
-                  const n = parseFloat(sub[f] || 0);
-                  if (!isNaN(n)) sumPriceSub += n;
+                  const autoP = parseFloat(whAuto(sub[f], sub[whPriceFieldsSub[idx]]) || 0);
+                  if (!isNaN(autoP)) sumPriceSub += autoP;
                 });
 
                 let estGpSubText = '—';
@@ -3133,7 +3210,11 @@
                 r6s.appendChild(tdEstGPSub);
 
                 // ===== 然后才进入 NOTE =====
-                const whFullS = (sub['Warehouse Note'] || '').toString();
+                // ✅ FIX: Show full WH note (icons, services, estimates) inherited from parent — not just sub's own note
+                const subWhNote = (sub['Warehouse Note'] || '').toString().trim();
+                const subWhNoteLine = subWhNote ? `WH Note: ${subWhNote}` : '';
+                // Merge parent WH info + sub's own WH Note
+                const whFullS = [mergedWhNote, subWhNoteLine].filter(Boolean).join(' | ');
                 const whPreviewS = whFullS.replace(/\s+/g, ' ').trim();
                 const whNoteTdS = tdCell(whPreviewS, 'text-left note-preview');
                 whNoteTdS.colSpan = 8;

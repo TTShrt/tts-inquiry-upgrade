@@ -1988,11 +1988,18 @@ ${qDel}`)) return;
               return q !== key && /-\d+$/.test(q);
             });
 
+            // ✅ group-level lock: 同一主号下，只要任意一行已 Saved/Sent，就锁整组
+            const groupTruckCostLocked = group.some(x =>
+              isTruthy(x['truckingCostSent']) || isTruthy(x['truckingCostSaved'])
+            );
+
             const whSubs = group.filter(it => {
               const q = String(it['Quotation #'] || '').trim();
               return q !== key && /-[A-Z]$/i.test(q);
             });
-
+            const groupWhCostLocked = group.some(x =>
+              isTruthy(x['warehouseCostSent']) || isTruthy(x['warehouseCostSaved'])
+            );
             // ✅ Stable sub-line order (match Sales/Manager):
             //    TRUCK: -1, -2, -3 ... ascending
             //    WH:    -A, -B, -C ... ascending
@@ -2006,7 +2013,6 @@ ${qDel}`)) return;
             };
             truckSubs.sort((a, b) => truckNo(a['Quotation #']) - truckNo(b['Quotation #']));
             whSubs.sort((a, b) => whLetter(a['Quotation #']).localeCompare(whLetter(b['Quotation #'])));
-
 
             // ========= BASIC header =========
             const r1 = document.createElement('tr');
@@ -2092,8 +2098,8 @@ ${qDel}`)) return;
             tbody.appendChild(r3);
 
             // TRUCK main + subs（你原本函数保持）
-            tbody.appendChild(renderTruckRow(main, key, false, key, groupTruckCostLocked));
-            truckSubs.forEach(sub => tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key, groupTruckCostLocked)));
+            tbody.appendChild(renderTruckRow(main, key, false, key));
+            truckSubs.forEach(sub => tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key)));
 
             // ========= WH header =========
             const r5 = document.createElement('tr');
@@ -2197,7 +2203,7 @@ ${qDel}`)) return;
           return r4;
         }
 
-        function renderWhRow(item, quote, isSub, mainKey) {
+        function renderWhRow(item, quote, isSub, mainKey, groupLocked) {
           const q = String(quote || '').trim();
           const parentDoc = (filteredData || []).find(x => String(x['Quotation #'] || '').trim() === String(mainKey || '').trim());
           const baseExt = String(parentDoc?.['External Quotation #'] || '').trim();
@@ -2222,9 +2228,9 @@ ${qDel}`)) return;
 
           if (costSaved && !costSent && !confirmed) r6.classList.add('cost-saved');
 
-          const lockedWH = lockState(item, 'WH');
+          const lockedWH = lockState(item, 'WH') || !!groupLocked;
 
-          r6.appendChild(tdCell(displayQ, 'text-left font-semibold'));
+          r6.appendChild(actionCellWH(item, quote, mainKey, groupLocked));
 
           // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
           ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {

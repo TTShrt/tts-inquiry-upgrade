@@ -1588,9 +1588,6 @@
                 else row.classList.remove('cost-saved');
               }
 
-              ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier']
-                .forEach(f => delete draftCache[draftKey(quote, 'TRUCK', f)]);
-
             } finally {
               chk.disabled = false;
             }
@@ -1606,13 +1603,14 @@
           addBtn.onclick = async () => {
             if (!confirm('確定新增一條 TRUCK 子行？')) return;
 
+            const okFlush = await flushAllDrafts();
+            if (!okFlush) { alert('❌ 自动保存失败，已取消新增（避免数据丢失）。'); return; }
+
             const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
             if (!okAuto) {
               alert('❌ 先保存当前 TRUCK COST 失败，所以不会新增子行（避免数据丢失）。');
               return;
             }
-
-
             const parent = String(mainKey || '').trim();
             const all = await fetchAllInquiries();
             const newQuote = nextTruckQuote(parent, all);
@@ -1736,11 +1734,6 @@ ${qDel}`)) return;
             await setFlags(quote, { [costSavedField]: 'true' });
             lockRow(quote, 'WH');
 
-            [
-              'Order Processing', 'Inbound', 'Sorting', 'Palletizing',
-              'Pallet Fee', 'Storage', 'Outbound', 'Vendor'
-            ].forEach(f => delete draftCache[draftKey(quote, 'WH', f)]);
-
             await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');
 
             markRowSaved(quote, 'WH');
@@ -1778,9 +1771,6 @@ ${qDel}`)) return;
                 row.classList.toggle('row-sent', want);
                 if (!want) row.classList.add('cost-saved');
               }
-
-              ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound', 'Vendor']
-                .forEach(f => delete draftCache[draftKey(quote, 'WH', f)]);
 
             } finally {
               chk.disabled = false;
@@ -2098,8 +2088,10 @@ ${qDel}`)) return;
             tbody.appendChild(r3);
 
             // TRUCK main + subs（你原本函数保持）
-            tbody.appendChild(renderTruckRow(main, key, false, key));
-            truckSubs.forEach(sub => tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key)));
+            tbody.appendChild(renderTruckRow(main, key, false, key, null));
+            truckSubs.forEach((sub, i) => {
+              tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key, i + 1));
+            });
 
             // ========= WH header =========
             const r5 = document.createElement('tr');
@@ -2136,14 +2128,15 @@ ${qDel}`)) return;
           const pageInfo = document.getElementById('pageInfo');
           if (pageInfo) pageInfo.textContent = `Page ${currentPage}`;
         }
-
-        function renderTruckRow(item, quote, isSub, mainKey, groupLocked) {
+        function renderTruckRow(item, quote, isSub, mainKey, displayNo) {
           const q = String(quote || '').trim();
 
           const parentDoc = (filteredData || []).find(x => String(x['Quotation #'] || '').trim() === String(mainKey || '').trim());
           const baseExt = String(parentDoc?.['External Quotation #'] || '').trim();
-          const suffix = String(quote || '').match(/-\d+$/)?.[0] || '';
-          const displayQ = (isSub && baseExt) ? (baseExt + suffix) : q;
+          const displaySuffix = (isSub && displayNo) ? `-${displayNo}` : (String(quote || '').match(/-\d+$/)?.[0] || '');
+          const displayQ = (isSub && baseExt)
+            ? (baseExt + displaySuffix)
+            : (isSub ? (q.replace(/-\d+$/, displaySuffix)) : q);
           const r4 = document.createElement('tr');
           r4.className = 'row-truck-val';
           if (isSub) r4.classList.add('sub-row');

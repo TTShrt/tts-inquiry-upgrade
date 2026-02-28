@@ -1107,6 +1107,7 @@ app.post('/inquiries/update', async (req, res) => {
 
       // ✅ Vendor Note：只有 Sourcing 可以填写/修改，其他角色只能查看
       if (field === 'Vendor Note') return role === 'sourcing';
+      if (field === 'WH Vendor Note') return role === 'sourcing';
 
       // Front-ends commonly include this as a generic "touch" flag.
       // Allow it for all roles so we don't hard-fail saves.
@@ -1221,7 +1222,7 @@ app.post('/inquiries/update', async (req, res) => {
       }
 
       // ✅ 防止前端空字串把已有值覆盖成空（特别是 autosave / checkbox）
-      if (v === '' && k !== 'Note' && k !== 'Vendor Note' && k !== 'Warehouse Note') {
+      if (v === '' && k !== 'Note' && k !== 'Vendor Note' && k !== 'WH Vendor Note' && k !== 'Warehouse Note') {
         continue;
       }
       filtered[k] = v;

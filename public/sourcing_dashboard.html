@@ -2223,9 +2223,6 @@ ${qDel}`)) return;
 
           const lockedWH = lockState(item, 'WH');
 
-
-          // FIX: First column (#/Quotation) was missing, causing ACTION to shift left
-          r6.appendChild(tdCell(displayQ, 'text-left font-semibold'));
           // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
           ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {
             const ci = makeInput(item[cF] ?? '', cF, quote, lockedWH, 'WH');
@@ -2315,7 +2312,8 @@ ${qDel}`)) return;
 
           r6.appendChild(whNoteTd);
           // ✅ Vendor Note (Column 26) — only Sourcing can edit/save
-          const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();
+          // ✅ FIX: Use 'WH Vendor Note' to avoid overwriting TRUCK's 'Vendor Note'
+          const vendorNoteFull = String(item['WH Vendor Note'] || item['Vendor Note'] || item['Carrier Note'] || '').trim();
           const cleanNote = vendorNoteFull.replace(/\s+/g, ' ').trim();
           const vendorNotePreview = cleanNote.length > 20 ? cleanNote.substring(0, 20) + '...' : cleanNote;
 
@@ -2324,7 +2322,7 @@ ${qDel}`)) return;
           vNoteTd.dataset.which = 'VENDOR NOTE';
 
           vNoteTd.dataset.quote = quote;
-          vNoteTd.dataset.field = 'Vendor Note';
+          vNoteTd.dataset.field = 'WH Vendor Note';
 
           r6.appendChild(vNoteTd);
           r6.appendChild(actionCellWH(item, quote, mainKey, false));
@@ -2530,11 +2528,6 @@ ${qDel}`)) return;
               alert('🚨 Inquiry data invalid (not array).');
               return;
             }
-
-            // ✅ FIX: Clear draft cache when loading fresh server data.
-            //    This prevents stale local drafts from overriding freshly-saved server values
-            //    after ADD/DELETE triggers a full re-render.
-            Object.keys(draftCache).forEach(k => delete draftCache[k]);
 
             filteredData = data;
             filteredData = applySearchFilter(filteredData, searchTerm);

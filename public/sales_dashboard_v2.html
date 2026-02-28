@@ -3087,7 +3087,8 @@
               const whNoteLine = whNote ? `WH Note: ${whNote}` : '';
 
               // ✅ 5) Sourcing Vendor Note (from WH cost entry)
-              const whVendorNote = (item['Vendor Note'] || item['Carrier Note'] || '').toString().trim();
+              // ✅ FIX: Use separate 'WH Vendor Note' field (TRUCK uses 'Vendor Note')
+              const whVendorNote = (item['WH Vendor Note'] || '').toString().trim();
               const whVendorNoteLine = whVendorNote ? `Vendor Note: ${whVendorNote}` : '';
 
               const mergedWhNote = [
@@ -3222,7 +3223,7 @@
                 // ✅ FIX: Show full WH note (icons, services, estimates) inherited from parent + sub's own notes
                 const subWhNote = (sub['Warehouse Note'] || '').toString().trim();
                 const subWhNoteLine = subWhNote ? `WH Note: ${subWhNote}` : '';
-                const subWhVendorNote = (sub['Vendor Note'] || sub['Carrier Note'] || '').toString().trim();
+                const subWhVendorNote = (sub['WH Vendor Note'] || '').toString().trim();
                 const subWhVendorNoteLine = subWhVendorNote ? `Vendor Note: ${subWhVendorNote}` : '';
                 // Merge parent WH info + sub's own WH Note + sub's Vendor Note
                 const whFullS = [mergedWhNote, subWhNoteLine, subWhVendorNoteLine].filter(Boolean).join(' | ');

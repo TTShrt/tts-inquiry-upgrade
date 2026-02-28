@@ -1967,7 +1967,8 @@
         }
 
         // 最终显示：先红圈内容，再 Warehouse Note，再 Vendor Note
-        const whVendorNote = (item['Vendor Note'] || item['Carrier Note'] || '').toString().trim();
+        // ✅ FIX: Use separate 'WH Vendor Note' field (TRUCK uses 'Vendor Note')
+        const whVendorNote = (item['WH Vendor Note'] || '').toString().trim();
         const whFull = [
           iconLine,
           whReqLine,

@@ -2192,7 +2192,7 @@ ${qDel}`)) return;
 
           r4.appendChild(tNote);
 
-          r4.appendChild(actionCellTruck(item, quote, mainKey, groupLocked));
+          r4.appendChild(actionCellTruck(item, quote, mainKey, false));
           return r4;
         }
 
@@ -2221,9 +2221,7 @@ ${qDel}`)) return;
 
           if (costSaved && !costSent && !confirmed) r6.classList.add('cost-saved');
 
-          const lockedWH = lockState(item, 'WH') || !!groupLocked;
-
-          r6.appendChild(actionCellWH(item, quote, mainKey, groupLocked));
+          const lockedWH = lockState(item, 'WH');
 
           // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
           ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {
@@ -2326,7 +2324,7 @@ ${qDel}`)) return;
           vNoteTd.dataset.field = 'Vendor Note';
 
           r6.appendChild(vNoteTd);
-          r6.appendChild(actionCellWH(item, quote, mainKey, groupLocked)); // 第27栏 Action
+          r6.appendChild(actionCellWH(item, quote, mainKey, false));
           return r6;
         }   // ✅ 这一行你必须加
 

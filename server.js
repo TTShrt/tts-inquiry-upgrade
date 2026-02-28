@@ -393,11 +393,10 @@ function setIfEmpty(doc, key, value) {
   const cur = doc[key];
   const empty = cur === undefined || cur === null || String(cur).trim() === '';
   if (empty) {
-    // ✅ FIX: Use .set() for Mongoose documents
+    // ✅ FIX: dual write — .set() for persistence + direct assign for readback
+    doc[key] = value;
     if (typeof doc.set === 'function' && typeof doc.markModified === 'function') {
       doc.set(key, value);
-    } else {
-      doc[key] = value;
     }
   }
 }
@@ -449,10 +448,11 @@ function autoPriceTruckingItem(prevDoc, doc, costField, priceField, calcFn) {
     curEmpty ||
     curPriceStr === String(oldAuto).trim();
 
-  // ✅ FIX: Use .set() for Mongoose documents
+  // ✅ FIX: dual write — .set() for persistence + direct assign for readback
   const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
   const val = shouldUpdate ? String(newAuto) : curPriceStr;
-  if (isMongoDoc) { doc.set(priceField, val); } else { doc[priceField] = val; }
+  doc[priceField] = val;
+  if (isMongoDoc) doc.set(priceField, val);
 }
 
 // ==================== 新版：25% GP + 美化到最近的10 ====================
@@ -468,11 +468,12 @@ function autoPriceWarehouseItem(prevDoc, doc, costField, priceField) {
 
   // 如果成本为空或无效，清空价格
   const n = toNumber(newCost);
-  // ✅ FIX: Use .set() for Mongoose documents
+  // ✅ FIX: dual write — .set() for persistence + direct assign for readback
   const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
+  const safeWrite = (k, v) => { doc[k] = v; if (isMongoDoc) doc.set(k, v); };
 
   if (!Number.isFinite(n) || n <= 0) {
-    if (isMongoDoc) { doc.set(priceField, ''); } else { doc[priceField] = ''; }
+    safeWrite(priceField, '');
     return;
   }
 
@@ -495,13 +496,13 @@ function autoPriceWarehouseItem(prevDoc, doc, costField, priceField) {
     curPriceStr === oldAuto;
 
   const val = shouldUpdate ? newAuto : curPriceStr;
-  if (isMongoDoc) { doc.set(priceField, val); } else { doc[priceField] = val; }
+  safeWrite(priceField, val);
 }
 
 function applyTruckingAutoPrices(prevDoc, doc) {
-  // ✅ FIX: Use .set() for Mongoose documents
+  // ✅ FIX: dual write — .set() for persistence + direct assign for readback
   const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
-  const safeSet = (key, val) => { if (isMongoDoc) { doc.set(key, val); } else { doc[key] = val; } };
+  const safeSet = (key, val) => { doc[key] = val; if (isMongoDoc) doc.set(key, val); };
 
   // Fixed (but allow manual override)
   const fixed = [
@@ -599,12 +600,13 @@ function applyBaseRateAutoPriceAndGP(doc) {
 
   const simulated = simulateQuoteFull(baseRate, inquiryType);
 
-  // ✅ FIX: Use .set() for Mongoose documents (direct assignment doesn't persist with strict:false)
+  // ✅ FIX: dual write — .set() for persistence + direct assign for readback
   const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
+  const safeWrite = (k, v) => { doc[k] = v; if (isMongoDoc) doc.set(k, v); };
 
   // Price
   const priceVal = simulated.finalPrice ? Math.round(Number(simulated.finalPrice)) : '';
-  if (isMongoDoc) { doc.set('Price', priceVal); } else { doc['Price'] = priceVal; }
+  safeWrite('Price', priceVal);
 
   // GP —— 強制存成數字（0.1603），不再存字串
   const finalPrice = Number(simulated.finalPrice) || 0;
@@ -614,7 +616,7 @@ function applyBaseRateAutoPriceAndGP(doc) {
     gpNumber = (finalPrice - baseRate) / finalPrice;
   }
   const gpVal = isNaN(gpNumber) ? 0 : gpNumber;
-  if (isMongoDoc) { doc.set('GP', gpVal); } else { doc['GP'] = gpVal; }
+  safeWrite('GP', gpVal);
 
   console.log('[GP FINAL FIX] 寫入的 GP 數字 =', gpVal);
 
@@ -625,7 +627,7 @@ function applyBaseRateAutoPriceAndGP(doc) {
     adjGPNumber = (adjPrice - baseRateNum) / adjPrice;
   }
   const adjGPVal = isNaN(adjGPNumber) || !isFinite(adjGPNumber) ? '—' : (adjGPNumber * 100).toFixed(2) + '%';
-  if (isMongoDoc) { doc.set('Adjusted GP', adjGPVal); } else { doc['Adjusted GP'] = adjGPVal; }
+  safeWrite('Adjusted GP', adjGPVal);
 
   console.log('[GP FIX] 寫入結果：', {
     Price: priceVal,
@@ -1245,14 +1247,11 @@ if (blocked.length && role === 'sourcing') {
 
     // ========= Apply updates =========
     const patch = buildSafePatch(filtered);
-    // ✅ CRITICAL FIX: Use .set() for Mongoose documents (direct assignment doesn't persist with strict:false)
+    // ✅ CRITICAL FIX: Use .set() for Mongoose persistence AND direct assignment for in-request readback
     const isMongoDoc = typeof existing.set === 'function' && typeof existing.markModified === 'function';
     Object.keys(patch).forEach(key => {
-      if (isMongoDoc) {
-        existing.set(key, patch[key]);
-      } else {
-        existing[key] = patch[key];
-      }
+      existing[key] = patch[key];               // own property: readable via doc[field] in same request
+      if (isMongoDoc) existing.set(key, patch[key]); // _doc: persists via .save()
     });
 
 
@@ -1260,12 +1259,11 @@ if (blocked.length && role === 'sourcing') {
     if (role === 'sourcing') {
       const anyCostSent =
         isTruthy(existing['truckingCostSent']) || isTruthy(existing['warehouseCostSent']);
+      existing['Cost Sent'] = anyCostSent ? 'true' : 'false';
+      existing['Selected'] = anyCostSent ? 'true' : 'false';
       if (isMongoDoc) {
         existing.set('Cost Sent', anyCostSent ? 'true' : 'false');
         existing.set('Selected', anyCostSent ? 'true' : 'false');
-      } else {
-        existing['Cost Sent'] = anyCostSent ? 'true' : 'false';
-        existing['Selected'] = anyCostSent ? 'true' : 'false';
       }
     }
 
@@ -1311,7 +1309,7 @@ if (blocked.length && role === 'sourcing') {
           const parentDoc = docs.find(d => String(d['Quotation #'] || '').trim() === parentKey);
           if (parentDoc) {
             const isParentMongo = typeof parentDoc.set === 'function' && typeof parentDoc.markModified === 'function';
-            const pSet = (k, v) => { if (isParentMongo) parentDoc.set(k, v); else parentDoc[k] = v; };
+            const pSet = (k, v) => { parentDoc[k] = v; if (isParentMongo) parentDoc.set(k, v); };
 
             pSet('truckingCostSent', anyTruckSent ? 'true' : 'false');
             pSet('truckingCostSaved', anyTruckSaved ? 'true' : 'false');

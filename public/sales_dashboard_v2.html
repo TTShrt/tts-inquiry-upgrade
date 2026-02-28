@@ -3032,7 +3032,26 @@
               const tdEstGP = document.createElement('td');
               tdEstGP.textContent = estGpText;
               tdEstGP.style.textAlign = 'right';
+              tdEstGP.dataset.estgp = quote;
+              tdEstGP.dataset.scope = 'WH';
+              // Store costs for live recalc
+              tdEstGP.dataset.costs = JSON.stringify(whCostFields.map(f => parseFloat(item[f]) || 0));
               r6.appendChild(tdEstGP);
+
+              // ✅ Live EST GP recalc: when user types in any WH price input, update EST GP immediately
+              const whPriceInputs = Array.from(r6.querySelectorAll(`input[data-scope="WH"]`))
+                .filter(el => whPriceFields.includes(el.getAttribute('data-field')));
+              whPriceInputs.forEach(inp => {
+                inp.addEventListener('input', () => {
+                  const costs = JSON.parse(tdEstGP.dataset.costs);
+                  let sc = 0, sp = 0;
+                  whPriceInputs.forEach((pi, idx) => {
+                    sc += costs[idx] || 0;
+                    sp += parseFloat(pi.value) || 0;
+                  });
+                  tdEstGP.textContent = sp > 0 ? (((sp - sc) / sp) * 100).toFixed(2) + '%' : '—';
+                });
+              });
 
               // ===== 解析 Warehouse Services 字符串 =====
               const whServicesStr = (item['Warehouse Services'] || '').toString().trim();
@@ -3220,7 +3239,25 @@
                 const tdEstGPSub = document.createElement('td');
                 tdEstGPSub.textContent = estGpSubText;
                 tdEstGPSub.style.textAlign = 'right';
+                tdEstGPSub.dataset.estgp = subQuote;
+                tdEstGPSub.dataset.scope = 'WH';
+                tdEstGPSub.dataset.costs = JSON.stringify(whCostFieldsSub.map(f => parseFloat(sub[f]) || 0));
                 r6s.appendChild(tdEstGPSub);
+
+                // ✅ Live EST GP recalc for sub-line
+                const whPriceInputsSub = Array.from(r6s.querySelectorAll(`input[data-scope="WH"]`))
+                  .filter(el => whPriceFieldsSub.includes(el.getAttribute('data-field')));
+                whPriceInputsSub.forEach(inp => {
+                  inp.addEventListener('input', () => {
+                    const costs = JSON.parse(tdEstGPSub.dataset.costs);
+                    let sc = 0, sp = 0;
+                    whPriceInputsSub.forEach((pi, idx) => {
+                      sc += costs[idx] || 0;
+                      sp += parseFloat(pi.value) || 0;
+                    });
+                    tdEstGPSub.textContent = sp > 0 ? (((sp - sc) / sp) * 100).toFixed(2) + '%' : '—';
+                  });
+                });
 
                 // ===== 然后才进入 NOTE =====
                 // ✅ FIX: Show full WH note (icons, services, estimates) inherited from parent + sub's own notes

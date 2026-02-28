@@ -1966,14 +1966,13 @@
           whReqLine = parts.filter(Boolean).join(' | ');
         }
 
-        // 最终显示：先红圈内容，再 Warehouse Note，再 Vendor Note
+        // 最终显示：先红圈内容，再 Warehouse Note（Vendor Note goes to column 26）
         // ✅ FIX: Use separate 'WH Vendor Note' field (TRUCK uses 'Vendor Note')
         const whVendorNote = (item['WH Vendor Note'] || '').toString().trim();
         const whFull = [
           iconLine,
           whReqLine,
-          whNote ? `WH Note: ${whNote}` : '',
-          whVendorNote ? `Vendor Note: ${whVendorNote}` : ''
+          whNote ? `WH Note: ${whNote}` : ''
         ].filter(Boolean).join('\n');
         const noteTd = tdCell('', 'note-preview'); noteTd.colSpan = 8;
         noteTd.dataset.fullNote = whFull; noteTd.dataset.which = 'WAREHOUSE NOTE';
@@ -1981,7 +1980,13 @@
         noteTd.appendChild(line);
         tr.appendChild(noteTd);
 
-        tr.appendChild(tdCell(''));
+        // 26 WH Vendor Note (read-only, same as TRUCK Vendor Note)
+        const whVnPreview = whVendorNote.length > 20 ? whVendorNote.substring(0, 20) + '...' : whVendorNote;
+        const whVnTd = tdCell(whVnPreview, 'text-left note-preview vendor-note-preview');
+        whVnTd.dataset.fullNote = whVendorNote;
+        whVnTd.dataset.which = 'VENDOR NOTE (WH)';
+        tr.appendChild(whVnTd);
+
         tr.appendChild(actionCell(item, quote, 'WH'));
 
         applyRowState(tr, item, 'WH');

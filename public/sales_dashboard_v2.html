@@ -3097,7 +3097,6 @@
                 estLine,
                 storageLine,
                 whNoteLine,
-                whVendorNoteLine,
               ].filter(Boolean).join(' | ');
 
 
@@ -3117,8 +3116,12 @@
               r6.appendChild(whNoteVal);
 
 
-              // 26 blank
-              r6.appendChild(tdCell(''));
+              // 26 WH Vendor Note (read-only for Sales, same as TRUCK Vendor Note)
+              const whVnPreview = whVendorNote.length > 20 ? whVendorNote.substring(0, 20) + '...' : whVendorNote;
+              const whVnTd = tdCell(whVnPreview, 'text-left note-preview vendor-note-preview');
+              whVnTd.dataset.fullNote = whVendorNote;
+              whVnTd.dataset.which = 'VENDOR NOTE (WH)';
+              r6.appendChild(whVnTd);
 
               // 27 Action
               r6.appendChild(actionCellWH(item, quote, role));
@@ -3224,9 +3227,8 @@
                 const subWhNote = (sub['Warehouse Note'] || '').toString().trim();
                 const subWhNoteLine = subWhNote ? `WH Note: ${subWhNote}` : '';
                 const subWhVendorNote = (sub['WH Vendor Note'] || '').toString().trim();
-                const subWhVendorNoteLine = subWhVendorNote ? `Vendor Note: ${subWhVendorNote}` : '';
-                // Merge parent WH info + sub's own WH Note + sub's Vendor Note
-                const whFullS = [mergedWhNote, subWhNoteLine, subWhVendorNoteLine].filter(Boolean).join(' | ');
+                // Merge parent WH info + sub's own WH Note (Vendor Note goes to column 26)
+                const whFullS = [mergedWhNote, subWhNoteLine].filter(Boolean).join(' | ');
 
                 // ✅ FIX: Use note-line div (same as main row) for single-line truncation + click popup
                 const whNoteTdS = tdCell('', 'text-left note-preview');
@@ -3238,7 +3240,14 @@
                 noteLineS.textContent = whFullS.replace(/\s+/g, ' ').trim();
                 whNoteTdS.appendChild(noteLineS);
                 r6s.appendChild(whNoteTdS);
-                r6s.appendChild(tdCell('', 'spacer-col'));
+
+                // 26 WH Vendor Note (column 26)
+                const subWhVnPreview = subWhVendorNote.length > 20 ? subWhVendorNote.substring(0, 20) + '...' : subWhVendorNote;
+                const subWhVnTd = tdCell(subWhVnPreview, 'text-left note-preview vendor-note-preview');
+                subWhVnTd.dataset.fullNote = subWhVendorNote;
+                subWhVnTd.dataset.which = 'VENDOR NOTE (WH)';
+                r6s.appendChild(subWhVnTd);
+
                 r6s.appendChild(actionCellWH(sub, subQuote, role));
 
                 // 🔥 加在这里
@@ -3436,6 +3445,18 @@
         document.addEventListener('DOMContentLoaded', async () => {
           // 1) user
           await window.getCurrentUser();
+
+          // ✅ OPS view-only: hide inquiry form, show badge
+          const isOPS = String(window.userRole || '').toLowerCase() === 'ops_view';
+          if (isOPS) {
+            const formGroup = document.getElementById('formGroup');
+            if (formGroup) formGroup.style.display = 'none';
+            const nameEl = document.getElementById('usernameDisplay');
+            if (nameEl) {
+              nameEl.innerHTML = nameEl.textContent + ' <span style="background:#ef4444;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px;">View Only</span>';
+            }
+          }
+
           // 2) load data + render
           if (typeof window.loadInquiries === 'function') {
             await window.loadInquiries();
@@ -3527,6 +3548,12 @@
 
         document.getElementById('inquiryForm').addEventListener('submit', async function (e) {
           e.preventDefault();
+
+          // ✅ OPS view-only cannot create inquiries
+          if (String(window.userRole || '').toLowerCase() === 'ops_view') {
+            alert('OPS is view-only and cannot create inquiries.');
+            return;
+          }
 
           // 1) 取表单数据
           const form = this;

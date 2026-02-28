@@ -3226,11 +3226,16 @@
                 const subWhVendorNoteLine = subWhVendorNote ? `Vendor Note: ${subWhVendorNote}` : '';
                 // Merge parent WH info + sub's own WH Note + sub's Vendor Note
                 const whFullS = [mergedWhNote, subWhNoteLine, subWhVendorNoteLine].filter(Boolean).join(' | ');
-                const whPreviewS = whFullS.replace(/\s+/g, ' ').trim();
-                const whNoteTdS = tdCell(whPreviewS, 'text-left note-preview');
+
+                // ✅ FIX: Use note-line div (same as main row) for single-line truncation + click popup
+                const whNoteTdS = tdCell('', 'text-left note-preview');
                 whNoteTdS.colSpan = 8;
                 whNoteTdS.dataset.fullNote = whFullS;
                 whNoteTdS.dataset.which = 'WAREHOUSE NOTE';
+                const noteLineS = document.createElement('div');
+                noteLineS.className = 'note-line';
+                noteLineS.textContent = whFullS.replace(/\s+/g, ' ').trim();
+                whNoteTdS.appendChild(noteLineS);
                 r6s.appendChild(whNoteTdS);
                 r6s.appendChild(tdCell('', 'spacer-col'));
                 r6s.appendChild(actionCellWH(sub, subQuote, role));

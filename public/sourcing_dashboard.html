@@ -1591,19 +1591,6 @@
               ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier']
                 .forEach(f => delete draftCache[draftKey(quote, 'TRUCK', f)]);
 
-              // ✅ After checking Cost Sent, immediately lock/unlock delete button (no reload)
-              if (typeof delBtn !== 'undefined') {
-                if (want) {
-                  delBtn.disabled = true;
-                  delBtn.style.opacity = '0.25';
-                  delBtn.style.pointerEvents = 'none';
-                } else {
-                  delBtn.disabled = !canDelete;
-                  delBtn.style.opacity = canDelete ? '1' : '0.25';
-                  delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
-                }
-              }
-
             } finally {
               chk.disabled = false;
             }
@@ -1794,19 +1781,6 @@ ${qDel}`)) return;
 
               ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound', 'Vendor']
                 .forEach(f => delete draftCache[draftKey(quote, 'WH', f)]);
-
-              // ✅ After checking Cost Sent, immediately lock/unlock delete button (no reload)
-              if (typeof delBtn !== 'undefined') {
-                if (want) {
-                  delBtn.disabled = true;
-                  delBtn.style.opacity = '0.25';
-                  delBtn.style.pointerEvents = 'none';
-                } else {
-                  delBtn.disabled = !canDelete;
-                  delBtn.style.opacity = canDelete ? '1' : '0.25';
-                  delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
-                }
-              }
 
             } finally {
               chk.disabled = false;
@@ -2118,8 +2092,8 @@ ${qDel}`)) return;
             tbody.appendChild(r3);
 
             // TRUCK main + subs（你原本函数保持）
-            tbody.appendChild(renderTruckRow(main, key, false, key));
-            truckSubs.forEach(sub => tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key)));
+            tbody.appendChild(renderTruckRow(main, key, false, key, groupTruckCostLocked));
+            truckSubs.forEach(sub => tbody.appendChild(renderTruckRow(sub, sub['Quotation #'], true, key, groupTruckCostLocked)));
 
             // ========= WH header =========
             const r5 = document.createElement('tr');
@@ -2157,7 +2131,7 @@ ${qDel}`)) return;
           if (pageInfo) pageInfo.textContent = `Page ${currentPage}`;
         }
 
-        function renderTruckRow(item, quote, isSub, mainKey) {
+        function renderTruckRow(item, quote, isSub, mainKey, groupLocked) {
           const q = String(quote || '').trim();
 
           const parentDoc = (filteredData || []).find(x => String(x['Quotation #'] || '').trim() === String(mainKey || '').trim());
@@ -2531,19 +2505,38 @@ ${qDel}`)) return;
         async function loadInquiries() {
           try {
             const res = await fetch('/inquiries', { credentials: 'include' });
-            const data = await res.json();
-            if (!Array.isArray(data)) {
-              console.error('Server did not return array:', data);
-              alert('🚨 Inquiry data invalid.');
+
+            const raw = await res.text();   // ✅ 先拿 text
+            let data = null;
+
+            try {
+              data = JSON.parse(raw);
+            } catch (err) {
+              console.error('❌ /inquiries returned NON-JSON:', raw.slice(0, 600));
+              alert(`🚨 Load failed: /inquiries returned non-JSON (status ${res.status}).\n\n` +
+                raw.slice(0, 220));
               return;
             }
-            filteredData = data;
 
+            if (!res.ok) {
+              console.error('❌ /inquiries not ok:', res.status, data);
+              alert(`🚨 Load failed: /inquiries status ${res.status}\n\n` +
+                JSON.stringify(data).slice(0, 220));
+              return;
+            }
+
+            if (!Array.isArray(data)) {
+              console.error('🚨 Inquiry data invalid (not array):', data);
+              alert('🚨 Inquiry data invalid (not array).');
+              return;
+            }
+
+            filteredData = data;
             filteredData = applySearchFilter(filteredData, searchTerm);
             renderPage();
           } catch (e) {
             console.error('Failed to load inquiries:', e);
-            alert('🚨 Load failed.');
+            alert('🚨 Load failed: ' + (e.message || e));
           }
         }
 

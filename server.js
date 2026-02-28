@@ -1230,8 +1230,18 @@ if (blocked.length && role === 'sourcing') {
 
     // ========= Apply updates =========
     const patch = buildSafePatch(filtered);
+
+    // ✅ FIX: Use .set() for Mongoose change detection with strict:false schema.
+    //    Direct assignment (existing[key] = value) does NOT trigger Mongoose change
+    //    tracking for dynamic fields, so .save() would silently skip writing to MongoDB.
+    const isMongoDoc = typeof existing.set === 'function' && typeof existing.markModified === 'function';
+
     Object.keys(patch).forEach(key => {
-      existing[key] = patch[key];
+      if (isMongoDoc) {
+        existing.set(key, patch[key]);
+      } else {
+        existing[key] = patch[key];
+      }
     });
 
 
@@ -1239,8 +1249,13 @@ if (blocked.length && role === 'sourcing') {
     if (role === 'sourcing') {
       const anyCostSent =
         isTruthy(existing['truckingCostSent']) || isTruthy(existing['warehouseCostSent']);
-      existing['Cost Sent'] = anyCostSent ? 'true' : 'false';
-      existing['Selected'] = anyCostSent ? 'true' : 'false';
+      if (isMongoDoc) {
+        existing.set('Cost Sent', anyCostSent ? 'true' : 'false');
+        existing.set('Selected', anyCostSent ? 'true' : 'false');
+      } else {
+        existing['Cost Sent'] = anyCostSent ? 'true' : 'false';
+        existing['Selected'] = anyCostSent ? 'true' : 'false';
+      }
     }
 
     // Always apply units and auto rules
@@ -1253,6 +1268,32 @@ if (blocked.length && role === 'sourcing') {
     // Auto for other items (preserve manual overrides based on prevSnapshot)
     applyTruckingAutoPrices(prevSnapshot, existing);
     applyWarehouseAutoPrices(prevSnapshot, existing);
+
+    // ✅ FIX: Mark auto-computed fields as modified so Mongoose persists them.
+    //    The helper functions above use direct assignment (doc[key] = value) which
+    //    Mongoose doesn't track for strict:false dynamic fields.
+    if (isMongoDoc) {
+      const autoFields = [
+        'Price', 'GP', 'Adjusted GP', 'Cost Sent', 'Selected', 'Saved',
+        'Base Rate Unit', 'Chassis Unit', 'Pre-Pull Unit', 'Yard Storage Unit',
+        'Driver Waiting Unit', 'Chassis Split Unit', 'Over Weight Unit',
+        'Toll Unit', 'Reefer Fee Unit', 'Bond Fee Unit',
+        'Order Processing Unit', 'Inbound Unit', 'Outbound Unit', 'Sorting Unit',
+        'Palletizing Unit', 'Pallet Fee Unit', 'Storage Unit', 'Label Unit', 'Cross Dock Unit',
+        'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
+        'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price',
+        'Order Processing Price', 'Inbound Price', 'Outbound Price', 'Sorting Price',
+        'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Label Price', 'Cross Dock Price',
+        'truckingCostSaved', 'truckingCostSent', 'warehouseCostSaved', 'warehouseCostSent'
+      ];
+      for (const f of autoFields) {
+        if (existing[f] !== undefined) {
+          existing.markModified(f);
+        }
+      }
+      // Also mark every patch key (in case helpers didn't cover it)
+      Object.keys(patch).forEach(key => existing.markModified(key));
+    }
 
     // ========= Save =========
     if (loaded.mode === 'mock') {
@@ -1284,14 +1325,23 @@ if (blocked.length && role === 'sourcing') {
           // Update parent main row (if exists)
           const parentDoc = docs.find(d => String(d['Quotation #'] || '').trim() === parentKey);
           if (parentDoc) {
-            parentDoc['truckingCostSent'] = anyTruckSent ? 'true' : 'false';
-            parentDoc['truckingCostSaved'] = anyTruckSaved ? 'true' : 'false';
-            parentDoc['warehouseCostSent'] = anyWhSent ? 'true' : 'false';
-            parentDoc['warehouseCostSaved'] = anyWhSaved ? 'true' : 'false';
+            const isParentMongo = typeof parentDoc.set === 'function' && typeof parentDoc.markModified === 'function';
 
-            // Backward compatible flags for older sales logic
-            parentDoc['Cost Sent'] = anyCostSent ? 'true' : 'false';
-            parentDoc['Selected'] = anyCostSent ? 'true' : 'false';
+            if (isParentMongo) {
+              parentDoc.set('truckingCostSent', anyTruckSent ? 'true' : 'false');
+              parentDoc.set('truckingCostSaved', anyTruckSaved ? 'true' : 'false');
+              parentDoc.set('warehouseCostSent', anyWhSent ? 'true' : 'false');
+              parentDoc.set('warehouseCostSaved', anyWhSaved ? 'true' : 'false');
+              parentDoc.set('Cost Sent', anyCostSent ? 'true' : 'false');
+              parentDoc.set('Selected', anyCostSent ? 'true' : 'false');
+            } else {
+              parentDoc['truckingCostSent'] = anyTruckSent ? 'true' : 'false';
+              parentDoc['truckingCostSaved'] = anyTruckSaved ? 'true' : 'false';
+              parentDoc['warehouseCostSent'] = anyWhSent ? 'true' : 'false';
+              parentDoc['warehouseCostSaved'] = anyWhSaved ? 'true' : 'false';
+              parentDoc['Cost Sent'] = anyCostSent ? 'true' : 'false';
+              parentDoc['Selected'] = anyCostSent ? 'true' : 'false';
+            }
 
             await parentDoc.save();
             io.emit('inquiryUpdated', { quotationId: parentKey });

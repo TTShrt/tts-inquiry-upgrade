@@ -2528,6 +2528,11 @@ ${qDel}`)) return;
               return;
             }
 
+            // ✅ FIX: Clear draft cache when loading fresh server data.
+            //    This prevents stale local drafts from overriding freshly-saved server values
+            //    after ADD/DELETE triggers a full re-render.
+            Object.keys(draftCache).forEach(k => delete draftCache[k]);
+
             filteredData = data;
             filteredData = applySearchFilter(filteredData, searchTerm);
             renderPage();

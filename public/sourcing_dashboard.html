@@ -2223,6 +2223,9 @@ ${qDel}`)) return;
 
           const lockedWH = lockState(item, 'WH');
 
+
+          // FIX: First column (#/Quotation) was missing, causing ACTION to shift left
+          r6.appendChild(tdCell(displayQ, 'text-left font-semibold'));
           // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
           ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {
             const ci = makeInput(item[cF] ?? '', cF, quote, lockedWH, 'WH');

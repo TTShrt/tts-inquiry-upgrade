@@ -1025,18 +1025,22 @@ app.get('/inquiries', async (req, res) => {
 
       const masked = filtered.map(it => {
         const doc = { ...it };
-        const truckSent = String(doc['truckingCostSent'] || '').toLowerCase().trim() === 'true';
-        const whSent = String(doc['warehouseCostSent'] || '').toLowerCase().trim() === 'true';
+        const isTruthy = v => String(v || '').toLowerCase().trim() === 'true';
 
-        if (!truckSent) {
+        const truckSent = isTruthy(doc['truckingCostSent']) || isTruthy(doc['Cost Sent']) || isTruthy(doc['Selected']);
+        const truckSaved = isTruthy(doc['truckingCostSaved']);
+        const whSent = isTruthy(doc['warehouseCostSent']);
+        const whSaved = isTruthy(doc['warehouseCostSaved']);
+
+        // ✅ Only mask when Sourcing has SAVED but NOT yet SENT
+        // Legacy data (no saved/sent flags) passes through unchanged
+        if (truckSaved && !truckSent) {
           truckCostFields.forEach(f => { doc[f] = ''; });
           truckPriceFields.forEach(f => { doc[f] = ''; });
-          doc['truckingCostSaved'] = '';
         }
-        if (!whSent) {
+        if (whSaved && !whSent) {
           whCostFields.forEach(f => { doc[f] = ''; });
           whPriceFields.forEach(f => { doc[f] = ''; });
-          doc['warehouseCostSaved'] = '';
         }
         return doc;
       });

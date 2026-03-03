@@ -57,7 +57,7 @@
     .row-basic-head td,
     .row-truck-head td,
     .row-wh-head td {
-      font-size: 11px;
+      font-size: 10px;
       letter-spacing: .2px;
       font-weight: 700;
       white-space: nowrap;
@@ -67,6 +67,25 @@
     }
 
     /* ===== Larger spacing between quotations ===== */
+
+    /* Data rows (row 2, 4, 6): smaller font, no bold */
+    #summaryTable td {
+      font-size: 11px;
+      font-weight: 400;
+    }
+
+    /* # column: even smaller, no bold */
+    #summaryTable td:first-child {
+      font-size: 10px;
+      font-weight: 400;
+    }
+
+    /* Commodity / From / To: no wrap */
+    #summaryTable td[data-col="Commodity"],
+    #summaryTable td[data-col="From"],
+    #summaryTable td[data-col="To"] {
+      white-space: nowrap !important;
+    }
 
     .note-preview {
       cursor: pointer;
@@ -119,7 +138,7 @@
       box-sizing: border-box;
       border: 1px solid #e5e7eb;
       padding: 2px 4px;
-      font-size: 12px;
+      font-size: 11px;
       background: #ffffff;
       text-align: right;
     }
@@ -314,7 +333,7 @@
     #summaryTable input {
       height: 20px !important;
       /* 更紧凑 */
-      font-size: 12px !important;
+      font-size: 11px !important;
     }
 
     /* =========================
@@ -958,7 +977,7 @@
       /* ✅ 跟随行背景 */
       box-shadow: none !important;
       height: 20px !important;
-      font-size: 12px !important;
+      font-size: 11px !important;
     }
 
     /* focus 状态柔和一点 */
@@ -1765,7 +1784,13 @@
             main['QTY'] || '',
             (main['External Quotation #'] || k)
           ];
-          vals.forEach(v => r2.appendChild(tdCell(v, 'text-center')));
+          vals.forEach((v, i) => {
+            const td = tdCell(v, 'text-center');
+            if (i === 6) { td.dataset.col = 'Commodity'; td.style.textAlign = 'left'; }
+            if (i === 13) { td.dataset.col = 'From'; td.style.textAlign = 'left'; }
+            if (i === 14) { td.dataset.col = 'To'; td.style.textAlign = 'left'; }
+            r2.appendChild(td);
+          });
 
           // ✅ 最终 GENERAL NOTE：客户信息在第一行，下面才是原 Note
           const company = String(main['Customer Company'] || main['Company Name'] || '').trim();

@@ -78,7 +78,7 @@
     .row-basic-head td,
     .row-truck-head td,
     .row-wh-head td {
-      font-size: 11px;
+      font-size: 10px;
       letter-spacing: 0.2px;
     }
 
@@ -101,6 +101,25 @@
       /* 浅灰 */
       border-top: 2px solid #9ca3af;
       /* 每个区块上方粗线 */
+    }
+
+    /* Data rows: smaller font, no bold */
+    #summaryTable td {
+      font-size: 11px;
+      font-weight: 400;
+    }
+
+    /* # column: even smaller, no bold */
+    #summaryTable td:first-child {
+      font-size: 10px;
+      font-weight: 400;
+    }
+
+    /* Commodity / From / To: no wrap */
+    #summaryTable td[data-col="Commodity"],
+    #summaryTable td[data-col="From"],
+    #summaryTable td[data-col="To"] {
+      white-space: nowrap !important;
     }
 
     /* BASIC 值行 */
@@ -2041,7 +2060,13 @@ ${qDel}`)) return;
               main['QTY'] || '',
               (main['External Quotation #'] || key)
             ];
-            vals.forEach(v => r2.appendChild(tdCell(v, 'text-center')));
+            vals.forEach((v, i) => {
+              const td = tdCell(v, 'text-center');
+              if (i === 6) { td.dataset.col = 'Commodity'; td.style.textAlign = 'left'; }
+              if (i === 13) { td.dataset.col = 'From'; td.style.textAlign = 'left'; }
+              if (i === 14) { td.dataset.col = 'To'; td.style.textAlign = 'left'; }
+              r2.appendChild(td);
+            });
 
             const company = String(main['Customer Company'] || main['Company Name'] || '').trim();
             const contact = String(main['Customer Contact'] || main['Contact Name'] || '').trim();

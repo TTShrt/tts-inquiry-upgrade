@@ -80,7 +80,7 @@
     .row-basic-head td,
     .row-truck-head td,
     .row-wh-head td {
-      font-size: 11px;
+      font-size: 10px;
       letter-spacing: 0.2px;
     }
 
@@ -103,6 +103,25 @@
       /* 浅灰 */
       border-top: 2px solid #9ca3af;
       /* 每个区块上方粗线 */
+    }
+
+    /* Data rows: smaller font, no bold */
+    #summaryTable td {
+      font-size: 11px;
+      font-weight: 400;
+    }
+
+    /* # column: even smaller, no bold */
+    #summaryTable td:first-child {
+      font-size: 10px;
+      font-weight: 400;
+    }
+
+    /* Commodity / From / To: no wrap, expand with text */
+    #summaryTable td[data-col="Commodity"],
+    #summaryTable td[data-col="From"],
+    #summaryTable td[data-col="To"] {
+      white-space: nowrap !important;
     }
 
     .saved-row .saved-row .action-button,
@@ -779,7 +798,7 @@
       box-sizing: border-box !important;
       border: 1px solid #e5e7eb !important;
       padding: 2px 4px !important;
-      font-size: 12px !important;
+      font-size: 11px !important;
       height: 20px !important;
       background: #fff !important;
       text-align: right !important;
@@ -2599,6 +2618,7 @@
                   if (key === 'Commodity' || key === 'From' || key === 'To') {
                     inp.classList.remove('cell-fill');
                     inp.classList.add('auto-grow');
+                    td.dataset.col = key; // for CSS nowrap targeting
 
                     const setSize = () => {
                       const len = (inp.value || '').length;
@@ -2617,6 +2637,9 @@
                   td.textContent = v ?? '';
                   // from/to/commodity 以外你想左对齐的可以在这里加
                   if (i === 13 || i === 14) td.classList.add('text-left');
+                  if (i === 6) td.dataset.col = 'Commodity';
+                  if (i === 13) td.dataset.col = 'From';
+                  if (i === 14) td.dataset.col = 'To';
                 }
 
                 r2.appendChild(td);

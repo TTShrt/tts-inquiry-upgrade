@@ -1564,8 +1564,13 @@
             const ok = await saveFields(quote, fields, 'TRUCK');
             if (!ok) return;
 
-            await setFlags(quote, { [costSavedField]: 'true' });
+            // ✅ Mark as saved but NOT sent → Sales won't see until checkbox is checked
+            await setFlags(quote, { [costSavedField]: 'true', [costSentField]: 'false' });
             lockRow(quote, 'TRUCK');
+
+            // ✅ Uncheck the checkbox (since saving resets sent status)
+            const chkEl = wrap.querySelector('input[type="checkbox"]');
+            if (chkEl) chkEl.checked = false;
 
             fields.forEach(f => delete draftCache[draftKey(quote, 'TRUCK', f)]);
             markRowSaved(quote, 'TRUCK');
@@ -1750,8 +1755,13 @@ ${qDel}`)) return;
             const ok = await saveFields(quote, fields, 'WH');
             if (!ok) return;
 
-            await setFlags(quote, { [costSavedField]: 'true' });
+            // ✅ Mark as saved but NOT sent
+            await setFlags(quote, { [costSavedField]: 'true', [costSentField]: 'false' });
             lockRow(quote, 'WH');
+
+            // ✅ Uncheck the checkbox
+            const chkEl = wrap.querySelector('input[type="checkbox"]');
+            if (chkEl) chkEl.checked = false;
 
             await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');
 

@@ -1025,20 +1025,17 @@ app.get('/inquiries', async (req, res) => {
 
       const masked = filtered.map(it => {
         const doc = { ...it };
-        const isTruthy = v => String(v || '').toLowerCase().trim() === 'true';
 
-        const truckSent = isTruthy(doc['truckingCostSent']) || isTruthy(doc['Cost Sent']) || isTruthy(doc['Selected']);
-        const truckSaved = isTruthy(doc['truckingCostSaved']);
-        const whSent = isTruthy(doc['warehouseCostSent']);
-        const whSaved = isTruthy(doc['warehouseCostSaved']);
+        // ✅ Only mask when costSent is EXPLICITLY 'false' (set by Sourcing unchecking the box)
+        // If costSent is absent/empty (legacy data) → show everything (backward compatible)
+        const truckSentRaw = String(doc['truckingCostSent'] || '').toLowerCase().trim();
+        const whSentRaw = String(doc['warehouseCostSent'] || '').toLowerCase().trim();
 
-        // ✅ Only mask when Sourcing has SAVED but NOT yet SENT
-        // Legacy data (no saved/sent flags) passes through unchanged
-        if (truckSaved && !truckSent) {
+        if (truckSentRaw === 'false') {
           truckCostFields.forEach(f => { doc[f] = ''; });
           truckPriceFields.forEach(f => { doc[f] = ''; });
         }
-        if (whSaved && !whSent) {
+        if (whSentRaw === 'false') {
           whCostFields.forEach(f => { doc[f] = ''; });
           whPriceFields.forEach(f => { doc[f] = ''; });
         }

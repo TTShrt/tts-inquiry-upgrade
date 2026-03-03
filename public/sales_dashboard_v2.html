@@ -1856,6 +1856,8 @@
           // ✅ 只要 Sourcing 填过任何 cost / 或勾过 cost sent/selected，就锁 Inquiry info
           // ❌ 不要把 Sales 的 Warehouse Requirement 算进去
           function hasSourcingInput(it) {
+            // ✅ Only check actual cost values + sent flags
+            // Server masks cost fields when draft=true, so if values exist here, Sourcing has sent them
             const numFields = [
               'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
               'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee'
@@ -1866,15 +1868,14 @@
               return v > 0;
             });
 
-            const anyConfirm =
+            const costSent =
               isTruthyFlag(it['truckingCostSent']) ||
-              isTruthyFlag(it['truckingCostSaved']) ||
               isTruthyFlag(it['Selected']) ||
               isTruthyFlag(it['Cost Sent']);
-            return anyCost || anyConfirm;
+            return anyCost || costSent;
           }
 
-          // ✅ For WH: detect whether Sourcing has provided any WH cost or marked cost sent
+          // ✅ For WH: detect whether Sourcing has sent WH cost
           function hasSourcingWHInput(it) {
             const numFields = [
               'Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'
@@ -1884,13 +1885,12 @@
               return v > 0;
             });
 
-            const anyConfirm =
+            const costSent =
               isTruthyFlag(it['warehouseCostSent']) ||
-              isTruthyFlag(it['warehouseCostSaved']) ||
               isTruthyFlag(it['Selected']) ||
               isTruthyFlag(it['Cost Sent']);
 
-            return anyCost || anyConfirm;
+            return anyCost || costSent;
           }
 
           // ✅ Detect whether Sales/Manager has actually filled any PRICE fields
@@ -1961,18 +1961,6 @@
             return input;
           }
 
-          // ✅ GP color helper: red if < 10%, otherwise default
-          function applyGPColor(td, gpPercent) {
-            const v = parseFloat(gpPercent);
-            if (!isNaN(v) && v < 10) {
-              td.style.color = '#DC2626';
-              td.style.fontWeight = 'bold';
-            } else {
-              td.style.color = '';
-              td.style.fontWeight = '';
-            }
-          }
-
           // ✅ Frontend copy of server's simulateQuoteFull — used as fallback when Price/GP not yet persisted
           function simulateQuoteFull(baseRate, type) {
             baseRate = parseFloat(baseRate) || 0;
@@ -2038,20 +2026,21 @@
 
           // Helper: get Price/GP with frontend fallback when server hasn't persisted
           function getTruckPriceGP(item) {
+            const baseRate = Number(String(item['Base Rate'] || '').replace(/,/g, '')) || 0;
+
+            // ✅ No Base Rate = no price/GP (Sourcing hasn't sent cost yet)
+            if (baseRate <= 0) return { price: 0, gp: null };
+
             const serverPrice = Number(item['Price']) || 0;
             const serverGP = Number(item['GP']);
-            const baseRate = Number(String(item['Base Rate'] || '').replace(/,/g, '')) || 0;
             const inquiryType = String(item['Inquiry Type'] || '').trim();
 
             if (serverPrice > 0 && Number.isFinite(serverGP) && serverGP !== 0) {
               return { price: serverPrice, gp: serverGP };
             }
             // Fallback: calculate on frontend
-            if (baseRate > 0) {
-              const sim = simulateQuoteFull(baseRate, inquiryType);
-              return { price: sim.finalPrice, gp: sim.gp };
-            }
-            return { price: 0, gp: null };
+            const sim = simulateQuoteFull(baseRate, inquiryType);
+            return { price: sim.finalPrice, gp: sim.gp };
           }
 
           async function postUpdate(payload) {

@@ -886,8 +886,10 @@ app.post('/inquiries', async (req, res) => {
       // ===== Sourcing cost send/save flags (scope-specific) =====
       'truckingCostSaved': raw['truckingCostSaved'] || 'false',
       'truckingCostSent': raw['truckingCostSent'] || 'false',
+      'truckingCostDraft': raw['truckingCostDraft'] || '',
       'warehouseCostSaved': raw['warehouseCostSaved'] || 'false',
       'warehouseCostSent': raw['warehouseCostSent'] || 'false',
+      'warehouseCostDraft': raw['warehouseCostDraft'] || '',
 
       // ===== Sales/Manager price save flags (scope-specific) =====
       'truckingPriceSaved': raw['truckingPriceSaved'] || 'false',
@@ -1026,16 +1028,14 @@ app.get('/inquiries', async (req, res) => {
       const masked = filtered.map(it => {
         const doc = { ...it };
 
-        // ✅ Only mask when costSent is EXPLICITLY 'false' (set by Sourcing unchecking the box)
-        // If costSent is absent/empty (legacy data) → show everything (backward compatible)
-        const truckSentRaw = String(doc['truckingCostSent'] || '').toLowerCase().trim();
-        const whSentRaw = String(doc['warehouseCostSent'] || '').toLowerCase().trim();
-
-        if (truckSentRaw === 'false') {
+        // ✅ Only mask when a NEW draft flag is explicitly set
+        // truckingCostDraft='true' means Sourcing just saved but hasn't sent yet
+        // Old data has no draft flag → always shows (backward compatible)
+        if (String(doc['truckingCostDraft'] || '').toLowerCase().trim() === 'true') {
           truckCostFields.forEach(f => { doc[f] = ''; });
           truckPriceFields.forEach(f => { doc[f] = ''; });
         }
-        if (whSentRaw === 'false') {
+        if (String(doc['warehouseCostDraft'] || '').toLowerCase().trim() === 'true') {
           whCostFields.forEach(f => { doc[f] = ''; });
           whPriceFields.forEach(f => { doc[f] = ''; });
         }
@@ -1121,8 +1121,8 @@ app.post('/inquiries/update', async (req, res) => {
       'Storage Price', 'Outbound Price', 'Vendor'
     ];
 
-    const TRUCK_COST_FLAGS = ['truckingCostSaved', 'truckingCostSent', 'Selected', 'Cost Sent'];
-    const WH_COST_FLAGS = ['warehouseCostSaved', 'warehouseCostSent', 'Selected', 'Cost Sent'];
+    const TRUCK_COST_FLAGS = ['truckingCostSaved', 'truckingCostSent', 'truckingCostDraft', 'Selected', 'Cost Sent'];
+    const WH_COST_FLAGS = ['warehouseCostSaved', 'warehouseCostSent', 'warehouseCostDraft', 'Selected', 'Cost Sent'];
 
     const PRICE_SAVED_FLAGS = ['truckingPriceSaved', 'warehousePriceSaved'];
 

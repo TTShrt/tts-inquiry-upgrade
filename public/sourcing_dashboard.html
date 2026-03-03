@@ -1564,8 +1564,8 @@
             const ok = await saveFields(quote, fields, 'TRUCK');
             if (!ok) return;
 
-            // ✅ Mark as saved but NOT sent → Sales won't see until checkbox is checked
-            await setFlags(quote, { [costSavedField]: 'true', [costSentField]: 'false' });
+            // ✅ Mark as draft (Sales can't see) until checkbox is checked
+            await setFlags(quote, { [costSavedField]: 'true', 'truckingCostDraft': 'true' });
             lockRow(quote, 'TRUCK');
 
             // ✅ Uncheck the checkbox (since saving resets sent status)
@@ -1598,7 +1598,11 @@
                 if (!okFlag1) { chk.checked = false; return; }
               }
 
-              const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
+              // ✅ costSent + draft flag: check → clear draft (Sales sees); uncheck → set draft (Sales hidden)
+              const okFlag2 = await setFlags(quote, {
+                [costSentField]: want ? 'true' : 'false',
+                'truckingCostDraft': want ? 'false' : 'true'
+              });
               if (!okFlag2) { chk.checked = !want; return; }
 
               // ✅ 不 reload，不 loadInquiries
@@ -1755,8 +1759,8 @@ ${qDel}`)) return;
             const ok = await saveFields(quote, fields, 'WH');
             if (!ok) return;
 
-            // ✅ Mark as saved but NOT sent
-            await setFlags(quote, { [costSavedField]: 'true', [costSentField]: 'false' });
+            // ✅ Mark as draft (Sales can't see) until checkbox is checked
+            await setFlags(quote, { [costSavedField]: 'true', 'warehouseCostDraft': 'true' });
             lockRow(quote, 'WH');
 
             // ✅ Uncheck the checkbox
@@ -1789,7 +1793,10 @@ ${qDel}`)) return;
                 if (!okFlag1) { chk.checked = false; return; }
               }
 
-              const okFlag2 = await setFlags(quote, { [costSentField]: want ? 'true' : 'false' });
+              const okFlag2 = await setFlags(quote, {
+                [costSentField]: want ? 'true' : 'false',
+                'warehouseCostDraft': want ? 'false' : 'true'
+              });
               if (!okFlag2) { chk.checked = !want; return; }
 
               lockRow(quote, 'WH');

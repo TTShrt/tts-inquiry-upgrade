@@ -997,9 +997,51 @@ app.get('/inquiries', async (req, res) => {
       return res.json(inquiries.filter(it => String(it['Submitted To Sourcing'] || '').toLowerCase().trim() === 'true'));
     }
 
-    // ✅ sales/ops_view: filter by salesGroup
+    // ✅ sales/ops_view: filter by salesGroup + mask unsent costs
     if ((role === 'sales' || role === 'ops_view') && salesGroup) {
-      return res.json(inquiries.filter(it => String(it.salesGroup || '').trim() === salesGroup));
+      const filtered = inquiries.filter(it => String(it.salesGroup || '').trim() === salesGroup);
+
+      // ✅ Strip cost data AND auto-calculated prices that Sourcing hasn't "sent" yet
+      const truckCostFields = [
+        'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
+        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier',
+        'Vendor Note'
+      ];
+      const truckPriceFields = [
+        'Price', 'GP', 'Adjusted Price', 'Adjusted GP',
+        'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
+        'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price',
+        'Bond Fee Price'
+      ];
+      const whCostFields = [
+        'Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee',
+        'Storage', 'Outbound', 'WH Vendor Note'
+      ];
+      const whPriceFields = [
+        'Order Processing Price', 'Inbound Price', 'Sorting Price',
+        'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price',
+        'Vendor'
+      ];
+
+      const masked = filtered.map(it => {
+        const doc = { ...it };
+        const truckSent = String(doc['truckingCostSent'] || '').toLowerCase().trim() === 'true';
+        const whSent = String(doc['warehouseCostSent'] || '').toLowerCase().trim() === 'true';
+
+        if (!truckSent) {
+          truckCostFields.forEach(f => { doc[f] = ''; });
+          truckPriceFields.forEach(f => { doc[f] = ''; });
+          doc['truckingCostSaved'] = '';
+        }
+        if (!whSent) {
+          whCostFields.forEach(f => { doc[f] = ''; });
+          whPriceFields.forEach(f => { doc[f] = ''; });
+          doc['warehouseCostSaved'] = '';
+        }
+        return doc;
+      });
+
+      return res.json(masked);
     }
 
     // fallback: no group = nothing

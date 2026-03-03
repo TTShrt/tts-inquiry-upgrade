@@ -1961,18 +1961,6 @@
             return input;
           }
 
-          // ✅ GP color helper: red if < 10%, otherwise default
-          function applyGPColor(td, gpPercent) {
-            const v = parseFloat(gpPercent);
-            if (!isNaN(v) && v < 10) {
-              td.style.color = '#DC2626';
-              td.style.fontWeight = 'bold';
-            } else {
-              td.style.color = '';
-              td.style.fontWeight = '';
-            }
-          }
-
           // ✅ Frontend copy of server's simulateQuoteFull — used as fallback when Price/GP not yet persisted
           function simulateQuoteFull(baseRate, type) {
             baseRate = parseFloat(baseRate) || 0;
@@ -2038,20 +2026,21 @@
 
           // Helper: get Price/GP with frontend fallback when server hasn't persisted
           function getTruckPriceGP(item) {
+            const baseRate = Number(String(item['Base Rate'] || '').replace(/,/g, '')) || 0;
+
+            // ✅ No Base Rate = no price/GP (Sourcing hasn't sent cost yet)
+            if (baseRate <= 0) return { price: 0, gp: null };
+
             const serverPrice = Number(item['Price']) || 0;
             const serverGP = Number(item['GP']);
-            const baseRate = Number(String(item['Base Rate'] || '').replace(/,/g, '')) || 0;
             const inquiryType = String(item['Inquiry Type'] || '').trim();
 
             if (serverPrice > 0 && Number.isFinite(serverGP) && serverGP !== 0) {
               return { price: serverPrice, gp: serverGP };
             }
             // Fallback: calculate on frontend
-            if (baseRate > 0) {
-              const sim = simulateQuoteFull(baseRate, inquiryType);
-              return { price: sim.finalPrice, gp: sim.gp };
-            }
-            return { price: 0, gp: null };
+            const sim = simulateQuoteFull(baseRate, inquiryType);
+            return { price: sim.finalPrice, gp: sim.gp };
           }
 
           async function postUpdate(payload) {

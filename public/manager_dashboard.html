@@ -136,6 +136,8 @@
       border-color: #f1d6a8 !important;
     }
 
+    .gp-low { color: #DC2626 !important; font-weight: bold; }
+
     /* SAVE 状态：整行极淡灰蓝 */
 
     #summaryTable tr.saved-price td {
@@ -1321,6 +1323,20 @@
         const gp = ((ap - br) / ap) * 100;
         return Number.isFinite(gp) ? gp.toFixed(2) + '%' : '—';
       }
+      function calcAdjGPval(adjPrice, baseRate) {
+        const ap = num(adjPrice);
+        const br = num(baseRate);
+        if (ap === null || br === null || ap <= 0) return null;
+        const gp = (ap - br) / ap;
+        return Number.isFinite(gp) ? gp : null;
+      }
+      function applyGPColor(td, gpValue) {
+        if (gpValue !== null && Number.isFinite(gpValue) && gpValue < 0.10) {
+          td.classList.add('gp-low');
+        } else {
+          td.classList.remove('gp-low');
+        }
+      }
       function composeTo2(item) {
         const t = (item['To'] || '').trim();
         if (t) return t;
@@ -1362,13 +1378,13 @@
         };
         const normalizedType = (type || '').toLowerCase().replace(/[^a-z]/g, '').replace('drayagewarehouse', 'drayage').replace('drayage+warehouse', 'drayage');
         const { minGP, maxGP, ranges } = config[normalizedType] || config.drayage;
-        function beautify(price) { const endings = [96,95,90,88,85]; const tP = Math.floor(price/1000)*1000; const hP = Math.floor(price/100)*100; const dT = price-tP; const dH = price-hP; const ok = ((price>=1000&&dT<=150)||(price<1000&&price>=490&&price<=510)||(dH<=10)); if(!ok)return price; for(let e of endings){const c=(Math.floor(price/100)-1)*100+e;const g=(c-baseRate)/c;if(c<price&&g>=minGP)return c;} return price; }
+        function beautify(price) { const floorPrice=Math.ceil(baseRate/(1-minGP)); if(price<300)return Math.max(Math.ceil(price),floorPrice); const rem=price%1000; if(price>=1000&&rem>900){const t=Math.floor(price/1000)*1000+895;if(t>=floorPrice)return t;} let endings; if(price<1500)endings=[95,85,75,50,45,35,25]; else if(price<=3000)endings=[50,80,0]; else endings=[0,50]; let best=null,bestDist=Infinity; for(let off=-2;off<=2;off++){const bh=(Math.floor(price/100)+off)*100;for(const e of endings){const c=bh+e;if(c<floorPrice||c<=0)continue;const d=Math.abs(c-price);if(d<bestDist){bestDist=d;best=c;}}} const maxAdj=Math.max(price*0.05,50); return(best!==null&&bestDist<=maxAdj&&best!==Math.ceil(price))?best:price; }
         function enforceMinGP(price) { const gp=(price-baseRate)/price; if(gp<minGP) return Math.ceil(baseRate/(1-minGP)); return price; }
         function enforceMaxGP(price) { const gp=(price-baseRate)/price; if(gp>maxGP) return Math.ceil(baseRate/(1-maxGP)); return price; }
         let price = baseRate;
         for (let key in ranges) { const [minStr,maxStr]=key.split('-'); const min=parseFloat(minStr); const max=maxStr==='INF'?Infinity:parseFloat(maxStr); const logic=ranges[key]; if(baseRate>=min&&baseRate<max){ if(logic.add!==undefined){price=baseRate+logic.add;if(price<logic.minPrice)price=logic.minPrice;} else if(logic.divide!==undefined){price=baseRate/logic.divide;if((price-baseRate)<logic.forceAddIfLt&&price>1000)price+=logic.forceAddIfLt;} else if(logic.slope!==undefined){const add=logic.baseAdd+(baseRate-min)*logic.slope;price=baseRate+add;price=enforceMinGP(price);if(normalizedType!=='drayage')price=enforceMaxGP(price);} break; } }
         let beautified=beautify(Math.ceil(price)); let finalGP=(beautified-baseRate)/beautified;
-        if((normalizedType==='dryvan'||normalizedType==='flatbed')&&finalGP<minGP) beautified=Math.ceil(price);
+        if(finalGP<minGP) beautified=Math.ceil(price);
         result.finalPrice=Math.ceil(beautified); result.gp=parseFloat(((result.finalPrice-baseRate)/result.finalPrice).toFixed(4));
         return result;
       }
@@ -1840,16 +1856,20 @@
         const { price: calcPrice, gp: calcGP } = getTruckPriceGP(itemForCalc);
         tr.appendChild(tdCell(calcPrice > 0 ? calcPrice.toFixed(2) : '—'));
         const gpPercent = (calcGP !== null && Number.isFinite(calcGP)) ? (calcGP * 100).toFixed(2) + '%' : '—';
-        tr.appendChild(tdCell(gpPercent));
+        const tdGP = tdCell(gpPercent);
+        applyGPColor(tdGP, calcGP);
+        tr.appendChild(tdGP);
 
         const adj = makeInput(item['Adjusted Price'] || '', 'Adjusted Price', quote, locked, 'TRUCK');
         const tdAdj = document.createElement('td'); tdAdj.appendChild(adj); tr.appendChild(tdAdj);
         const tdAdjGP = tdCell(calcAdjGPpct(adj.value, item['Base Rate']), 'text-right');
+        applyGPColor(tdAdjGP, calcAdjGPval(adj.value, item['Base Rate']));
         tr.appendChild(tdAdjGP);
 
         // live update Adjusted GP while typing Adjusted Price
         adj.addEventListener('input', () => {
           tdAdjGP.textContent = calcAdjGPpct(adj.value, item['Base Rate']);
+          applyGPColor(tdAdjGP, calcAdjGPval(adj.value, item['Base Rate']));
         });
 
 
@@ -1926,12 +1946,15 @@
         });
 
         let estGpText = '—';
+        let estGpVal = null;
         if (sumPrice > 0) {
-          const gp = (sumPrice - sumCost) / sumPrice;
-          estGpText = Number.isFinite(gp) ? (gp * 100).toFixed(2) + '%' : '—';
+          estGpVal = (sumPrice - sumCost) / sumPrice;
+          estGpText = Number.isFinite(estGpVal) ? (estGpVal * 100).toFixed(2) + '%' : '—';
         }
 
-        tr.appendChild(tdCell(estGpText, 'text-right'));
+        const tdEstGP = tdCell(estGpText, 'text-right');
+        applyGPColor(tdEstGP, estGpVal);
+        tr.appendChild(tdEstGP);
 
         // ===== Icons (add this block) =====
         // ✅ FIX: For sub-rows, inherit WH service info from parent document

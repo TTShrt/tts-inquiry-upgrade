@@ -268,29 +268,60 @@ function simulateQuoteFull(baseRate, type) {
   const { minGP, maxGP, ranges } = config[normalizedType] || config.drayage;
 
   function beautify(price) {
-    const endings = [96, 95, 90, 88, 85];
-    const thousandPart = Math.floor(price / 1000) * 1000;
-    const hundredPart = Math.floor(price / 100) * 100;
-    const deltaToThousand = price - thousandPart;
-    const deltaToHundred = price - hundredPart;
+    const floorPrice = Math.ceil(baseRate / (1 - minGP));
 
-    const allowBeautify = (
-      (price >= 1000 && deltaToThousand <= 150) ||
-      (price < 1000 && price >= 490 && price <= 510) ||
-      (deltaToHundred <= 10)
-    );
+    // Very small prices: just round to nearest 5
+    if (price < 300) return Math.max(Math.ceil(price), floorPrice);
 
-    if (!allowBeautify) return price;
+    // ===== Rule 1: Near-thousand avoidance =====
+    // Only when price is in the "900s" of its thousand bracket (e.g., 1912, 2943)
+    // Pull down to x,895 to avoid looking like it's crossing the next thousand
+    const remainder = price % 1000;
 
-    for (let end of endings) {
-      const candidate = (Math.floor(price / 100) - 1) * 100 + end;
-      const gp = (candidate - baseRate) / candidate;
-      if (candidate < price && gp >= minGP) {
+    if (price >= 1000 && remainder > 900) {
+      const target895 = Math.floor(price / 1000) * 1000 + 895;
+      if (target895 >= floorPrice) {
         result.beautified = true;
-        result.comments.push(`美化报价：${price} → ${candidate}`);
-        return candidate;
+        result.comments.push(`接近 $${Math.floor(price / 1000) * 1000 + 1000}，调整 → $${target895}`);
+        return target895;
       }
     }
+
+    // ===== Rule 2: Tier-based ending beautification =====
+    let endings;
+    if (price < 1500) {
+      // Small orders: charm pricing — x95, x85, x50, x45, x35, x25, x75
+      endings = [95, 85, 75, 50, 45, 35, 25];
+    } else if (price <= 3000) {
+      // Medium orders: professional — x50, x80, x00
+      endings = [50, 80, 0];
+    } else {
+      // Large orders: corporate — x00, x50
+      endings = [0, 50];
+    }
+
+    // Generate candidates from nearby hundreds, pick the closest
+    let best = null;
+    let bestDist = Infinity;
+
+    for (let off = -2; off <= 2; off++) {
+      const baseH = (Math.floor(price / 100) + off) * 100;
+      for (const e of endings) {
+        const c = baseH + e;
+        if (c < floorPrice || c <= 0) continue;
+        const d = Math.abs(c - price);
+        if (d < bestDist) { bestDist = d; best = c; }
+      }
+    }
+
+    // Only beautify if adjustment is reasonable (within 5% or $50)
+    const maxAdj = Math.max(price * 0.05, 50);
+    if (best !== null && bestDist <= maxAdj && best !== Math.ceil(price)) {
+      result.beautified = true;
+      result.comments.push(`美化报价：${Math.ceil(price)} → ${best}`);
+      return best;
+    }
+
     return price;
   }
 
@@ -357,14 +388,14 @@ function simulateQuoteFull(baseRate, type) {
     }
   }
 
-  // removed final enforceMinGP and enforceMaxGP to preserve beautified results
   result.initialPrice = Math.ceil(price);
   let beautified = beautify(result.initialPrice);
   let finalGP = (beautified - baseRate) / beautified;
 
-  if ((type === 'dryvan' || type === 'flatbed') && finalGP < minGP) {
+  // Safety net: if beautification dropped GP below minimum, cancel it
+  if (finalGP < minGP) {
     result.comments.push(`美化被取消：GP ${Math.round(finalGP * 100)}% < ${minGP * 100}%`);
-    beautified = result.initialPrice; // 回退美化
+    beautified = result.initialPrice;
   }
 
   result.finalPrice = Math.ceil(beautified);

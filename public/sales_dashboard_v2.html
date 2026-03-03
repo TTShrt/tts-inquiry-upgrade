@@ -154,6 +154,8 @@
     }
 
     /* ✅ saved-input 只控制“锁定/灰字”，不再控制背景色 */
+    .gp-low { color: #DC2626 !important; font-weight: bold; }
+
     .saved-input {
       background-color: transparent !important;
       color: #6b7280 !important;
@@ -1919,6 +1921,15 @@
             return tdCell(text, `font-bold bg-gray-100 text-center ${cls}`);
           }
 
+          // ✅ GP < 10% → red styling
+          function applyGPColor(td, gpValue) {
+            if (gpValue !== null && Number.isFinite(gpValue) && gpValue < 0.10) {
+              td.classList.add('gp-low');
+            } else {
+              td.classList.remove('gp-low');
+            }
+          }
+
           function makeInput(value, field, quote, locked, scope, alignLeft = false) {
             const input = document.createElement('input');
             input.value = value ?? '';
@@ -1929,6 +1940,18 @@
             input.disabled = !!locked;
             if (locked) input.classList.add('saved-input');
             return input;
+          }
+
+          // ✅ GP color helper: red if < 10%, otherwise default
+          function applyGPColor(td, gpPercent) {
+            const v = parseFloat(gpPercent);
+            if (!isNaN(v) && v < 10) {
+              td.style.color = '#DC2626';
+              td.style.fontWeight = 'bold';
+            } else {
+              td.style.color = '';
+              td.style.fontWeight = '';
+            }
           }
 
           // ✅ Frontend copy of server's simulateQuoteFull — used as fallback when Price/GP not yet persisted
@@ -1944,19 +1967,31 @@
             const { minGP, maxGP, ranges } = config[normalizedType] || config.drayage;
 
             function beautify(price) {
-              const endings = [96, 95, 90, 88, 85];
-              const thousandPart = Math.floor(price / 1000) * 1000;
-              const hundredPart = Math.floor(price / 100) * 100;
-              const deltaToThousand = price - thousandPart;
-              const deltaToHundred = price - hundredPart;
-              const allowBeautify = ((price >= 1000 && deltaToThousand <= 150) || (price < 1000 && price >= 490 && price <= 510) || (deltaToHundred <= 10));
-              if (!allowBeautify) return price;
-              for (let end of endings) {
-                const candidate = (Math.floor(price / 100) - 1) * 100 + end;
-                const gp = (candidate - baseRate) / candidate;
-                if (candidate < price && gp >= minGP) return candidate;
+              const floorPrice = Math.ceil(baseRate / (1 - minGP));
+              if (price < 300) return Math.max(Math.ceil(price), floorPrice);
+              // Near-thousand avoidance: only when in 900s zone (e.g. 1912, 2943)
+              const rem = price % 1000;
+              if (price >= 1000 && rem > 900) {
+                const t = Math.floor(price / 1000) * 1000 + 895;
+                if (t >= floorPrice) return t;
               }
-              return price;
+              // Tier-based endings
+              let endings;
+              if (price < 1500) endings = [95, 85, 75, 50, 45, 35, 25];
+              else if (price <= 3000) endings = [50, 80, 0];
+              else endings = [0, 50];
+              let best = null, bestDist = Infinity;
+              for (let off = -2; off <= 2; off++) {
+                const bh = (Math.floor(price / 100) + off) * 100;
+                for (const e of endings) {
+                  const c = bh + e;
+                  if (c < floorPrice || c <= 0) continue;
+                  const d = Math.abs(c - price);
+                  if (d < bestDist) { bestDist = d; best = c; }
+                }
+              }
+              const maxAdj = Math.max(price * 0.05, 50);
+              return (best !== null && bestDist <= maxAdj && best !== Math.ceil(price)) ? best : price;
             }
             function enforceMinGP(price) { const gp = (price - baseRate) / price; if (gp < minGP) return Math.ceil(baseRate / (1 - minGP)); return price; }
             function enforceMaxGP(price) { const gp = (price - baseRate) / price; if (gp > maxGP) return Math.ceil(baseRate / (1 - maxGP)); return price; }
@@ -1976,7 +2011,7 @@
             }
             let beautified = beautify(Math.ceil(price));
             let finalGP = (beautified - baseRate) / beautified;
-            if ((normalizedType === 'dryvan' || normalizedType === 'flatbed') && finalGP < minGP) beautified = Math.ceil(price);
+            if (finalGP < minGP) beautified = Math.ceil(price);
             result.finalPrice = Math.ceil(beautified);
             result.gp = parseFloat(((result.finalPrice - baseRate) / result.finalPrice).toFixed(4));
             return result;
@@ -2715,7 +2750,9 @@
 
               // GP（防 NaN，轉成百分比）
               const gpPercent = (calcGP !== null && Number.isFinite(calcGP)) ? (calcGP * 100).toFixed(2) + '%' : '—';
-              r4.appendChild(tdCell(gpPercent));
+              const tdGP = tdCell(gpPercent);
+              applyGPColor(tdGP, calcGP);
+              r4.appendChild(tdGP);
 
               // Adjusted Price（可編輯）
               const adjInp = makeInput(item['Adjusted Price'] || '', 'Adjusted Price', quote, lockedTruck, 'TRUCK');
@@ -2727,19 +2764,25 @@
               const baseRateNum = num(item['Base Rate']);
               const adjPriceNum = num(item['Adjusted Price']);
               let adjGPText = '—';
+              let adjGPVal = null;
               if (adjPriceNum > 0 && baseRateNum > 0) {
-                const adjGP = ((adjPriceNum - baseRateNum) / adjPriceNum) * 100;
-                adjGPText = adjGP.toFixed(2) + '%';
+                adjGPVal = (adjPriceNum - baseRateNum) / adjPriceNum;
+                adjGPText = (adjGPVal * 100).toFixed(2) + '%';
               }
-              r4.appendChild(tdCell(adjGPText));
+              const tdAdjGP = tdCell(adjGPText);
+              applyGPColor(tdAdjGP, adjGPVal);
+              r4.appendChild(tdAdjGP);
 
               adjInp.addEventListener('input', () => {
                 const ap = num(adjInp.value);
                 let newGP = '—';
+                let gpVal = null;
                 if (ap > 0 && baseRateNum > 0) {
-                  newGP = (((ap - baseRateNum) / ap) * 100).toFixed(2) + '%';
+                  gpVal = (ap - baseRateNum) / ap;
+                  newGP = (gpVal * 100).toFixed(2) + '%';
                 }
-                r4.children[5].textContent = newGP;   // 第6個 td 是 Adjusted GP
+                tdAdjGP.textContent = newGP;
+                applyGPColor(tdAdjGP, gpVal);
               });
 
               // 後面的 Chassis、Pre-Pull... 等欄位保持原樣
@@ -2831,7 +2874,9 @@
                 r4s.appendChild(tdCell(calcPriceSub > 0 ? calcPriceSub.toFixed(2) : '—'));
 
                 const gpPercentSub = (calcGPSub !== null && Number.isFinite(calcGPSub)) ? (calcGPSub * 100).toFixed(2) + '%' : '—';
-                r4s.appendChild(tdCell(gpPercentSub));
+                const tdGPSub = tdCell(gpPercentSub);
+                applyGPColor(tdGPSub, calcGPSub);
+                r4s.appendChild(tdGPSub);
 
                 // Adjusted Price（input）
                 const adjInpSub = makeInput(sub['Adjusted Price'] || '', 'Adjusted Price', subQuote, lockedSub, 'TRUCK');
@@ -2841,6 +2886,8 @@
 
                 // Adjusted GP（显示 + 即时更新）
                 const tdAdjGPSub = tdCell(sub['Adjusted GP'] || '—');
+                const initAdjGPSub = parseFloat(sub['Adjusted GP']) / 100;
+                applyGPColor(tdAdjGPSub, Number.isFinite(initAdjGPSub) ? initAdjGPSub : null);
                 r4s.appendChild(tdAdjGPSub);
 
                 adjInpSub.addEventListener('input', () => {
@@ -2848,10 +2895,12 @@
                   const ap = Number(String(adjInpSub.value || '').replace(/,/g, '')) || 0;
 
                   if (ap > 0 && baseRateNum > 0) {
-                    const gp = ((ap - baseRateNum) / ap) * 100;
-                    tdAdjGPSub.textContent = gp.toFixed(2) + '%';
+                    const gpVal = (ap - baseRateNum) / ap;
+                    tdAdjGPSub.textContent = (gpVal * 100).toFixed(2) + '%';
+                    applyGPColor(tdAdjGPSub, gpVal);
                   } else {
                     tdAdjGPSub.textContent = '—';
+                    applyGPColor(tdAdjGPSub, null);
                   }
                 });
 
@@ -3024,14 +3073,16 @@
               });
 
               let estGpText = '—';
+              let estGpVal = null;
               if (sumPrice > 0) {
-                const gp = (sumPrice - sumCost) / sumPrice;
-                estGpText = (gp * 100).toFixed(2) + '%';
+                estGpVal = (sumPrice - sumCost) / sumPrice;
+                estGpText = (estGpVal * 100).toFixed(2) + '%';
               }
 
               const tdEstGP = document.createElement('td');
               tdEstGP.textContent = estGpText;
               tdEstGP.style.textAlign = 'right';
+              applyGPColor(tdEstGP, estGpVal);
               tdEstGP.dataset.estgp = quote;
               tdEstGP.dataset.scope = 'WH';
               // Store costs for live recalc
@@ -3049,7 +3100,9 @@
                     sc += costs[idx] || 0;
                     sp += parseFloat(pi.value) || 0;
                   });
-                  tdEstGP.textContent = sp > 0 ? (((sp - sc) / sp) * 100).toFixed(2) + '%' : '—';
+                  const gpV = sp > 0 ? (sp - sc) / sp : null;
+                  tdEstGP.textContent = gpV !== null ? (gpV * 100).toFixed(2) + '%' : '—';
+                  applyGPColor(tdEstGP, gpV);
                 });
               });
 
@@ -3231,14 +3284,16 @@
                 });
 
                 let estGpSubText = '—';
+                let estGpSubVal = null;
                 if (sumPriceSub > 0) {
-                  const gp = (sumPriceSub - sumCostSub) / sumPriceSub;
-                  estGpSubText = (gp * 100).toFixed(2) + '%';
+                  estGpSubVal = (sumPriceSub - sumCostSub) / sumPriceSub;
+                  estGpSubText = (estGpSubVal * 100).toFixed(2) + '%';
                 }
 
                 const tdEstGPSub = document.createElement('td');
                 tdEstGPSub.textContent = estGpSubText;
                 tdEstGPSub.style.textAlign = 'right';
+                applyGPColor(tdEstGPSub, estGpSubVal);
                 tdEstGPSub.dataset.estgp = subQuote;
                 tdEstGPSub.dataset.scope = 'WH';
                 tdEstGPSub.dataset.costs = JSON.stringify(whCostFieldsSub.map(f => parseFloat(sub[f]) || 0));
@@ -3255,7 +3310,9 @@
                       sc += costs[idx] || 0;
                       sp += parseFloat(pi.value) || 0;
                     });
-                    tdEstGPSub.textContent = sp > 0 ? (((sp - sc) / sp) * 100).toFixed(2) + '%' : '—';
+                    const gpV = sp > 0 ? (sp - sc) / sp : null;
+                    tdEstGPSub.textContent = gpV !== null ? (gpV * 100).toFixed(2) + '%' : '—';
+                    applyGPColor(tdEstGPSub, gpV);
                   });
                 });
 

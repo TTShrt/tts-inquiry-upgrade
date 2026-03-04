@@ -48,18 +48,18 @@
 
     #summaryTable td,
     #summaryTable th {
-      padding-top: 6px !important;
-      padding-bottom: 6px !important;
-      line-height: 1.2 !important;
+      padding-top: 3px !important;
+      padding-bottom: 3px !important;
+      line-height: 1.15 !important;
       border-right: 1px solid #f3f4f6;
     }
 
     .row-basic-head td,
     .row-truck-head td,
     .row-wh-head td {
-      font-size: 10px;
+      font-size: 9px;
       letter-spacing: .2px;
-      font-weight: 700;
+      font-weight: 500;
       white-space: nowrap;
       background: #f3f4f6 !important;
       border-top: 5px solid #afb5bd !important;
@@ -70,13 +70,13 @@
 
     /* Data rows (row 2, 4, 6): smaller font, no bold */
     #summaryTable td {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 400;
     }
 
     /* # column: even smaller, no bold */
     #summaryTable td:first-child {
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 400;
     }
 
@@ -137,8 +137,9 @@
       width: 100%;
       box-sizing: border-box;
       border: 1px solid #e5e7eb;
-      padding: 2px 4px;
-      font-size: 11px;
+      padding: 1px 3px;
+      font-size: 10px;
+      height: 18px;
       background: #ffffff;
       text-align: right;
     }
@@ -324,16 +325,15 @@
 
     #summaryTable td,
     #summaryTable th {
-      padding-top: 4px !important;
-      /* 原来6px */
-      padding-bottom: 4px !important;
-      line-height: 1.1 !important;
+      padding-top: 3px !important;
+      padding-bottom: 3px !important;
+      line-height: 1.15 !important;
     }
 
     #summaryTable input {
-      height: 20px !important;
+      height: 18px !important;
       /* 更紧凑 */
-      font-size: 11px !important;
+      font-size: 10px !important;
     }
 
     /* =========================
@@ -976,8 +976,8 @@
       background: inherit !important;
       /* ✅ 跟随行背景 */
       box-shadow: none !important;
-      height: 20px !important;
-      font-size: 11px !important;
+      height: 18px !important;
+      font-size: 10px !important;
     }
 
     /* focus 状态柔和一点 */
@@ -1366,13 +1366,13 @@
       }
       function tdCell(text = '', cls = '') {
         const td = document.createElement('td');
-        td.className = `border px-2 text-xs ${cls}`;
+        td.className = `border px-1 text-xs ${cls}`;
         td.textContent = text ?? '';
         return td;
       }
       function tdHeader(text = '', cls = '') {
         const td = tdCell(text, cls);
-        td.classList.add('font-bold', 'bg-gray-100', 'text-center');
+        td.classList.add('bg-gray-100', 'text-center');
         return td;
       }
       function makeInput(value, field, quote, locked, scope) {

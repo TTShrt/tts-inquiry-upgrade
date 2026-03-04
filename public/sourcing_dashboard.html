@@ -78,7 +78,7 @@
     .row-basic-head td,
     .row-truck-head td,
     .row-wh-head td {
-      font-size: 10px;
+      font-size: 9px;
       letter-spacing: 0.2px;
     }
 
@@ -95,7 +95,7 @@
     .row-basic-head td,
     .row-truck-head td,
     .row-wh-head td {
-      font-weight: 700;
+      font-weight: 500;
       white-space: nowrap;
       background: #f3f4f6;
       /* 浅灰 */
@@ -105,13 +105,13 @@
 
     /* Data rows: smaller font, no bold */
     #summaryTable td {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 400;
     }
 
     /* # column: even smaller, no bold */
     #summaryTable td:first-child {
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 400;
     }
 
@@ -484,9 +484,9 @@
     /* 统一表格行高度 */
     #summaryTable td,
     #summaryTable th {
-      padding-top: 6px !important;
-      padding-bottom: 6px !important;
-      line-height: 1.2 !important;
+      padding-top: 3px !important;
+      padding-bottom: 3px !important;
+      line-height: 1.15 !important;
     }
 
 
@@ -505,6 +505,9 @@
       max-width: 100%;
       min-width: 0;
       box-sizing: border-box;
+      font-size: 10px;
+      height: 18px;
+      padding: 1px 3px;
     }
 
     /* Commodity / From / To 允许自动撑列 */
@@ -765,9 +768,9 @@
     /* ===== Match SALES: compact rows ===== */
     #summaryTable td,
     #summaryTable th {
-      padding-top: 6px !important;
-      padding-bottom: 6px !important;
-      line-height: 1.2 !important;
+      padding-top: 3px !important;
+      padding-bottom: 3px !important;
+      line-height: 1.15 !important;
     }
 
     /* Left # column fixed width + centered */
@@ -1188,13 +1191,13 @@
 
         function tdCell(text = '', cls = '') {
           const td = document.createElement('td');
-          td.className = `border px-2 text-xs ${cls}`;
+          td.className = `border px-1 text-xs ${cls}`;
           td.textContent = text ?? '';
           return td;
         }
 
         function tdHeader(text = '', cls = '') {
-          return tdCell(text, `font-bold bg-gray-100 text-center ${cls}`);
+          return tdCell(text, `bg-gray-100 text-center ${cls}`);
         }
 
         function makeInput(value, field, quote, locked, scope, alignLeft = false) {

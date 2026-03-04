@@ -80,7 +80,7 @@
     .row-basic-head td,
     .row-truck-head td,
     .row-wh-head td {
-      font-size: 10px;
+      font-size: 9px;
       letter-spacing: 0.2px;
     }
 
@@ -97,7 +97,7 @@
     .row-basic-head td,
     .row-truck-head td,
     .row-wh-head td {
-      font-weight: 700;
+      font-weight: 500;
       white-space: nowrap;
       background: #f3f4f6;
       /* 浅灰 */
@@ -107,13 +107,13 @@
 
     /* Data rows: smaller font, no bold */
     #summaryTable td {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 400;
     }
 
     /* # column: even smaller, no bold */
     #summaryTable td:first-child {
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 400;
     }
 
@@ -297,10 +297,10 @@
 
     td[data-field='GP'],
     td[data-field='Adjusted GP'] {
-      font-size: 0.875rem;
-      height: 2.25rem;
+      font-size: 10px;
+      height: auto;
       vertical-align: middle;
-      padding: 0.25rem 0.5rem;
+      padding: 1px 4px;
       text-align: right;
     }
 
@@ -398,9 +398,9 @@
     /* 统一表格行高度 */
     #summaryTable td,
     #summaryTable th {
-      padding-top: 6px !important;
-      padding-bottom: 6px !important;
-      line-height: 1.2 !important;
+      padding-top: 3px !important;
+      padding-bottom: 3px !important;
+      line-height: 1.15 !important;
     }
 
 
@@ -797,9 +797,9 @@
       width: 100% !important;
       box-sizing: border-box !important;
       border: 1px solid #e5e7eb !important;
-      padding: 2px 4px !important;
-      font-size: 11px !important;
-      height: 20px !important;
+      padding: 1px 3px !important;
+      font-size: 10px !important;
+      height: 18px !important;
       background: #fff !important;
       text-align: right !important;
     }
@@ -1932,12 +1932,12 @@
 
           function tdCell(text = '', cls = '') {
             const td = document.createElement('td');
-            td.className = `border px-2 text-xs ${cls}`;
+            td.className = `border px-1 text-xs ${cls}`;
             td.textContent = text ?? '';
             return td;
           }
           function tdHeader(text = '', cls = '') {
-            return tdCell(text, `font-bold bg-gray-100 text-center ${cls}`);
+            return tdCell(text, `bg-gray-100 text-center ${cls}`);
           }
 
           // ✅ GP < 10% → red styling

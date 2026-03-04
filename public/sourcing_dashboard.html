@@ -1347,10 +1347,13 @@
               const s = String(el.getAttribute('data-scope') || '').trim();
               if (!q || !s) continue;
 
-              const v = String(el.value ?? '').trim();
-              // include if user typed something OR row currently unlocked (editing)
-              if (v !== '' || el.disabled === false) {
-                pairs.add(q + '||' + s);
+              // ✅ Only flush rows where at least one input is UNLOCKED (being edited)
+              // Skip locked/confirmed rows — their data is already saved
+              if (!el.disabled) {
+                const v = String(el.value ?? '').trim();
+                if (v !== '') {
+                  pairs.add(q + '||' + s);
+                }
               }
             }
 
@@ -1627,7 +1630,7 @@
           addBtn.className = 'action-button';
           addBtn.textContent = '➕';
           addBtn.title = '新增 TRUCK 子行';
-          addBtn.disabled = scopeConfirmed(item, 'TRUCK');
+          addBtn.disabled = false; // ✅ ADD 永远可用
           addBtn.onclick = async () => {
             if (!confirm('確定新增一條 TRUCK 子行？')) return;
 
@@ -1682,7 +1685,8 @@
           const parentDel = String(mainKey || '').trim();
           const isTruckSubDel = (qDel !== parentDel) && /-\d+$/.test(qDel);
 
-          const canDelete = isTruckSubDel && !hardLocked;
+          // ✅ DELETE: disabled once Sourcing has checked ✅ (costSent) OR Sales/Manager confirmed
+          const canDelete = isTruckSubDel && !scopeConfirmed(item, 'TRUCK') && !isTruthy(item[costSentField]);
           delBtn.disabled = !canDelete;
           delBtn.style.opacity = canDelete ? '1' : '0.25';
           delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
@@ -1822,7 +1826,7 @@ ${qDel}`)) return;
           addBtn.className = 'action-button';
           addBtn.textContent = '➕';
           addBtn.title = '新增 WAREHOUSE 子行';
-          addBtn.disabled = scopeConfirmed(item, 'WH'); // ✅ checked(成本已送出) 仍允许新增子行；仅在 Sales/Manager Confirm 后锁死
+          addBtn.disabled = false; // ✅ ADD 永远可用
           addBtn.onclick = async () => {
             if (!confirm('確定新增一條 WAREHOUSE 子行？')) return;
 
@@ -1879,7 +1883,8 @@ ${qDel}`)) return;
           const parentDel = String(mainKey || '').trim();
           const isWhSubDel = (qDel !== parentDel) && /-[A-Z]$/i.test(qDel);
 
-          const canDelete = isWhSubDel && !hardLocked && !hasAnyPriceFilled(item, 'WH');
+          // ✅ DELETE: disabled once Sourcing has checked ✅ (costSent) OR Sales/Manager confirmed
+          const canDelete = isWhSubDel && !scopeConfirmed(item, 'WH') && !isTruthy(item[costSentField]);
           delBtn.disabled = !canDelete;
           delBtn.style.opacity = canDelete ? '1' : '0.25';
           delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';

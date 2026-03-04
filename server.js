@@ -1808,6 +1808,7 @@ try {
       return res.status(404).json({ success: false, message: 'Quotation # not found' });
     }
 
+    // ✅ Only block delete when Sourcing has sent (checked ✅) or Sales/Manager confirmed
     const locked =
       isTruthy(doc['truckingCostSent']) || isTruthy(doc['warehouseCostSent']) ||
       isTruthy(doc['truckingSalesConfirmed']) || isTruthy(doc['truckingManagerConfirmed']) ||

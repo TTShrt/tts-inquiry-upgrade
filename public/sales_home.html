@@ -168,7 +168,7 @@
       <div class="kpi-card purple">
         <div class="kpi-label">Confirmed</div>
         <div class="kpi-value" id="kpi-confirmed">—</div>
-        <div class="kpi-sub">Sales + Manager confirmed</div>
+        <div class="kpi-sub">Approved by Sales / OPS / Manager</div>
       </div>
     </div>
 
@@ -225,7 +225,7 @@
         document.getElementById('kpi-month').textContent = `This month: ${d.thisMonth ?? 0}`;
         document.getElementById('kpi-awaiting').textContent = d.awaitingSourcing ?? '—';
         document.getElementById('kpi-quoted').textContent = d.sourcingQuoted ?? '—';
-        document.getElementById('kpi-confirmed').textContent = (d.salesConfirmed ?? 0) + (d.managerConfirmed ?? 0);
+        document.getElementById('kpi-confirmed').textContent = d.confirmed ?? '—';
 
         // Recent activity
         const list = document.getElementById('activity-list');
@@ -234,7 +234,7 @@
           return;
         }
         list.innerHTML = d.recentInquiries.map(item => {
-          const statusClass = item.status === 'Completed' ? 'completed' :
+          const statusClass = item.status === 'Confirmed' ? 'confirmed' :
                               item.status === 'Sales Confirmed' ? 'confirmed' :
                               item.status === 'Sourcing Quoted' ? 'quoted' : 'pending';
           return `<div class="activity-item">

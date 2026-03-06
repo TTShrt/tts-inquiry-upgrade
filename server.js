@@ -759,6 +759,12 @@ app.get('/api/kpi', async (req, res) => {
 
     // Helper
     const isTrue = v => String(v || '').toLowerCase().trim() === 'true';
+
+    // Combined status helpers (check BOTH truck and warehouse)
+    const isConfirmed = d => isTrue(d.truckingSalesConfirmed) || isTrue(d.truckingManagerConfirmed)
+                          || isTrue(d.warehouseSalesConfirmed) || isTrue(d.warehouseManagerConfirmed);
+    const isCostSent = d => isTrue(d.truckingCostSent) || isTrue(d.warehouseCostSent);
+    const isCostSaved = d => isTrue(d.truckingCostSaved) || isTrue(d.warehouseCostSaved);
     const thisMonth = new Date();
     const monthStart = new Date(thisMonth.getFullYear(), thisMonth.getMonth(), 1);
 
@@ -786,10 +792,9 @@ app.get('/api/kpi', async (req, res) => {
     let kpi = {};
 
     if (role === 'sales' || role === 'ops_view') {
-      const awaitingSourcing = docs.filter(d => !isTrue(d.truckingCostSent) && !isTrue(d.truckingSalesConfirmed)).length;
-      const sourcingQuoted = docs.filter(d => isTrue(d.truckingCostSent) && !isTrue(d.truckingSalesConfirmed)).length;
-      const salesConfirmed = docs.filter(d => isTrue(d.truckingSalesConfirmed)).length;
-      const managerConfirmed = docs.filter(d => isTrue(d.truckingManagerConfirmed)).length;
+      const confirmed = docs.filter(d => isConfirmed(d)).length;
+      const sourcingQuoted = docs.filter(d => isCostSent(d) && !isConfirmed(d)).length;
+      const awaitingSourcing = docs.filter(d => !isCostSent(d) && !isConfirmed(d)).length;
 
       kpi = {
         role: 'sales',
@@ -797,28 +802,26 @@ app.get('/api/kpi', async (req, res) => {
         thisMonth: thisMonthDocs.length,
         awaitingSourcing,
         sourcingQuoted,
-        salesConfirmed,
-        managerConfirmed,
+        confirmed,
         recentInquiries: docs.slice(-5).reverse().map(d => ({
           quote: d['External Quotation #'] || d['Quotation #'],
           customer: d['Customer ID'] || '',
           date: d['Date'] || '',
-          status: isTrue(d.truckingManagerConfirmed) ? 'Completed' :
-                  isTrue(d.truckingSalesConfirmed) ? 'Sales Confirmed' :
-                  isTrue(d.truckingCostSent) ? 'Sourcing Quoted' : 'Pending'
+          status: isConfirmed(d) ? 'Confirmed' :
+                  isCostSent(d) ? 'Sourcing Quoted' : 'Pending'
         }))
       };
 
     } else if (role === 'sourcing') {
-      const newInquiries = docs.filter(d => !isTrue(d.truckingCostSaved) && !isTrue(d.truckingCostSent)).length;
-      const savedNotSent = docs.filter(d => isTrue(d.truckingCostSaved) && !isTrue(d.truckingCostSent)).length;
-      const sentToSales = docs.filter(d => isTrue(d.truckingCostSent) && !isTrue(d.truckingSalesConfirmed)).length;
-      const confirmed = docs.filter(d => isTrue(d.truckingSalesConfirmed) || isTrue(d.truckingManagerConfirmed)).length;
+      const confirmed = docs.filter(d => isConfirmed(d)).length;
+      const sentToSales = docs.filter(d => isCostSent(d) && !isConfirmed(d)).length;
+      const savedNotSent = docs.filter(d => isCostSaved(d) && !isCostSent(d) && !isConfirmed(d)).length;
+      const newInquiries = docs.filter(d => !isCostSaved(d) && !isCostSent(d) && !isConfirmed(d)).length;
 
       // Find urgent (>24h without response)
       const now = Date.now();
       const urgent = docs.filter(d => {
-        if (isTrue(d.truckingCostSaved) || isTrue(d.truckingCostSent)) return false;
+        if (isCostSaved(d) || isCostSent(d)) return false;
         const dt = new Date(d['Date'] || d.createdAt);
         return (now - dt.getTime()) > 24 * 60 * 60 * 1000;
       }).length;
@@ -837,15 +840,17 @@ app.get('/api/kpi', async (req, res) => {
           customer: d['Customer ID'] || '',
           from: d['From'] || '',
           date: d['Date'] || '',
-          status: isTrue(d.truckingCostSent) ? 'Sent' :
-                  isTrue(d.truckingCostSaved) ? 'Saved' : 'New'
+          status: isCostSent(d) ? 'Sent' :
+                  isCostSaved(d) ? 'Saved' : 'New'
         }))
       };
 
     } else if (role === 'manager') {
-      const pendingApproval = docs.filter(d => isTrue(d.truckingSalesConfirmed) && !isTrue(d.truckingManagerConfirmed)).length;
-      const managerConfirmed = docs.filter(d => isTrue(d.truckingManagerConfirmed)).length;
-      const awaitingSourcing = docs.filter(d => !isTrue(d.truckingCostSent)).length;
+      const isMgrConfirmed = d => isTrue(d.truckingManagerConfirmed) || isTrue(d.warehouseManagerConfirmed);
+      const isSalesConfirmed = d => isTrue(d.truckingSalesConfirmed) || isTrue(d.warehouseSalesConfirmed);
+      const pendingApproval = docs.filter(d => isSalesConfirmed(d) && !isMgrConfirmed(d)).length;
+      const managerConfirmed = docs.filter(d => isMgrConfirmed(d)).length;
+      const awaitingSourcing = docs.filter(d => !isCostSent(d)).length;
 
       // Average GP
       let gpSum = 0, gpCount = 0;
@@ -870,9 +875,9 @@ app.get('/api/kpi', async (req, res) => {
           quote: d['External Quotation #'] || d['Quotation #'],
           customer: d['Customer ID'] || '',
           date: d['Date'] || '',
-          status: isTrue(d.truckingManagerConfirmed) ? 'Confirmed' :
-                  isTrue(d.truckingSalesConfirmed) ? 'Pending Approval' :
-                  isTrue(d.truckingCostSent) ? 'Quoted' : 'In Progress'
+          status: isMgrConfirmed(d) ? 'Confirmed' :
+                  isSalesConfirmed(d) ? 'Pending Approval' :
+                  isCostSent(d) ? 'Quoted' : 'In Progress'
         }))
       };
     }

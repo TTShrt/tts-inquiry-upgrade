@@ -52,7 +52,7 @@
 
     /* ── KPI Cards ── */
     .kpi-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px;
     }
     .kpi-card {
       background: var(--card); border-radius: 12px; padding: 20px;
@@ -67,6 +67,7 @@
     .kpi-card.green::before { background: var(--success); }
     .kpi-card.orange::before { background: var(--warning); }
     .kpi-card.purple::before { background: #8b5cf6; }
+    .kpi-card.teal::before { background: #14b8a6; }
     .kpi-label {
       font-size: 0.75rem; font-weight: 500; color: var(--text-muted);
       text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
@@ -170,6 +171,11 @@
         <div class="kpi-value" id="kpi-confirmed">—</div>
         <div class="kpi-sub">Approved by Sales / OPS / Manager</div>
       </div>
+      <div class="kpi-card teal">
+        <div class="kpi-label">Average GP</div>
+        <div class="kpi-value" id="kpi-gp">—</div>
+        <div class="kpi-sub">Across all inquiries</div>
+      </div>
     </div>
 
     <!-- Activity + Quick Actions -->
@@ -226,6 +232,7 @@
         document.getElementById('kpi-awaiting').textContent = d.awaitingSourcing ?? '—';
         document.getElementById('kpi-quoted').textContent = d.sourcingQuoted ?? '—';
         document.getElementById('kpi-confirmed').textContent = d.confirmed ?? '—';
+        document.getElementById('kpi-gp').textContent = d.avgGP ? d.avgGP + '%' : '—';
 
         // Recent activity
         const list = document.getElementById('activity-list');

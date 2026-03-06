@@ -797,6 +797,17 @@ app.get('/api/kpi', async (req, res) => {
       const sourcingQuoted = docs.filter(d => isCostSent(d) && !isConfirmed(d)).length;
       const awaitingSourcing = docs.filter(d => !isCostSent(d) && !isConfirmed(d)).length;
 
+      // Average GP for this sales user/group
+      let gpSum = 0, gpCount = 0;
+      docs.forEach(d => {
+        const gp = parseFloat(d['GP']);
+        if (Number.isFinite(gp) && gp > 0 && gp < 1) {
+          gpSum += gp;
+          gpCount++;
+        }
+      });
+      const avgGP = gpCount > 0 ? (gpSum / gpCount * 100).toFixed(1) : '—';
+
       kpi = {
         role: 'sales',
         total,
@@ -804,6 +815,7 @@ app.get('/api/kpi', async (req, res) => {
         awaitingSourcing,
         sourcingQuoted,
         confirmed,
+        avgGP,
         recentInquiries: docs.slice(-5).reverse().map(d => ({
           quote: d['External Quotation #'] || d['Quotation #'],
           customer: d['Customer ID'] || '',

@@ -2843,25 +2843,25 @@
     // Force scrollbar visible
     // scroll fix moved to split-scroll script
   </script>
-<script>
-// ══ Scroll fix: outer handles both vertical + horizontal ══
-(function() {
-  const inner = document.getElementById('fixed-scroll-wrapper');
-  if (!inner) return;
-  const outer = document.createElement('div');
-  outer.id = 'v-scroll-outer';
-  outer.style.cssText = 'overflow:auto; max-height:calc(100vh - 70px); width:100%; border:none;';
-  inner.parentNode.insertBefore(outer, inner);
-  outer.appendChild(inner);
-  // Inner: no scroll, just expand to table width
-  inner.style.setProperty('overflow', 'visible', 'important');
-  inner.style.setProperty('max-height', 'none', 'important');
-  inner.style.setProperty('border', 'none', 'important');
-  inner.style.setProperty('border-top', 'none', 'important');
-  inner.style.setProperty('border-radius', '0', 'important');
-  inner.style.setProperty('width', 'max-content', 'important');
-})();
-</script>
+<style>
+/* ══ Manager scroll + border fix ══ */
+body.mode-summary #fixed-scroll-wrapper {
+  border: none !important;
+  border-top: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+}
+#fixed-scroll-wrapper {
+  border: none !important;
+  border-top: none !important;
+}
+/* ACTION column offset for scrollbar space */
+#summaryTable th:last-child,
+#summaryTable td:last-child {
+  right: 14px !important;
+}
+</style>
 </body>
 
 </html>

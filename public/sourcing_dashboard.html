@@ -98,9 +98,7 @@
       font-weight: 500;
       white-space: nowrap;
       background: #f3f4f6;
-      /* 浅灰 */
-      border-top: 2px solid #9ca3af;
-      /* 每个区块上方粗线 */
+      border-top: 1px solid #d1d5db;
     }
 
     /* Data rows: smaller font, no bold */
@@ -163,8 +161,9 @@
     /* 每票之间的分隔 */
     .row-sep td {
       border: none !important;
-      height: 14px;
-      background: transparent;
+      border-bottom: 3px solid #cfd6dd !important;
+      height: 8px !important;
+      background: #f3f4f6 !important;
     }
 
 
@@ -685,8 +684,20 @@
     }
 
     .row-basic-head td {
-      border-top: 4px solid #cfd6dd !important;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(0, 0, 0, 0.06) !important;
+      border-top: 5px solid #cfd6dd !important;
+      background: #f3f4f6 !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(0, 0, 0, 0.10) !important;
+    }
+
+    /* Sticky columns must have same top border */
+    #summaryTable .row-basic-head td:first-child,
+    #summaryTable .row-basic-head td:last-child {
+      border-top: 5px solid #cfd6dd !important;
+    }
+
+    #summaryTable {
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
     }
 
     #summaryTable td {
@@ -711,7 +722,7 @@
 
     /* 4) 每个 inquiry 块之间更有呼吸感 */
     .row-sep td {
-      height: 14px !important;
+      height: 8px !important;
     }
 
     /* ===== Sourcing simplification ===== */
@@ -722,6 +733,8 @@
     /* Sourcing no top form -> table taller */
     #fixed-scroll-wrapper {
       max-height: calc(100vh - 120px) !important;
+      overflow-y: scroll !important;
+      scrollbar-gutter: stable;
     }
 
     /* 讓 ACTION 欄有空間，不被右邊擠壓 */
@@ -750,30 +763,19 @@
       padding-right: 20px !important;
     }
 
-    /* 子行縮進 + 美化 */
+    /* 子行美化 */
     .sub-row td:first-child {
-      padding-left: 30px !important;
-      /* Quotation # 欄縮進 */
+      text-align: center !important;
+      padding-left: 0 !important;
       font-style: italic !important;
       color: #555 !important;
-      /* 灰色文字 */
-    }
-
-    /* 可選：讓整行背景略淡或邊框區分 */
-    .sub-row {
-      background-color: #f9f9f9 !important;
-      border-top: 1px dashed #ddd;
     }
 
     .sub-row {
       background-color: #f8f9fa !important;
+      border-top: 1px dashed #ddd;
       font-style: italic;
       color: #555;
-    }
-
-    .sub-row td:first-child {
-      padding-left: 40px !important;
-      /* Quotation # 欄縮進 */
     }
 
     /* ===== Match SALES: compact rows ===== */
@@ -2244,7 +2246,7 @@ ${qDel}`)) return;
           const lockedTruck = lockState(item, 'TRUCK');
 
 
-          r4.appendChild(tdCell(displayQ, 'text-left font-semibold'));
+          r4.appendChild(tdCell(displayQ, 'text-center'));
 
 
           const brInp = makeInput(item['Base Rate'] || '', 'Base Rate', quote, lockedTruck, 'TRUCK');
@@ -2310,7 +2312,7 @@ ${qDel}`)) return;
           const lockedWH = lockState(item, 'WH');
 
           // ✅ FIX: First column — quotation # (was missing, causing column shift)
-          r6.appendChild(tdCell(displayQ, 'text-left font-semibold'));
+          r6.appendChild(tdCell(displayQ, 'text-center'));
 
           // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
           ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {

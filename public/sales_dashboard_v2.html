@@ -1724,6 +1724,12 @@
     #inquiryForm select {
       min-height: 38px !important;
     }
+    /* Unify separator line */
+    #summaryTable tr.row-basic-head td:first-child,
+    #summaryTable tr.row-basic-head td:last-child {
+      border-top: 3px solid #e2e8f0 !important;
+      box-shadow: none !important;
+    }
   </style>
 </head>
 
@@ -1967,7 +1973,7 @@
 
   <div id="fixed-scroll-wrapper" class="scroll-container">
     <div style="width: 100%;">
-      <table class="bg-white border text-xs" id="summaryTable">
+      <table class="bg-white text-xs" id="summaryTable">
         <thead class="bg-gray-200" style="background-color:#e0f2fe; position: sticky; top: 0; z-index: 10;">
           <tr>
             <th class="border px-2"></th>

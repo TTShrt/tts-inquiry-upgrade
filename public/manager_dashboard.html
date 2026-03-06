@@ -2844,17 +2844,26 @@
     setTimeout(() => { const w = document.getElementById("fixed-scroll-wrapper"); if (w) { w.style.overflowY = "scroll"; w.style.borderRadius = "0"; } }, 500);
   </script>
 <style>
-  #fixed-scroll-wrapper {
-    overflow-y: scroll !important;
-    overflow-x: auto !important;
-    border-radius: 0 !important;
-    border: none !important;
-  }
+  /* ══ SCROLLBAR + BORDER FIX (last override) ══ */
+  #fixed-scroll-wrapper,
   body.mode-summary #fixed-scroll-wrapper {
     overflow-y: scroll !important;
-    border-radius: 0 !important;
+    overflow-x: auto !important;
     border: none !important;
     border-top: none !important;
+    border-radius: 0 !important;
+  }
+  #fixed-scroll-wrapper::-webkit-scrollbar {
+    width: 10px;
+    background: #f1f5f9;
+  }
+  #fixed-scroll-wrapper::-webkit-scrollbar-thumb {
+    background: #c1c9d4;
+    border-radius: 5px;
+    border: 2px solid #f1f5f9;
+  }
+  #fixed-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
   }
 </style>
 </body>

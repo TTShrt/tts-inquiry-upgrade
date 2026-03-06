@@ -3045,12 +3045,25 @@ ${qDel}`)) return;
     </div>
   </div>
 <style>
+  /* ══ SCROLLBAR FIX (last override) ══ */
   #fixed-scroll-wrapper {
     overflow-y: scroll !important;
     overflow-x: auto !important;
     max-height: calc(100vh - 70px) !important;
-    border-radius: 0 !important;
     border: none !important;
+    border-radius: 0 !important;
+  }
+  #fixed-scroll-wrapper::-webkit-scrollbar {
+    width: 10px;
+    background: #f1f5f9;
+  }
+  #fixed-scroll-wrapper::-webkit-scrollbar-thumb {
+    background: #c1c9d4;
+    border-radius: 5px;
+    border: 2px solid #f1f5f9;
+  }
+  #fixed-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
   }
 </style>
 </body>

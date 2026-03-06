@@ -3045,20 +3045,21 @@ ${qDel}`)) return;
     </div>
   </div>
 <script>
-// ══ Split scroll: outer=vertical, inner=horizontal ══
+// ══ Scroll fix: outer handles both vertical + horizontal ══
 (function() {
   const inner = document.getElementById('fixed-scroll-wrapper');
   if (!inner) return;
   const outer = document.createElement('div');
   outer.id = 'v-scroll-outer';
-  outer.style.cssText = 'overflow-y:scroll; overflow-x:hidden; max-height:calc(100vh - 70px); width:100%; border:none;';
+  outer.style.cssText = 'overflow:auto; max-height:calc(100vh - 70px); width:100%; border:none;';
   inner.parentNode.insertBefore(outer, inner);
   outer.appendChild(inner);
-  inner.style.setProperty('overflow-y', 'visible', 'important');
-  inner.style.setProperty('overflow-x', 'auto', 'important');
+  // Inner: no scroll, just expand to table width
+  inner.style.setProperty('overflow', 'visible', 'important');
   inner.style.setProperty('max-height', 'none', 'important');
   inner.style.setProperty('border', 'none', 'important');
   inner.style.setProperty('border-radius', '0', 'important');
+  inner.style.setProperty('width', 'max-content', 'important');
 })();
 </script>
 </body>

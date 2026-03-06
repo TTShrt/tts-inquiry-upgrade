@@ -848,7 +848,7 @@ app.get('/api/kpi', async (req, res) => {
 
     } else if (role === 'manager') {
       const isMgrConfirmed = d => isTrue(d.truckingManagerConfirmed) || isTrue(d.warehouseManagerConfirmed);
-      const isSalesConfirmed = d => isTrue(d.truckingSalesConfirmed) || isTrue(d.warehouseSalesConfirmed);
+      const isSalesConfirmed = d => isTrue(d.truckingSalesConfirmed) || isTrue(d.warehouseSalesConfirmed) || isTrue(d['Selected']);
       const pendingApproval = docs.filter(d => isSalesConfirmed(d) && !isMgrConfirmed(d)).length;
       const managerConfirmed = docs.filter(d => isMgrConfirmed(d)).length;
       const awaitingSourcing = docs.filter(d => !isCostSent(d)).length;

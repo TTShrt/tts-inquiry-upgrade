@@ -35,7 +35,7 @@
     }
 
     #fixed-scroll-wrapper {
-      overflow: auto;
+      overflow-x: auto; overflow-y: scroll;
       width: 100%;
       max-height: calc(100vh - 120px);
       border-top: 1px solid #d1d5db;
@@ -664,7 +664,7 @@
     /* 表格滚动区域：高度 = 视窗 - 顶部栏 */
     #fixed-scroll-wrapper {
       max-height: calc(100vh - var(--topbar-h)) !important;
-      overflow: auto !important;
+      overflow-x: auto !important; overflow-y: scroll !important;
     }
 
     /* 表头 sticky 的 top 要让出顶部栏高度 */
@@ -712,7 +712,7 @@
       flex: 1 1 auto !important;
       min-height: 0 !important;
       /* 关键：让内部可滚动，不撑出空白 */
-      overflow: auto !important;
+      overflow-x: auto !important; overflow-y: scroll !important;
       max-height: none !important;
       /* 交给 flex 控制，不要 calc(100vh-xx) 了 */
       width: 100% !important;
@@ -912,7 +912,7 @@
       bottom: 0 !important;
       top: var(--topbar-h, 76px) !important;
       /* 顶部栏高度，按你实际微调 */
-      overflow: auto !important;
+      overflow-x: auto !important; overflow-y: scroll !important;
       /* ✅ 纵向+横向滚动都在这里 */
       height: auto !important;
       max-height: none !important;
@@ -1474,10 +1474,11 @@
     /* ══════ SCROLL FIX (highest specificity) ══════ */
     body.mode-summary #fixed-scroll-wrapper {
       overflow-y: scroll !important;
+      overflow-x: auto !important;
       scrollbar-gutter: stable;
-      border-radius: 12px !important;
+      border-radius: 0 !important;
+      border: none !important;
     }
-    body.mode-summary #fixed-scroll-wrapper,
     body #fixed-scroll-wrapper {
       overflow-y: scroll !important;
     }
@@ -1735,7 +1736,7 @@
   </div>
 
 
-  <div id="fixed-scroll-wrapper" class="scroll-container">
+  <div id="fixed-scroll-wrapper" class="scroll-container" style="overflow-y:scroll !important;">
     <table class="bg-white border text-xs" id="summaryTable">
       <tr>
         <th class="border px-2"></th>
@@ -2839,6 +2840,8 @@
 
       });
     })();
+    // Force scrollbar visible
+    setTimeout(() => { const w = document.getElementById("fixed-scroll-wrapper"); if (w) { w.style.overflowY = "scroll"; w.style.borderRadius = "0"; } }, 500);
   </script>
 </body>
 

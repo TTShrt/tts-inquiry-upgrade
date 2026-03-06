@@ -147,16 +147,16 @@
       gap: 0.25rem;
     }
 
-    .action-button {
-      height: 1.5rem;
-      width: 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 0.25rem;
-      background-color: #f1f5f9;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      transition: all 0.15s ease-in-out;
+    /* OLD */ /*     .action-button {
+    /* OLD */ /*       height: 1.5rem;
+    /* OLD */ /*       width: 1.5rem;
+    /* OLD */ /*       display: flex;
+    /* OLD */ /*       align-items: center;
+    /* OLD */ /*       justify-content: center;
+    /* OLD */ /*       border-radius: 0.25rem;
+    /* OLD */ /*       background-color: #f1f5f9;
+    /* OLD */ /*       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    /* OLD */ /*       transition: all 0.15s ease-in-out;
       transform: scale(1);
       font-size: 1rem;
     }
@@ -1685,29 +1685,39 @@
     /* ── Inputs: cleaner ── */
 
     /* ── SVG Icon Buttons (unified size) ── */
-    .action-button {
+    .action-button,
+    #summaryTable .action-button,
+    #summaryTable td .action-button,
+    #summaryTable td:last-child .action-button,
+    .basic-action-row .action-button,
+    .action-button-row .action-button {
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
       width: 26px !important;
       height: 26px !important;
+      font-size: 0 !important;
       background: #ffffff !important;
       border: 1px solid #e2e8f0 !important;
       border-radius: 6px !important;
       cursor: pointer !important;
       padding: 0 !important;
       box-shadow: none !important;
+      line-height: 1 !important;
     }
-    .action-button:hover {
+    .action-button:hover,
+    #summaryTable .action-button:hover {
       background: #f1f5f9 !important;
       border-color: #cbd5e1 !important;
     }
-    .action-button svg {
+    .action-button svg,
+    #summaryTable .action-button svg {
       width: 13px !important;
       height: 13px !important;
       stroke-width: 1.8;
     }
-    .action-button:disabled {
+    .action-button:disabled,
+    #summaryTable .action-button:disabled {
       opacity: 0.3 !important;
       cursor: not-allowed !important;
     }

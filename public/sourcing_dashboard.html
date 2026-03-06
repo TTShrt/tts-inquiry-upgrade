@@ -1228,7 +1228,6 @@
                 td.style.color = '';
               }, 800);
             } catch {
-              // fallback: select text
               const range = document.createRange();
               range.selectNodeContents(td);
               const sel = window.getSelection();
@@ -2170,7 +2169,7 @@ ${qDel}`)) return;
             const r3 = document.createElement('tr');
             r3.className = 'row-truck-head';
             TRUCK_HEADERS.forEach((h, i) => {
-              if (i === 0) r3.appendChild(tdHeader(key, 'text-left'));
+              if (i === 0) r3.appendChild(tdHeader(key, 'text-center'));
               else r3.appendChild(tdHeader(h));
             });
             tbody.appendChild(r3);
@@ -2186,7 +2185,7 @@ ${qDel}`)) return;
             r5.className = 'row-wh-head';
 
             WH_LEFT_HEADERS.forEach((h, i) => {
-              if (i === 0) r5.appendChild(tdHeader(key, 'text-left'));
+              if (i === 0) r5.appendChild(tdHeader(key, 'text-center'));
               else r5.appendChild(tdHeader(h));
             });
 

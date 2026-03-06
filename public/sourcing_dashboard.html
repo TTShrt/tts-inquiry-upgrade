@@ -3053,14 +3053,19 @@ ${qDel}`)) return;
     border: none !important;
     border-radius: 0 !important;
   }
+  /* Sticky ACTION column: offset right by scrollbar width */
+  #summaryTable th:last-child,
+  #summaryTable td:last-child {
+    right: 12px !important;
+  }
   #fixed-scroll-wrapper::-webkit-scrollbar {
-    width: 10px;
-    background: #f1f5f9;
+    width: 12px;
+    background: #eef2f7;
   }
   #fixed-scroll-wrapper::-webkit-scrollbar-thumb {
     background: #c1c9d4;
-    border-radius: 5px;
-    border: 2px solid #f1f5f9;
+    border-radius: 6px;
+    border: 2px solid #eef2f7;
   }
   #fixed-scroll-wrapper::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;

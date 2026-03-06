@@ -38,7 +38,7 @@
       overflow-x: auto; overflow-y: scroll;
       width: 100%;
       max-height: calc(100vh - 120px);
-      border-top: 1px solid #d1d5db;
+      border-top: none;
     }
 
     #summaryTable {
@@ -916,7 +916,7 @@
       /* ✅ 纵向+横向滚动都在这里 */
       height: auto !important;
       max-height: none !important;
-      border-top: 1px solid #d1d5db !important;
+      border-top: none !important;
     }
 
 
@@ -2844,7 +2844,7 @@
     setTimeout(() => { const w = document.getElementById("fixed-scroll-wrapper"); if (w) { w.style.overflowY = "scroll"; w.style.borderRadius = "0"; } }, 500);
   </script>
 <style>
-  /* ══ SCROLLBAR + BORDER FIX (last override) ══ */
+  /* ══ FINAL SCROLLBAR + BORDER FIX ══ */
   #fixed-scroll-wrapper,
   body.mode-summary #fixed-scroll-wrapper {
     overflow-y: scroll !important;
@@ -2853,22 +2853,9 @@
     border-top: none !important;
     border-radius: 0 !important;
   }
-  /* Sticky ACTION column: offset right by scrollbar width */
   #summaryTable th:last-child,
   #summaryTable td:last-child {
     right: 12px !important;
-  }
-  #fixed-scroll-wrapper::-webkit-scrollbar {
-    width: 12px;
-    background: #eef2f7;
-  }
-  #fixed-scroll-wrapper::-webkit-scrollbar-thumb {
-    background: #c1c9d4;
-    border-radius: 6px;
-    border: 2px solid #eef2f7;
-  }
-  #fixed-scroll-wrapper::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
   }
 </style>
 </body>

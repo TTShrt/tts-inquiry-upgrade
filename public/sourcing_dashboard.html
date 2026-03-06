@@ -1961,7 +1961,7 @@
           const editBtn = document.createElement('button');
           editBtn.className = 'action-button';
           editBtn.innerHTML = iconSVG('edit');
-          editBtn.title = '編輯成本';
+          editBtn.title = 'Edit Cost';
           editBtn.disabled = hardLocked;
           editBtn.onclick = () => unlockRow(quote, 'TRUCK');
           wrap.appendChild(editBtn);
@@ -1970,7 +1970,7 @@
           const saveBtn = document.createElement('button');
           saveBtn.className = 'action-button';
           saveBtn.innerHTML = iconSVG('save');
-          saveBtn.title = '儲存成本';
+          saveBtn.title = 'Save Cost';
           saveBtn.disabled = hardLocked;
           saveBtn.onclick = async () => {
             const fields = [
@@ -1997,7 +1997,7 @@
           // ✅ CHECK (Cost Sent)
           const chk = document.createElement('input');
           chk.type = 'checkbox';
-          chk.title = '成本已送出';
+          chk.title = 'Send to Sales';
           chk.checked = isTruthy(item[costSentField]);
           chk.disabled = scopeConfirmed(item, 'TRUCK');
           chk.className = 'w-5 h-5 accent-blue-600 cursor-pointer';
@@ -2043,17 +2043,17 @@
           const addBtn = document.createElement('button');
           addBtn.className = 'action-button';
           addBtn.innerHTML = iconSVG('add');
-          addBtn.title = '新增 TRUCK 子行';
+          addBtn.title = 'Add Truck Option';
           addBtn.disabled = false; // ✅ ADD 永远可用
           addBtn.onclick = async () => {
-            if (!confirm('確定新增一條 TRUCK 子行？')) return;
+            if (!confirm('Add a new Truck option?')) return;
 
             const okFlush = await flushAllDrafts();
-            if (!okFlush) { alert('❌ 自动保存失败，已取消新增（避免数据丢失）。'); return; }
+            if (!okFlush) { alert('❌ Auto-save failed. Add cancelled.'); return; }
 
             const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
             if (!okAuto) {
-              alert('❌ 先保存当前 TRUCK COST 失败，所以不会新增子行（避免数据丢失）。');
+              alert('❌ Failed to save current Truck cost. Add cancelled.');
               return;
             }
             const parent = String(mainKey || '').trim();
@@ -2081,7 +2081,7 @@
 
             if (!resp.ok) {
               const t = await resp.text();
-              alert('❌ 新增 TRUCK 子行失败：' + t);
+              alert('❌ Failed to add Truck option: ' + t);
               return;
             }
 
@@ -2093,7 +2093,7 @@
           const delBtn = document.createElement('button');
           delBtn.className = 'action-button';
           delBtn.innerHTML = iconSVG('trash');
-          delBtn.title = '删除 TRUCK 子行';
+          delBtn.title = 'Delete Truck Option';
 
           const qDel = String(quote || '').trim();
           const parentDel = String(mainKey || '').trim();
@@ -2104,19 +2104,19 @@
           delBtn.disabled = !canDelete;
           delBtn.style.opacity = canDelete ? '1' : '0.25';
           delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
-          delBtn.title = canDelete ? '删除 TRUCK 子行' : 'Cannot delete: locked';
+          delBtn.title = canDelete ? 'Delete Truck Option' : 'Cannot delete: locked';
 
           delBtn.onclick = async () => {
             if (!canDelete) {
-              alert('❌ TRUCK 只能删除子行（例如 主号-1 / 主号-2...），主行不能删：\n' + qDel);
+              alert('❌ Can only delete sub-options (e.g. -1, -2), not the main row:\n' + qDel);
               return;
             }
 
-            if (!confirm(`确定删除这条 TRUCK 子行？
+            if (!confirm(`Delete this Truck option?
 ${qDel}`)) return;
 
             const okFlush = await flushAllDrafts();
-            if (!okFlush) { alert('❌ 自动保存失败，已取消删除（避免数据丢失）。'); return; }
+            if (!okFlush) { alert('❌ Auto-save failed. Delete cancelled.'); return; }
 
             const resp = await fetch('/delete_inquiry', {
               method: 'POST',
@@ -2130,7 +2130,7 @@ ${qDel}`)) return;
             try { j = JSON.parse(raw); } catch { }
 
             if (!resp.ok || j.success === false) {
-              alert('❌ 删除失败：\n' + (j.message || raw || resp.statusText));
+              alert('❌ Delete failed:\n' + (j.message || raw || resp.statusText));
               return;
             }
 
@@ -2158,7 +2158,7 @@ ${qDel}`)) return;
           const editBtn = document.createElement('button');
           editBtn.className = 'action-button';
           editBtn.innerHTML = iconSVG('edit');
-          editBtn.title = '編輯成本';
+          editBtn.title = 'Edit Cost';
           editBtn.disabled = hardLocked;
           editBtn.onclick = () => unlockRow(quote, 'WH');
           wrap.appendChild(editBtn);
@@ -2167,7 +2167,7 @@ ${qDel}`)) return;
           const saveBtn = document.createElement('button');
           saveBtn.className = 'action-button';
           saveBtn.innerHTML = iconSVG('save');
-          saveBtn.title = '儲存成本';
+          saveBtn.title = 'Save Cost';
           saveBtn.disabled = hardLocked;
           saveBtn.onclick = async () => {
             const fields = [
@@ -2195,7 +2195,7 @@ ${qDel}`)) return;
           // ✅ CHECK
           const chk = document.createElement('input');
           chk.type = 'checkbox';
-          chk.title = '成本已送出';
+          chk.title = 'Send to Sales';
           chk.checked = isTruthy(item[costSentField]);
           chk.disabled = scopeConfirmed(item, 'WH');
           chk.className = 'w-5 h-5 accent-blue-600 cursor-pointer';
@@ -2239,18 +2239,18 @@ ${qDel}`)) return;
           const addBtn = document.createElement('button');
           addBtn.className = 'action-button';
           addBtn.innerHTML = iconSVG('add');
-          addBtn.title = '新增 WAREHOUSE 子行';
+          addBtn.title = 'Add Warehouse Option';
           addBtn.disabled = false; // ✅ ADD 永远可用
           addBtn.onclick = async () => {
-            if (!confirm('確定新增一條 WAREHOUSE 子行？')) return;
+            if (!confirm('Add a new Warehouse option?')) return;
 
             const okFlush = await flushAllDrafts();
-            if (!okFlush) { alert('❌ 自动保存失败，已取消新增（避免数据丢失）。'); return; }
+            if (!okFlush) { alert('❌ Auto-save failed. Add cancelled.'); return; }
 
             // ✅ 先 autosave 自己这个 WH scope（不是 TRUCK）
             const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');
             if (!okAuto) {
-              alert('❌ 先保存当前 WH COST 失败，所以不会新增子行（避免数据丢失）。');
+              alert('❌ Failed to save current WH cost. Add cancelled.');
               return;
             }
 
@@ -2279,7 +2279,7 @@ ${qDel}`)) return;
 
             const raw = await resp.text();
             if (!resp.ok) {
-              alert('❌ 新增 WAREHOUSE 子行失败：\n' + raw);
+              alert('❌ Failed to add Warehouse option:\n' + raw);
               return;
             }
             await loadInquiries();
@@ -2291,7 +2291,7 @@ ${qDel}`)) return;
           const delBtn = document.createElement('button');
           delBtn.className = 'action-button';
           delBtn.innerHTML = iconSVG('trash');
-          delBtn.title = '删除 WAREHOUSE 子行';
+          delBtn.title = 'Delete Warehouse Option';
 
           const qDel = String(quote || '').trim();
           const parentDel = String(mainKey || '').trim();
@@ -2302,19 +2302,19 @@ ${qDel}`)) return;
           delBtn.disabled = !canDelete;
           delBtn.style.opacity = canDelete ? '1' : '0.25';
           delBtn.style.pointerEvents = canDelete ? 'auto' : 'none';
-          delBtn.title = canDelete ? '删除 WAREHOUSE 子行' : 'Cannot delete: price entered or locked';
+          delBtn.title = canDelete ? 'Delete Warehouse Option' : 'Cannot delete: locked';
 
           delBtn.onclick = async () => {
             if (!canDelete) {
-              alert('❌ WAREHOUSE 只能删除子行（例如 主号-A / 主号-B...），主行不能删：\n' + qDel);
+              alert('❌ Can only delete sub-options (e.g. -A, -B), not the main row:\n' + qDel);
               return;
             }
 
-            if (!confirm(`确定删除这条 WAREHOUSE 子行？
+            if (!confirm(`Delete this Warehouse option?
 ${qDel}`)) return;
 
             const okFlush = await flushAllDrafts();
-            if (!okFlush) { alert('❌ 自动保存失败，已取消删除（避免数据丢失）。'); return; }
+            if (!okFlush) { alert('❌ Auto-save failed. Delete cancelled.'); return; }
 
             const resp = await fetch('/delete_inquiry', {
               method: 'POST',
@@ -2328,7 +2328,7 @@ ${qDel}`)) return;
             try { j = JSON.parse(raw); } catch { }
 
             if (!resp.ok || j.success === false) {
-              alert('❌ 删除失败：\n' + (j.message || raw || resp.statusText));
+              alert('❌ Delete failed:\n' + (j.message || raw || resp.statusText));
               return;
             }
 
@@ -2358,9 +2358,9 @@ ${qDel}`)) return;
           const haz = String(item['Hazmat'] ?? item['hazmat'] ?? '').toLowerCase() === 'true';
           const ref = String(item['Reefer'] ?? item['reefer'] ?? '').toLowerCase() === 'true';
           const bon = String(item['Bonded'] ?? item['bonded'] ?? '').toLowerCase() === 'true';
-          if (haz) icons.push('<span class="flag-badge flag-hazmat">HAZ</span>');
-          if (ref) icons.push('<span class="flag-badge flag-reefer">RFR</span>');
-          if (bon) icons.push('<span class="flag-badge flag-bonded">BND</span>');
+          if (haz) icons.push('HAZ');
+          if (ref) icons.push('RFR');
+          if (bon) icons.push('BND');
           return icons.join(' ');
         }
 
@@ -2725,9 +2725,9 @@ ${qDel}`)) return;
           // ===== Icons (same as Sales/Manager) =====
           const icon = (on, emoji) => (String(on || '').toLowerCase().trim() === 'true' ? emoji : '');
           const needWHIcon = icon(item['Need Warehouse Service'], '🏬');
-          const haz = icon(item['Hazmat'], '<span class="flag-badge flag-hazmat">HAZ</span>');
-          const ree = icon(item['Reefer'], '<span class="flag-badge flag-reefer">RFR</span>');
-          const bon = icon(item['Bonded'], '<span class="flag-badge flag-bonded">BND</span>');
+          const haz = icon(item['Hazmat'], 'HAZ');
+          const ree = icon(item['Reefer'], 'RFR');
+          const bon = icon(item['Bonded'], 'BND');
 
           const iconLine = [needWHIcon, haz, ree, bon].filter(Boolean).join(' ');
           if (iconLine) lines.push(iconLine);
@@ -2795,7 +2795,7 @@ ${qDel}`)) return;
         }   // ✅ 这一行你必须加
 
         async function addSubLine(parentQuote, scope) {
-          if (!confirm(`確定新增一條 ${scope} 子成本行？`)) return;
+          if (!confirm(`Add a new ${scope} option?`)) return;
 
           // 計算新編號後綴
           const currentSubs = await loadInquiries();
@@ -2846,10 +2846,10 @@ ${qDel}`)) return;
             });
 
             if (response.ok) {
-              alert(`新增成功：${newQuote}`);
+              alert(`Added successfully: ${newQuote}`);
               await loadInquiries(); // 重新載入表格
             } else {
-              alert('新增失敗');
+              alert('❌ Add failed');
             }
           } catch (err) {
             console.error('新增錯誤:', err);

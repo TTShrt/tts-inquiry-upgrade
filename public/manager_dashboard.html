@@ -2158,7 +2158,7 @@
           tbody.appendChild(r1);
 
           const r2 = document.createElement('tr'); r2.className = 'row-basic-val';
-          const flags = (String(main['Hazmat'] || '').toLowerCase() === 'true' ? '<span class="flag-badge flag-hazmat">HAZ</span>' : '') + (String(main['Reefer'] || '').toLowerCase() === 'true' ? '<span class="flag-badge flag-reefer">RFR</span>' : '') + (String(main['Bonded'] || '').toLowerCase() === 'true' ? '<span class="flag-badge flag-bonded">BND</span>' : '');
+          const flags = (String(main['Hazmat'] || '').toLowerCase() === 'true' ? 'HAZ' : '') + (String(main['Reefer'] || '').toLowerCase() === 'true' ? 'RFR' : '') + (String(main['Bonded'] || '').toLowerCase() === 'true' ? 'BND' : '');
           const vals = [
             String(displayIndex),
             main['Date'] || '',
@@ -2382,9 +2382,9 @@
         const icon = (on, emoji) => (String(on || '').toLowerCase() === 'true' ? emoji : '');
 
         const needWHIcon = icon(noteSource['Need Warehouse Service'], '🏢'); // or 🏬
-        const haz = icon(noteSource['Hazmat'], '<span class="flag-badge flag-hazmat">HAZ</span>');                       // or ☣️
-        const ree = icon(noteSource['Reefer'], '<span class="flag-badge flag-reefer">RFR</span>');
-        const bon = icon(noteSource['Bonded'], '<span class="flag-badge flag-bonded">BND</span>');
+        const haz = icon(noteSource['Hazmat'], 'HAZ');                       // or ☣️
+        const ree = icon(noteSource['Reefer'], 'RFR');
+        const bon = icon(noteSource['Bonded'], 'BND');
 
         const iconLine = [needWHIcon, haz, ree, bon].filter(Boolean).join(' ');
 

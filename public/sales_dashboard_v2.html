@@ -2583,9 +2583,9 @@
               const haz = String(item['Hazmat'] ?? item['hazmat'] ?? '').toLowerCase() === 'true';
               const ref = String(item['Reefer'] ?? item['reefer'] ?? '').toLowerCase() === 'true';
               const bon = String(item['Bonded'] ?? item['bonded'] ?? '').toLowerCase() === 'true';
-              if (haz) icons.push('<span class="flag-badge flag-hazmat">HAZ</span>');
-              if (ref) icons.push('<span class="flag-badge flag-reefer">RFR</span>');
-              if (bon) icons.push('<span class="flag-badge flag-bonded">BND</span>');
+              if (haz) icons.push('HAZ');
+              if (ref) icons.push('RFR');
+              if (bon) icons.push('BND');
               return icons.length ? ' ' + icons.join(' ') : '';
             }
 
@@ -2608,9 +2608,9 @@
               const haz = String(item['Hazmat'] ?? item['hazmat'] ?? '').toLowerCase() === 'true';
               const ref = String(item['Reefer'] ?? item['reefer'] ?? '').toLowerCase() === 'true';
               const bon = String(item['Bonded'] ?? item['bonded'] ?? '').toLowerCase() === 'true';
-              if (haz) icons.push('<span class="flag-badge flag-hazmat">HAZ</span>');
-              if (ref) icons.push('<span class="flag-badge flag-reefer">RFR</span>');
-              if (bon) icons.push('<span class="flag-badge flag-bonded">BND</span>');
+              if (haz) icons.push('HAZ');
+              if (ref) icons.push('RFR');
+              if (bon) icons.push('BND');
               return icons.join(' ');
             }
 
@@ -3303,8 +3303,8 @@
                 (String(on).toLowerCase() === 'true' ? emoji : '');
 
               const haz = icon(item['Hazmat'], '☣️');
-              const ree = icon(item['Reefer'], '<span class="flag-badge flag-reefer">RFR</span>');
-              const bon = icon(item['Bonded'], '<span class="flag-badge flag-bonded">BND</span>');
+              const ree = icon(item['Reefer'], 'RFR');
+              const bon = icon(item['Bonded'], 'BND');
               const needWHIcon = icon(item['Need Warehouse Service'], '🏬');
 
               // ✅ 加这一行

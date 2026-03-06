@@ -1736,7 +1736,7 @@
   </div>
 
 
-  <div id="fixed-scroll-wrapper" class="scroll-container" style="overflow-y:scroll !important;">
+  <div id="fixed-scroll-wrapper" class="scroll-container">
     <table class="bg-white border text-xs" id="summaryTable">
       <tr>
         <th class="border px-2"></th>
@@ -2843,6 +2843,20 @@
     // Force scrollbar visible
     setTimeout(() => { const w = document.getElementById("fixed-scroll-wrapper"); if (w) { w.style.overflowY = "scroll"; w.style.borderRadius = "0"; } }, 500);
   </script>
+<style>
+  #fixed-scroll-wrapper {
+    overflow-y: scroll !important;
+    overflow-x: auto !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+  body.mode-summary #fixed-scroll-wrapper {
+    overflow-y: scroll !important;
+    border-radius: 0 !important;
+    border: none !important;
+    border-top: none !important;
+  }
+</style>
 </body>
 
 </html>

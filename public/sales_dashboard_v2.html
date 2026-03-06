@@ -1455,6 +1455,248 @@
       text-overflow: ellipsis !important;
       text-align: left !important;
     }
+
+    /* ╔══════════════════════════════════════════════╗
+       ║  UI REFRESH — WMS v5 Style (2026-03-06)     ║
+       ╚══════════════════════════════════════════════╝ */
+
+    /* ── Page background ── */
+    html { background: #f1f5f9; }
+    body { background: #f1f5f9 !important; }
+
+    /* ── Top Nav Bar ── */
+    .header-section {
+      background: #ffffff !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+      padding: 10px 20px !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+    }
+
+    .header-section h1 {
+      font-size: 1.15rem !important;
+      font-weight: 600 !important;
+      color: #1e293b !important;
+    }
+
+    /* ── Buttons: clean flat style ── */
+    .main-button {
+      background: #ffffff !important;
+      color: #475569 !important;
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 8px !important;
+      padding: 6px 16px !important;
+      font-size: 0.8rem !important;
+      font-weight: 500 !important;
+      min-width: auto !important;
+      box-shadow: none !important;
+      transition: all 0.15s ease !important;
+      background-image: none !important;
+    }
+
+    .main-button:hover {
+      background: #f8fafc !important;
+      border-color: #94a3b8 !important;
+      color: #1e293b !important;
+      transform: none !important;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+      background-image: none !important;
+    }
+
+    /* Search & Clear: primary blue */
+    #searchBtn {
+      background: #4361ee !important;
+      color: #ffffff !important;
+      border-color: #4361ee !important;
+      font-weight: 600 !important;
+    }
+    #searchBtn:hover {
+      background: #3a56d4 !important;
+      border-color: #3a56d4 !important;
+      color: #ffffff !important;
+    }
+
+    #clearSearchBtn {
+      background: #f1f5f9 !important;
+      color: #64748b !important;
+      border-color: #cbd5e1 !important;
+    }
+    #clearSearchBtn:hover {
+      background: #e2e8f0 !important;
+      color: #475569 !important;
+    }
+
+    /* Exit: subtle red */
+    #exitBtn {
+      color: #dc2626 !important;
+      border-color: #fca5a5 !important;
+      background: #fef2f2 !important;
+    }
+    #exitBtn:hover {
+      background: #fee2e2 !important;
+      border-color: #f87171 !important;
+    }
+
+    /* Page indicator */
+    #pageInfo {
+      color: #64748b !important;
+      font-size: 0.8rem !important;
+      font-weight: 500 !important;
+    }
+
+    /* Search box */
+    #searchBox {
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 8px !important;
+      background: #f8fafc !important;
+      font-size: 0.8rem !important;
+      padding: 6px 14px !important;
+      height: auto !important;
+      transition: border-color 0.2s, box-shadow 0.2s !important;
+    }
+    #searchBox:focus {
+      border-color: #4361ee !important;
+      box-shadow: 0 0 0 3px rgba(67,97,238,0.15) !important;
+      background: #ffffff !important;
+      outline: none !important;
+    }
+
+    /* ── Table wrapper: card style ── */
+    #fixed-scroll-wrapper {
+      background: #ffffff !important;
+      border: none !important;
+      border-radius: 12px !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04) !important;
+      margin: 12px 16px !important;
+    }
+
+    /* ── Table: clean lines ── */
+    #summaryTable {
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+    }
+
+    #summaryTable td,
+    #summaryTable th {
+      border-right: none !important;
+      border-left: none !important;
+      border-top: none !important;
+      border-bottom: 1px solid #f1f5f9 !important;
+    }
+
+    /* ── Header rows: subtle ── */
+    #summaryTable tr.row-basic-head td,
+    #summaryTable tr.row-truck-head td,
+    #summaryTable tr.row-wh-head td {
+      background: #f8fafc !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+      color: #64748b !important;
+      font-weight: 500 !important;
+      font-size: 9px !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.04em !important;
+    }
+
+    /* ── Quotation separator: clean ── */
+    #summaryTable tr.row-basic-head td {
+      border-top: 3px solid #e2e8f0 !important;
+      box-shadow: none !important;
+    }
+
+    /* ── Row hover: gentle ── */
+    #summaryTable tr:hover td {
+      background-color: #f8fafc !important;
+    }
+
+    /* ── Sticky columns: match card ── */
+    #summaryTable th:first-child,
+    #summaryTable td:first-child {
+      background: #f8fafc !important;
+      box-shadow: inset -1px 0 0 #e2e8f0 !important;
+    }
+
+    #summaryTable th:last-child,
+    #summaryTable td:last-child {
+      background: #f8fafc !important;
+      box-shadow: inset 1px 0 0 #e2e8f0 !important;
+    }
+
+    /* Sticky column header overlap fix */
+    #summaryTable tr.row-basic-head td:first-child,
+    #summaryTable tr.row-truck-head td:first-child,
+    #summaryTable tr.row-wh-head td:first-child,
+    #summaryTable tr.row-basic-head td:last-child,
+    #summaryTable tr.row-truck-head td:last-child,
+    #summaryTable tr.row-wh-head td:last-child {
+      background: #f1f5f9 !important;
+    }
+
+    /* ── Row states: softer colors ── */
+    #summaryTable tr.new-inquiry.row-truck-val td,
+    #summaryTable tr.new-inquiry.row-wh-val td {
+      background: #fefce8 !important;
+    }
+
+    #summaryTable tr.cost-saved td {
+      background: #f0f9ff !important;
+    }
+
+    #summaryTable tr.row-sent td {
+      background: #eff6ff !important;
+    }
+
+    #summaryTable tr.row-confirmed td {
+      background: #f0fdf4 !important;
+    }
+
+    /* ── Row separator ── */
+    .row-sep td {
+      background: #f1f5f9 !important;
+      border-bottom: none !important;
+    }
+
+    /* ── Sub-rows ── */
+    .sub-row td {
+      background: #fafbfc !important;
+    }
+
+    /* Keep sticky columns neutral on all row states */
+    #summaryTable tr.new-inquiry td:first-child,
+    #summaryTable tr.new-inquiry td:last-child,
+    #summaryTable tr.cost-saved td:first-child,
+    #summaryTable tr.cost-saved td:last-child,
+    #summaryTable tr.row-sent td:first-child,
+    #summaryTable tr.row-sent td:last-child,
+    #summaryTable tr.row-confirmed td:first-child,
+    #summaryTable tr.row-confirmed td:last-child,
+    #summaryTable tr.sub-row td:first-child,
+    #summaryTable tr.sub-row td:last-child,
+    #summaryTable tr.row-sep td:first-child,
+    #summaryTable tr.row-sep td:last-child,
+    #summaryTable tr:hover td:first-child,
+    #summaryTable tr:hover td:last-child {
+      background: #f8fafc !important;
+    }
+
+    /* ── Inputs: cleaner ── */
+    #summaryTable input {
+      border: 1px solid #e2e8f0 !important;
+      border-radius: 4px !important;
+      background: #ffffff !important;
+    }
+
+    #summaryTable input:focus {
+      border-color: #4361ee !important;
+      box-shadow: 0 0 0 2px rgba(67,97,238,0.12) !important;
+      outline: none !important;
+    }
+
+    #summaryTable input.saved-input {
+      background: #f8fafc !important;
+      border-color: #e2e8f0 !important;
+    }
+
   </style>
 </head>
 

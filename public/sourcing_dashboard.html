@@ -163,6 +163,7 @@
       border: none !important;
       border-bottom: 3px solid #cfd6dd !important;
       height: 8px !important;
+      padding: 0 !important;
       background: #f3f4f6 !important;
     }
 
@@ -575,6 +576,17 @@
       text-align: right !important;
     }
 
+    /* ✅ FIX: # column and ACTION column must stay centered (higher specificity) */
+    #summaryTable tr.row-truck-val td:first-child,
+    #summaryTable tr.row-wh-val td:first-child,
+    #summaryTable tr.row-basic-val td:first-child {
+      text-align: center !important;
+    }
+    #summaryTable tr.row-truck-val td:last-child,
+    #summaryTable tr.row-wh-val td:last-child {
+      text-align: center !important;
+    }
+
     /* 但：TRUCK/WH 里 NOTE 仍要靠左、Action 仍居中、Carrier/Vendor 仍居中 */
     #summaryTable tr.row-truck-val td.note-preview,
     #summaryTable tr.row-wh-val td.note-preview,
@@ -723,6 +735,7 @@
     /* 4) 每个 inquiry 块之间更有呼吸感 */
     .row-sep td {
       height: 8px !important;
+      padding: 0 !important;
     }
 
     /* ===== Sourcing simplification ===== */

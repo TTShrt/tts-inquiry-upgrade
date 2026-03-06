@@ -1249,29 +1249,47 @@
 
     /* ── Inputs: cleaner ── */
 
-    /* ── SVG Icon Buttons ── */
+    /* ── SVG Icon Buttons (unified size) ── */
     .action-button {
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
+      width: 26px !important;
+      height: 26px !important;
       background: #ffffff !important;
       border: 1px solid #e2e8f0 !important;
+      border-radius: 6px !important;
       cursor: pointer !important;
+      padding: 0 !important;
+      box-shadow: none !important;
     }
     .action-button:hover {
       background: #f1f5f9 !important;
       border-color: #cbd5e1 !important;
     }
     .action-button svg {
-      width: 13px;
-      height: 13px;
+      width: 13px !important;
+      height: 13px !important;
       stroke-width: 1.8;
     }
     .action-button:disabled {
       opacity: 0.3 !important;
       cursor: not-allowed !important;
     }
+    .action-button-row {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+      white-space: nowrap !important;
+    }
 
+    /* ── Action checkbox ── */
+    .action-button-row input[type="checkbox"] {
+      width: 18px !important;
+      height: 18px !important;
+      margin: 0 !important;
+      cursor: pointer;
+    }
     /* ── Flag Badges ── */
     .flag-badge {
       display: inline-block;

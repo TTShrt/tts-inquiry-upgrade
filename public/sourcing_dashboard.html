@@ -19,8 +19,7 @@
       height: 100%;
       margin: 0;
       padding: 0;
-      overflow-x: auto;
-      overflow-y: scroll;
+      overflow: hidden;
     }
 
     #inquiryForm {
@@ -164,6 +163,8 @@
       border-bottom: 3px solid #cfd6dd !important;
       height: 8px !important;
       padding: 0 !important;
+      line-height: 0 !important;
+      font-size: 0 !important;
       background: #f3f4f6 !important;
     }
 
@@ -576,7 +577,7 @@
       text-align: right !important;
     }
 
-    /* ✅ FIX: # column and ACTION column must stay centered (higher specificity) */
+    /* ✅ # column and ACTION column must stay centered */
     #summaryTable tr.row-truck-val td:first-child,
     #summaryTable tr.row-wh-val td:first-child,
     #summaryTable tr.row-basic-val td:first-child {
@@ -736,6 +737,8 @@
     .row-sep td {
       height: 8px !important;
       padding: 0 !important;
+      line-height: 0 !important;
+      font-size: 0 !important;
     }
 
     /* ===== Sourcing simplification ===== */

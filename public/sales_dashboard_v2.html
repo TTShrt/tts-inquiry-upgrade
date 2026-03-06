@@ -127,6 +127,13 @@
       text-overflow: ellipsis;
     }
 
+    #summaryTable td[data-col="Commodity"]:hover,
+    #summaryTable td[data-col="From"]:hover,
+    #summaryTable td[data-col="To"]:hover {
+      background: #eff6ff;
+      text-decoration: underline dotted #94a3b8;
+    }
+
     .saved-row .saved-row .action-button,
     .saved-row .checkbox-wrapper {
       opacity: 0.5;
@@ -1943,6 +1950,30 @@
             return tdCell(text, `bg-gray-100 text-center ${cls}`);
           }
 
+          // ✅ Click-to-copy for truncated Commodity/From/To cells
+          function makeCopyable(td, fullText) {
+            if (!fullText) return;
+            td.style.cursor = 'pointer';
+            td.onclick = async () => {
+              try {
+                await navigator.clipboard.writeText(fullText);
+                const orig = td.textContent;
+                td.textContent = '✓ Copied!';
+                td.style.color = '#16a34a';
+                setTimeout(() => {
+                  td.textContent = orig;
+                  td.style.color = '';
+                }, 800);
+              } catch {
+                const range = document.createRange();
+                range.selectNodeContents(td);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+              }
+            };
+          }
+
           // ✅ GP < 10% → red styling
           function applyGPColor(td, gpValue) {
             if (gpValue !== null && Number.isFinite(gpValue) && gpValue < 0.10) {
@@ -2629,9 +2660,9 @@
                   td.textContent = v ?? '';
                   // from/to/commodity 以外你想左对齐的可以在这里加
                   if (i === 13 || i === 14) td.classList.add('text-left');
-                  if (i === 6) { td.dataset.col = 'Commodity'; td.title = v || ''; }
-                  if (i === 13) { td.dataset.col = 'From'; td.title = v || ''; }
-                  if (i === 14) { td.dataset.col = 'To'; td.title = v || ''; }
+                  if (i === 6) { td.dataset.col = 'Commodity'; td.title = v || ''; makeCopyable(td, v); }
+                  if (i === 13) { td.dataset.col = 'From'; td.title = v || ''; makeCopyable(td, v); }
+                  if (i === 14) { td.dataset.col = 'To'; td.title = v || ''; makeCopyable(td, v); }
                 }
 
                 r2.appendChild(td);

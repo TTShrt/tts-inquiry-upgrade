@@ -62,7 +62,7 @@
       font-weight: 500;
       white-space: nowrap;
       background: #f3f4f6 !important;
-      border-top: 5px solid #afb5bd !important;
+      border-top: 4px solid #cfd6dd !important;
       text-align: center !important;
     }
 
@@ -90,6 +90,13 @@
       text-overflow: ellipsis;
     }
 
+    #summaryTable td[data-col="Commodity"]:hover,
+    #summaryTable td[data-col="From"]:hover,
+    #summaryTable td[data-col="To"]:hover {
+      background: #eff6ff;
+      text-decoration: underline dotted #94a3b8;
+    }
+
     .note-preview {
       cursor: pointer;
       text-align: left !important;
@@ -108,8 +115,9 @@
     #summaryTable td:first-child {
       position: sticky !important;
       left: 0 !important;
-      z-index: 999 !important;
-      box-shadow: 8px 0 12px rgba(0, 0, 0, .10);
+      z-index: 9999 !important;
+      background: #e5e7eb !important;
+      box-shadow: inset -1px 0 0 #d1d5db, 6px 0 10px -10px rgba(0, 0, 0, .25) !important;
       width: 10ch !important;
       min-width: 10ch !important;
       max-width: 10ch !important;
@@ -120,8 +128,9 @@
     #summaryTable td:last-child {
       position: sticky !important;
       right: 0 !important;
-      z-index: 999 !important;
-      box-shadow: -8px 0 12px rgba(0, 0, 0, .10);
+      z-index: 9999 !important;
+      background: #e5e7eb !important;
+      box-shadow: inset 1px 0 0 #d1d5db, -6px 0 10px -10px rgba(0, 0, 0, .25) !important;
       min-width: 140px;
       text-align: center !important;
     }
@@ -132,7 +141,7 @@
     #summaryTable .row-basic-head td:last-child,
     #summaryTable .row-truck-head td:last-child,
     #summaryTable .row-wh-head td:last-child {
-      z-index: 1000 !important;
+      z-index: 10000 !important;
     }
 
     /* Inputs */
@@ -1378,6 +1387,31 @@
         td.classList.add('bg-gray-100', 'text-center');
         return td;
       }
+
+      // ✅ Click-to-copy for truncated Commodity/From/To cells
+      function makeCopyable(td, fullText) {
+        if (!fullText) return;
+        td.style.cursor = 'pointer';
+        td.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(fullText);
+            const orig = td.textContent;
+            td.textContent = '✓ Copied!';
+            td.style.color = '#16a34a';
+            setTimeout(() => {
+              td.textContent = orig;
+              td.style.color = '';
+            }, 800);
+          } catch {
+            const range = document.createRange();
+            range.selectNodeContents(td);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        };
+      }
+
       function makeInput(value, field, quote, locked, scope) {
         const input = document.createElement('input');
         input.value = value ?? '';
@@ -1789,9 +1823,9 @@
           ];
           vals.forEach((v, i) => {
             const td = tdCell(v, 'text-center');
-            if (i === 6) { td.dataset.col = 'Commodity'; td.style.textAlign = 'left'; td.title = v || ''; }
-            if (i === 13) { td.dataset.col = 'From'; td.style.textAlign = 'left'; td.title = v || ''; }
-            if (i === 14) { td.dataset.col = 'To'; td.style.textAlign = 'left'; td.title = v || ''; }
+            if (i === 6) { td.dataset.col = 'Commodity'; td.style.textAlign = 'left'; td.title = v || ''; makeCopyable(td, v); }
+            if (i === 13) { td.dataset.col = 'From'; td.style.textAlign = 'left'; td.title = v || ''; makeCopyable(td, v); }
+            if (i === 14) { td.dataset.col = 'To'; td.style.textAlign = 'left'; td.title = v || ''; makeCopyable(td, v); }
             r2.appendChild(td);
           });
 

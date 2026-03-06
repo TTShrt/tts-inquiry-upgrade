@@ -125,6 +125,14 @@
       text-overflow: ellipsis;
     }
 
+    /* Click-to-copy hover hint */
+    #summaryTable td[data-col="Commodity"]:hover,
+    #summaryTable td[data-col="From"]:hover,
+    #summaryTable td[data-col="To"]:hover {
+      background: #eff6ff;
+      text-decoration: underline dotted #94a3b8;
+    }
+
     /* BASIC 值行 */
     .row-basic-val td {
       background: #ffffff;
@@ -637,19 +645,18 @@
     #summaryTable td:first-child {
       position: sticky !important;
       left: 0 !important;
-      z-index: 20 !important;
-      background: #d1d5db !important;
-      /* 深灰底 */
+      z-index: 9999 !important;
+      background: #e5e7eb !important;
+      box-shadow: inset -1px 0 0 #d1d5db, 6px 0 10px -10px rgba(0, 0, 0, .25) !important;
     }
 
     #summaryTable th:last-child,
     #summaryTable td:last-child {
       position: sticky !important;
       right: 0 !important;
-      z-index: 20 !important;
-      background: #e5e7eb;
-      /* 深灰底 */
-      box-shadow: -6px 0 6px rgba(0, 0, 0, 0.08) !important;
+      z-index: 9999 !important;
+      background: #e5e7eb !important;
+      box-shadow: inset 1px 0 0 #d1d5db, -6px 0 10px -10px rgba(0, 0, 0, .25) !important;
     }
 
     /* 让表头在冻结列上方更稳 */
@@ -659,7 +666,7 @@
     #summaryTable .row-basic-head td:last-child,
     #summaryTable .row-truck-head td:last-child,
     #summaryTable .row-wh-head td:last-child {
-      z-index: 30 !important;
+      z-index: 10000 !important;
     }
 
     /* 只有锁定（saved-input）才给颜色；解锁编辑就白底 */
@@ -678,7 +685,8 @@
     }
 
     .row-basic-head td {
-      border-top: 5px solid #afb5bd !important;
+      border-top: 4px solid #cfd6dd !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(0, 0, 0, 0.06) !important;
     }
 
     #summaryTable td {
@@ -799,7 +807,7 @@
     #summaryTable .row-basic-head td:last-child,
     #summaryTable .row-truck-head td:last-child,
     #summaryTable .row-wh-head td:last-child {
-      z-index: 1000 !important;
+      z-index: 10000 !important;
     }
 
     /* Action buttons (match SALES) */
@@ -1201,6 +1209,31 @@
 
         function tdHeader(text = '', cls = '') {
           return tdCell(text, `bg-gray-100 text-center ${cls}`);
+        }
+
+        // ✅ Click-to-copy for truncated Commodity/From/To cells
+        function makeCopyable(td, fullText) {
+          if (!fullText) return;
+          td.style.cursor = 'pointer';
+          td.onclick = async () => {
+            try {
+              await navigator.clipboard.writeText(fullText);
+              const orig = td.textContent;
+              td.textContent = '✓ Copied!';
+              td.style.color = '#16a34a';
+              setTimeout(() => {
+                td.textContent = orig;
+                td.style.color = '';
+              }, 800);
+            } catch {
+              // fallback: select text
+              const range = document.createRange();
+              range.selectNodeContents(td);
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }
+          };
         }
 
         function makeInput(value, field, quote, locked, scope, alignLeft = false) {
@@ -2090,9 +2123,9 @@ ${qDel}`)) return;
             ];
             vals.forEach((v, i) => {
               const td = tdCell(v, 'text-center');
-              if (i === 6) { td.dataset.col = 'Commodity'; td.style.textAlign = 'left'; td.title = v || ''; }
-              if (i === 13) { td.dataset.col = 'From'; td.style.textAlign = 'left'; td.title = v || ''; }
-              if (i === 14) { td.dataset.col = 'To'; td.style.textAlign = 'left'; td.title = v || ''; }
+              if (i === 6) { td.dataset.col = 'Commodity'; td.style.textAlign = 'left'; td.title = v || ''; makeCopyable(td, v); }
+              if (i === 13) { td.dataset.col = 'From'; td.style.textAlign = 'left'; td.title = v || ''; makeCopyable(td, v); }
+              if (i === 14) { td.dataset.col = 'To'; td.style.textAlign = 'left'; td.title = v || ''; makeCopyable(td, v); }
               r2.appendChild(td);
             });
 

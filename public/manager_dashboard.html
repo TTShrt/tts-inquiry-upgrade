@@ -80,11 +80,14 @@
       font-weight: 400;
     }
 
-    /* Commodity / From / To: no wrap */
+    /* Commodity / From / To: truncate with ellipsis */
     #summaryTable td[data-col="Commodity"],
     #summaryTable td[data-col="From"],
     #summaryTable td[data-col="To"] {
-      white-space: nowrap !important;
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .note-preview {
@@ -1786,9 +1789,9 @@
           ];
           vals.forEach((v, i) => {
             const td = tdCell(v, 'text-center');
-            if (i === 6) { td.dataset.col = 'Commodity'; td.style.textAlign = 'left'; }
-            if (i === 13) { td.dataset.col = 'From'; td.style.textAlign = 'left'; }
-            if (i === 14) { td.dataset.col = 'To'; td.style.textAlign = 'left'; }
+            if (i === 6) { td.dataset.col = 'Commodity'; td.style.textAlign = 'left'; td.title = v || ''; }
+            if (i === 13) { td.dataset.col = 'From'; td.style.textAlign = 'left'; td.title = v || ''; }
+            if (i === 14) { td.dataset.col = 'To'; td.style.textAlign = 'left'; td.title = v || ''; }
             r2.appendChild(td);
           });
 

@@ -117,11 +117,14 @@
       font-weight: 400;
     }
 
-    /* Commodity / From / To: no wrap, expand with text */
+    /* Commodity / From / To: truncate with ellipsis */
     #summaryTable td[data-col="Commodity"],
     #summaryTable td[data-col="From"],
     #summaryTable td[data-col="To"] {
-      white-space: nowrap !important;
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .saved-row .saved-row .action-button,
@@ -422,10 +425,10 @@
       box-sizing: border-box;
     }
 
-    /* Commodity / From / To 允许自动撑列 */
+    /* Commodity / From / To 允许自动撑列（但有上限） */
     #summaryTable input.auto-grow {
       width: auto !important;
-      max-width: none !important;
+      max-width: 170px !important;
       min-width: 6ch !important;
       box-sizing: content-box !important;
     }
@@ -710,7 +713,7 @@
     #summaryTable tr.row-truck-head td,
     #summaryTable tr.row-wh-head td {
       background: #f3f4f6 !important;
-      font-weight: 700;
+      font-weight: 500;
     }
 
     /* 默认：values 行背景保持白/很淡灰（不做区块染色） */
@@ -779,7 +782,7 @@
     #summaryTable tr.row-truck-head td,
     #summaryTable tr.row-wh-head td {
       background: #f3f4f6 !important;
-      font-weight: 700 !important;
+      font-weight: 500 !important;
       white-space: nowrap !important;
       text-align: center !important;
       padding-top: 7px !important;
@@ -2626,9 +2629,9 @@
                   td.textContent = v ?? '';
                   // from/to/commodity 以外你想左对齐的可以在这里加
                   if (i === 13 || i === 14) td.classList.add('text-left');
-                  if (i === 6) td.dataset.col = 'Commodity';
-                  if (i === 13) td.dataset.col = 'From';
-                  if (i === 14) td.dataset.col = 'To';
+                  if (i === 6) { td.dataset.col = 'Commodity'; td.title = v || ''; }
+                  if (i === 13) { td.dataset.col = 'From'; td.title = v || ''; }
+                  if (i === 14) { td.dataset.col = 'To'; td.title = v || ''; }
                 }
 
                 r2.appendChild(td);

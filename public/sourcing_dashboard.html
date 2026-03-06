@@ -115,11 +115,14 @@
       font-weight: 400;
     }
 
-    /* Commodity / From / To: no wrap */
+    /* Commodity / From / To: truncate with ellipsis */
     #summaryTable td[data-col="Commodity"],
     #summaryTable td[data-col="From"],
     #summaryTable td[data-col="To"] {
-      white-space: nowrap !important;
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     /* BASIC 值行 */
@@ -510,10 +513,10 @@
       padding: 1px 3px;
     }
 
-    /* Commodity / From / To 允许自动撑列 */
+    /* Commodity / From / To 允许自动撑列（但有上限） */
     #summaryTable input.auto-grow {
       width: auto !important;
-      max-width: none !important;
+      max-width: 170px !important;
       min-width: 6ch !important;
       box-sizing: content-box !important;
     }
@@ -843,7 +846,7 @@
     #summaryTable tr.row-truck-head td,
     #summaryTable tr.row-wh-head td {
       background: #f3f4f6 !important;
-      font-weight: 700 !important;
+      font-weight: 500 !important;
     }
 
     /* 2) 把“状态色”限制在 value 行（只对 row-*-val 生效） */
@@ -2087,9 +2090,9 @@ ${qDel}`)) return;
             ];
             vals.forEach((v, i) => {
               const td = tdCell(v, 'text-center');
-              if (i === 6) { td.dataset.col = 'Commodity'; td.style.textAlign = 'left'; }
-              if (i === 13) { td.dataset.col = 'From'; td.style.textAlign = 'left'; }
-              if (i === 14) { td.dataset.col = 'To'; td.style.textAlign = 'left'; }
+              if (i === 6) { td.dataset.col = 'Commodity'; td.style.textAlign = 'left'; td.title = v || ''; }
+              if (i === 13) { td.dataset.col = 'From'; td.style.textAlign = 'left'; td.title = v || ''; }
+              if (i === 14) { td.dataset.col = 'To'; td.style.textAlign = 'left'; td.title = v || ''; }
               r2.appendChild(td);
             });
 

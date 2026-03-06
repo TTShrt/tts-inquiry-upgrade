@@ -1470,6 +1470,32 @@
       height: 16px !important;
     }
 
+
+    /* ══════ SCROLL FIX (highest specificity) ══════ */
+    body.mode-summary #fixed-scroll-wrapper {
+      overflow-y: scroll !important;
+      scrollbar-gutter: stable;
+      border-radius: 12px !important;
+    }
+    body.mode-summary #fixed-scroll-wrapper,
+    body #fixed-scroll-wrapper {
+      overflow-y: scroll !important;
+    }
+
+    /* ══════ FORM INPUT HEIGHT FIX ══════ */
+    #inquiryForm input[name="toCity"],
+    #inquiryForm input[name="toState"],
+    #inquiryForm input[name="toZip"] {
+      height: 100% !important;
+      min-height: 38px !important;
+    }
+    #inquiryForm .grid.grid-cols-3 {
+      align-items: stretch !important;
+    }
+    #inquiryForm input,
+    #inquiryForm select {
+      min-height: 38px !important;
+    }
   </style>
 </head>
 

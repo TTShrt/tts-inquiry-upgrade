@@ -709,9 +709,9 @@ app.post('/login', async (req, res) => {
   const role = String(user.role || '').toLowerCase();
 
   let redirect = '/index.html';
-  if (role === 'manager') redirect = '/manager_dashboard.html';
-  else if (role === 'sourcing') redirect = '/sourcing_dashboard.html';
-  else if (role === 'sales' || role === 'ops_view') redirect = '/sales_dashboard_v2.html';
+  if (role === 'manager') redirect = '/manager_home.html';
+  else if (role === 'sourcing') redirect = '/sourcing_home.html';
+  else if (role === 'sales' || role === 'ops_view') redirect = '/sales_home.html';
 
   return res.json({
     success: true,
@@ -735,6 +735,154 @@ async function findInquiryByQuote(quote) {
   // mongo mode (NEW DB only)
   return await Inquiry.findOne({ 'Quotation #': q }).lean();
 }
+
+
+// ══════ KPI Dashboard API ══════
+app.get('/api/kpi', async (req, res) => {
+  try {
+    const role = String(req.cookies.role || '').toLowerCase();
+    const username = String(req.cookies.username || '');
+    const salesGroup = String(req.cookies.salesGroup || '');
+
+    if (!Inquiry || !conn || conn.readyState !== 1) {
+      return res.json({ error: 'DB not ready' });
+    }
+
+    // Get all main lines (no dash-suffix = main quotation)
+    const allDocs = await Inquiry.find({}).lean();
+
+    // Filter main lines only (e.g. 004790, not 004790-1)
+    const mainLines = allDocs.filter(d => {
+      const q = String(d['Quotation #'] || '');
+      return q && !/-\d+$/.test(q) && !/-[A-Z]$/i.test(q);
+    });
+
+    // Helper
+    const isTrue = v => String(v || '').toLowerCase().trim() === 'true';
+    const thisMonth = new Date();
+    const monthStart = new Date(thisMonth.getFullYear(), thisMonth.getMonth(), 1);
+
+    // Filter by role
+    let docs = mainLines;
+    if (role === 'sales' || role === 'ops_view') {
+      if (salesGroup) {
+        const groupUsers = users.filter(u => u.salesGroup === salesGroup).map(u => u.username);
+        docs = mainLines.filter(d => groupUsers.includes(d['Assigned Sales'] || d.username));
+      } else {
+        docs = mainLines.filter(d => (d['Assigned Sales'] || d.username) === username);
+      }
+    }
+
+    const total = docs.length;
+
+    // Date filter for this month
+    const thisMonthDocs = docs.filter(d => {
+      const dateStr = d['Date'] || d.createdAt;
+      if (!dateStr) return false;
+      const dt = new Date(dateStr);
+      return dt >= monthStart;
+    });
+
+    let kpi = {};
+
+    if (role === 'sales' || role === 'ops_view') {
+      const awaitingSourcing = docs.filter(d => !isTrue(d.truckingCostSent) && !isTrue(d.truckingSalesConfirmed)).length;
+      const sourcingQuoted = docs.filter(d => isTrue(d.truckingCostSent) && !isTrue(d.truckingSalesConfirmed)).length;
+      const salesConfirmed = docs.filter(d => isTrue(d.truckingSalesConfirmed)).length;
+      const managerConfirmed = docs.filter(d => isTrue(d.truckingManagerConfirmed)).length;
+
+      kpi = {
+        role: 'sales',
+        total,
+        thisMonth: thisMonthDocs.length,
+        awaitingSourcing,
+        sourcingQuoted,
+        salesConfirmed,
+        managerConfirmed,
+        recentInquiries: docs.slice(-5).reverse().map(d => ({
+          quote: d['External Quotation #'] || d['Quotation #'],
+          customer: d['Customer ID'] || '',
+          date: d['Date'] || '',
+          status: isTrue(d.truckingManagerConfirmed) ? 'Completed' :
+                  isTrue(d.truckingSalesConfirmed) ? 'Sales Confirmed' :
+                  isTrue(d.truckingCostSent) ? 'Sourcing Quoted' : 'Pending'
+        }))
+      };
+
+    } else if (role === 'sourcing') {
+      const newInquiries = docs.filter(d => !isTrue(d.truckingCostSaved) && !isTrue(d.truckingCostSent)).length;
+      const savedNotSent = docs.filter(d => isTrue(d.truckingCostSaved) && !isTrue(d.truckingCostSent)).length;
+      const sentToSales = docs.filter(d => isTrue(d.truckingCostSent) && !isTrue(d.truckingSalesConfirmed)).length;
+      const confirmed = docs.filter(d => isTrue(d.truckingSalesConfirmed) || isTrue(d.truckingManagerConfirmed)).length;
+
+      // Find urgent (>24h without response)
+      const now = Date.now();
+      const urgent = docs.filter(d => {
+        if (isTrue(d.truckingCostSaved) || isTrue(d.truckingCostSent)) return false;
+        const dt = new Date(d['Date'] || d.createdAt);
+        return (now - dt.getTime()) > 24 * 60 * 60 * 1000;
+      }).length;
+
+      kpi = {
+        role: 'sourcing',
+        total,
+        thisMonth: thisMonthDocs.length,
+        newInquiries,
+        savedNotSent,
+        sentToSales,
+        confirmed,
+        urgent,
+        recentInquiries: docs.slice(-5).reverse().map(d => ({
+          quote: d['External Quotation #'] || d['Quotation #'],
+          customer: d['Customer ID'] || '',
+          from: d['From'] || '',
+          date: d['Date'] || '',
+          status: isTrue(d.truckingCostSent) ? 'Sent' :
+                  isTrue(d.truckingCostSaved) ? 'Saved' : 'New'
+        }))
+      };
+
+    } else if (role === 'manager') {
+      const pendingApproval = docs.filter(d => isTrue(d.truckingSalesConfirmed) && !isTrue(d.truckingManagerConfirmed)).length;
+      const managerConfirmed = docs.filter(d => isTrue(d.truckingManagerConfirmed)).length;
+      const awaitingSourcing = docs.filter(d => !isTrue(d.truckingCostSent)).length;
+
+      // Average GP
+      let gpSum = 0, gpCount = 0;
+      allDocs.forEach(d => {
+        const gp = parseFloat(d['GP']);
+        if (Number.isFinite(gp) && gp > 0 && gp < 1) {
+          gpSum += gp;
+          gpCount++;
+        }
+      });
+      const avgGP = gpCount > 0 ? (gpSum / gpCount * 100).toFixed(1) : '—';
+
+      kpi = {
+        role: 'manager',
+        total,
+        thisMonth: thisMonthDocs.length,
+        pendingApproval,
+        managerConfirmed,
+        awaitingSourcing,
+        avgGP,
+        recentInquiries: docs.slice(-5).reverse().map(d => ({
+          quote: d['External Quotation #'] || d['Quotation #'],
+          customer: d['Customer ID'] || '',
+          date: d['Date'] || '',
+          status: isTrue(d.truckingManagerConfirmed) ? 'Confirmed' :
+                  isTrue(d.truckingSalesConfirmed) ? 'Pending Approval' :
+                  isTrue(d.truckingCostSent) ? 'Quoted' : 'In Progress'
+        }))
+      };
+    }
+
+    res.json(kpi);
+  } catch (err) {
+    console.error('KPI error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.post('/inquiries', async (req, res) => {
   // ✅ New permission model: ops_view is strictly read-only

@@ -2841,23 +2841,26 @@
       });
     })();
     // Force scrollbar visible
-    setTimeout(() => { const w = document.getElementById("fixed-scroll-wrapper"); if (w) { w.style.overflowY = "scroll"; w.style.borderRadius = "0"; } }, 500);
+    // scroll fix moved to split-scroll script
   </script>
-<style>
-  /* ══ FINAL SCROLLBAR + BORDER FIX ══ */
-  #fixed-scroll-wrapper,
-  body.mode-summary #fixed-scroll-wrapper {
-    overflow-y: scroll !important;
-    overflow-x: auto !important;
-    border: none !important;
-    border-top: none !important;
-    border-radius: 0 !important;
-  }
-  #summaryTable th:last-child,
-  #summaryTable td:last-child {
-    right: 12px !important;
-  }
-</style>
+<script>
+// ══ Split scroll: outer=vertical, inner=horizontal ══
+(function() {
+  const inner = document.getElementById('fixed-scroll-wrapper');
+  if (!inner) return;
+  const outer = document.createElement('div');
+  outer.id = 'v-scroll-outer';
+  outer.style.cssText = 'overflow-y:scroll; overflow-x:hidden; max-height:calc(100vh - 70px); width:100%; border:none;';
+  inner.parentNode.insertBefore(outer, inner);
+  outer.appendChild(inner);
+  inner.style.setProperty('overflow-y', 'visible', 'important');
+  inner.style.setProperty('overflow-x', 'auto', 'important');
+  inner.style.setProperty('max-height', 'none', 'important');
+  inner.style.setProperty('border', 'none', 'important');
+  inner.style.setProperty('border-top', 'none', 'important');
+  inner.style.setProperty('border-radius', '0', 'important');
+})();
+</script>
 </body>
 
 </html>

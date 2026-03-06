@@ -316,7 +316,7 @@
         const result = await response.json();
         if (result.success) {
           localStorage.setItem('username', formData.username);
-          const version = 'v=20250306';;
+          const version = 'v=20260306';;
           window.location.href = `${result.redirect}?${version}`;
         } else {
           errorText.textContent = result.message || 'Login failed';

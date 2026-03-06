@@ -762,7 +762,8 @@ app.get('/api/kpi', async (req, res) => {
 
     // Combined status helpers (check BOTH truck and warehouse)
     const isConfirmed = d => isTrue(d.truckingSalesConfirmed) || isTrue(d.truckingManagerConfirmed)
-                          || isTrue(d.warehouseSalesConfirmed) || isTrue(d.warehouseManagerConfirmed);
+                          || isTrue(d.warehouseSalesConfirmed) || isTrue(d.warehouseManagerConfirmed)
+                          || isTrue(d['Selected']);
     const isCostSent = d => isTrue(d.truckingCostSent) || isTrue(d.warehouseCostSent);
     const isCostSaved = d => isTrue(d.truckingCostSaved) || isTrue(d.warehouseCostSaved);
     const thisMonth = new Date();

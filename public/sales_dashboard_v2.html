@@ -2523,8 +2523,6 @@
 
               const ok = await setConfirm(quote, 'truckingSalesConfirmed', want);
               if (!ok) chk.checked = !want;
-
-              window.loadInquiries && window.loadInquiries();
             };
 
 
@@ -2640,8 +2638,6 @@
                 tr.classList.remove('editing-row', 'row-confirmed', 'cost-received');
                 tr.classList.add('saved-price');
               });
-
-              window.loadInquiries && window.loadInquiries();
             };
 
             const addBtn = document.createElement('button');

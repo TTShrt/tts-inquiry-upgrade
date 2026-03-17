@@ -1677,7 +1677,7 @@
           const res = await fetch('/inquiries/update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
+            credentials: 'same-origin',
             body: JSON.stringify(payload)
           });
 
@@ -1868,7 +1868,7 @@
 
         // 拉全量 inquiries（用于算下一个编号）
         async function fetchAllInquiries() {
-          const res = await fetch('/inquiries', { credentials: 'include' });
+          const res = await fetch('/inquiries', { credentials: 'same-origin' });
           const data = await res.json();
           return Array.isArray(data) ? data : [];
         }
@@ -2083,7 +2083,7 @@
             const resp = await fetch('/inquiries', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
+              credentials: 'same-origin',
               body: JSON.stringify(newItem)
             });
 
@@ -2129,7 +2129,7 @@ ${qDel}`)) return;
             const resp = await fetch('/delete_inquiry', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
+              credentials: 'same-origin',
               body: JSON.stringify({ quoteId: qDel })
             });
 
@@ -2281,7 +2281,7 @@ ${qDel}`)) return;
             const resp = await fetch('/inquiries', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
+              credentials: 'same-origin',
               body: JSON.stringify(newItem)
             });
 
@@ -2327,7 +2327,7 @@ ${qDel}`)) return;
             const resp = await fetch('/delete_inquiry', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
+              credentials: 'same-origin',
               body: JSON.stringify({ quoteId: qDel })
             });
 
@@ -2849,7 +2849,7 @@ ${qDel}`)) return;
             const response = await fetch('/inquiries', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
+              credentials: 'same-origin',
               body: JSON.stringify(newItem)
             });
 
@@ -2954,7 +2954,7 @@ ${qDel}`)) return;
         })();
 
         async function getCurrentUser() {
-          const res = await fetch('/user');
+          const res = await fetch('/user', { credentials: 'same-origin' });
           if (!res.ok) {
             alert('❌ Not logged in. Please login again.');
             window.location.href = '/index.html';
@@ -2975,7 +2975,7 @@ ${qDel}`)) return;
 
         async function loadInquiries() {
           try {
-            const res = await fetch('/inquiries', { credentials: 'include' });
+            const res = await fetch('/inquiries', { credentials: 'same-origin' });
 
             const raw = await res.text();   // ✅ 先拿 text
             let data = null;

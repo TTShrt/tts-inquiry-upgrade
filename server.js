@@ -701,10 +701,11 @@ app.post('/login', async (req, res) => {
   const user = users.find(u => u.username === username && u.password === password);
   if (!user) return res.json({ success: false, message: 'Invalid credentials' });
 
-  // ✅ cookies
-  res.cookie('username', user.username);
-  res.cookie('role', user.role);
-  res.cookie('salesGroup', user.salesGroup || ''); // ✅ NEW
+  // ✅ cookies — SameSite:Lax ensures cookies are sent on same-origin POST/GET in all browsers (Chrome, Edge, Firefox, Safari)
+  const cookieOpts = { sameSite: 'Lax', httpOnly: false };
+  res.cookie('username', user.username, cookieOpts);
+  res.cookie('role', user.role, cookieOpts);
+  res.cookie('salesGroup', user.salesGroup || '', cookieOpts);
 
   const role = String(user.role || '').toLowerCase();
 
@@ -1153,6 +1154,9 @@ app.get('/sourcing_dashboard.html', requireRole('sourcing'), (req, res) => {
 
 
 app.get('/inquiries', async (req, res) => {
+  // ✅ Prevent Edge/Chrome from caching API responses — ensures fresh data on every fetch
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
   try {
     const mongoReady = !!conn && conn.readyState === 1 && !!Inquiry;
 

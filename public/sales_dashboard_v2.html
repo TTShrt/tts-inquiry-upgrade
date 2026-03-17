@@ -2366,6 +2366,7 @@
 
             const res = await fetch('/inquiries/update', {
               method: 'POST',
+              credentials: 'same-origin',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
             });
@@ -3762,7 +3763,7 @@
         window.userRole = '';
 
         window.getCurrentUser = async function () {
-          const res = await fetch('/user');
+          const res = await fetch('/user', { credentials: 'same-origin' });
           if (!res.ok) {
             alert('❌ Not logged in. Please login again.');
             window.location.href = '/index.html';
@@ -4068,6 +4069,7 @@
           try {
             const res = await fetch('/inquiries', {
               method: 'POST',
+              credentials: 'same-origin',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(newInquiry)
             });
@@ -4175,6 +4177,7 @@
             try {
               const res = await fetch('/inquiries/update', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
               });
@@ -4225,6 +4228,7 @@
             try {
               const res = await fetch('/inquiries/update', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
               });

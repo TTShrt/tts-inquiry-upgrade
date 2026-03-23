@@ -1485,17 +1485,14 @@ app.post('/inquiries/update', async (req, res) => {
 
     console.log('[UPDATE BLOCKED]', blocked);
 
-// ✅ Sourcing: ignore blocked keys and continue saving allowed fields (prevents "save then reload clears")
-if (blocked.length && role === 'sourcing') {
-  console.warn('[UPDATE] sourcing ignored blocked fields:', blocked.map(b => b.field));
-  // continue (do NOT 403)
-} else if (blocked.length) {
-  // Keep behavior strict for other roles to avoid silent data drift
-  return res.status(403).json({
-    success: false,
-    message: 'Update blocked by permission/lock rules',
-    blocked
-  });
+// ✅ Skip blocked fields but continue saving allowed ones for all roles.
+// Returning 403 on the entire save when even ONE field is blocked (e.g. Carrier
+// appears in both TRUCK_COST_FIELDS and TRUCK_PRICE_FIELDS) silently drops
+// Adjusted Price and all other valid fields. Log and move on instead.
+if (blocked.length) {
+  console.warn('[UPDATE] ignored blocked fields for role=' + role + ':',
+    blocked.map(b => b.field + ' (' + b.reason + ')'));
+  // continue with filtered (allowed) fields only
 }
 
     // ========= Apply updates =========

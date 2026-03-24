@@ -2407,7 +2407,8 @@
         tr.dataset.quote = quote;
         tr.dataset.scope = 'TRUCK';
 
-        const locked = isTruthy(item['truckingManagerConfirmed']);
+        // ✅ Lock if either Sales OR Manager has confirmed — Manager must press Edit to modify
+        const locked = isTruthy(item['truckingManagerConfirmed']) || isTruthy(item['truckingSalesConfirmed']);
         const parentInternal = String(item['Parent Quotation #'] || '').trim();
         const parentDoc = parentInternal
           ? (window.filteredData || []).find(x => String(x['Quotation #'] || '').trim() === parentInternal)
@@ -2482,7 +2483,8 @@
         tr.dataset.quote = quote;
         tr.dataset.scope = 'WH';
 
-        const locked = isTruthy(item['warehouseManagerConfirmed']);
+        // ✅ Lock if either Sales OR Manager has confirmed — Manager must press Edit to modify
+        const locked = isTruthy(item['warehouseManagerConfirmed']) || isTruthy(item['warehouseSalesConfirmed']);
 
         tr.appendChild(tdCell(displayQuote, isSub ? 'text-center font-semibold' : ''));
         const whPairs = [['Order Processing', 'Order Processing Price'], ['Inbound', 'Inbound Price'], ['Sorting', 'Sorting Price'], ['Palletizing', 'Palletizing Price'], ['Pallet Fee', 'Pallet Fee Price'], ['Storage', 'Storage Price'], ['Outbound', 'Outbound Price']];

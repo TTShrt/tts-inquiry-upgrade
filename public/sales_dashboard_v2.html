@@ -2523,7 +2523,18 @@
               }
 
               const ok = await setConfirm(quote, 'truckingSalesConfirmed', want);
-              if (!ok) chk.checked = !want;
+              if (!ok) { chk.checked = !want; return; }
+
+              // ✅ Update row color immediately without full reload
+              document.querySelectorAll(`tr.row-truck-val[data-quote="${quote}"]`).forEach(tr => {
+                if (want) {
+                  tr.classList.remove('editing-row', 'saved-price', 'cost-received');
+                  tr.classList.add('row-confirmed');
+                } else {
+                  tr.classList.remove('row-confirmed');
+                  tr.classList.add('saved-price');
+                }
+              });
             };
 
 
@@ -2634,10 +2645,15 @@
               const ok = await setConfirm(quote, 'warehouseSalesConfirmed', want);
               if (!ok) { chk.checked = !want; return; }
 
-              // ✅ 保存成功：退出 editing-row，进入 saved-price（整行灰蓝）
+              // ✅ Update row color immediately without full reload
               document.querySelectorAll(`tr.row-wh-val[data-quote="${quote}"]`).forEach(tr => {
-                tr.classList.remove('editing-row', 'row-confirmed', 'cost-received');
-                tr.classList.add('saved-price');
+                if (want) {
+                  tr.classList.remove('editing-row', 'saved-price', 'cost-received');
+                  tr.classList.add('row-confirmed');
+                } else {
+                  tr.classList.remove('row-confirmed');
+                  tr.classList.add('saved-price');
+                }
               });
             };
 
@@ -3060,7 +3076,6 @@
               }
 
               const lockedTruck = viewOnly
-                || isTruthy(item['Saved'])
                 || isTruthy(item['truckingManagerConfirmed'])
                 || isTruthy(item['truckingSalesConfirmed']);
 
@@ -3335,7 +3350,6 @@
               }
 
               const lockedWH = viewOnly
-                || isTruthy(item['Saved'])
                 || isTruthy(item['warehouseManagerConfirmed'])
                 || isTruthy(item['warehouseSalesConfirmed']);
 

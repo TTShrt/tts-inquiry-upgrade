@@ -2425,6 +2425,28 @@
             return r.ok;
           }
 
+          // ✅ PERF: Merge saveFields + setConfirm into one single POST
+          async function saveAndConfirm(quote, fields, scope, confirmField) {
+            const payload = {
+              'Quotation #': quote,
+              'Saved': 'true',
+            };
+            if (scope === 'TRUCK') payload['truckingPriceSaved'] = 'true';
+            if (scope === 'WH') payload['warehousePriceSaved'] = 'true';
+            payload[confirmField] = 'true';
+
+            // Collect all input values for this scope
+            const inputs = Array.from(document.querySelectorAll(`input[data-scope="${scope}"]`))
+              .filter(el => el.getAttribute('data-quote') === quote);
+            const map = new Map();
+            inputs.forEach(el => { const f = el.getAttribute('data-field'); if (f) map.set(f, el.value); });
+            fields.forEach(f => { if (map.has(f)) payload[f] = map.get(f); });
+
+            const r = await postUpdate(payload);
+            if (!r.ok) alert('❌ Save & Confirm failed: ' + (r.text || ''));
+            return r.ok;
+          }
+
 
           function unlockRow(quote, scope) {
             document
@@ -2510,22 +2532,22 @@
             chk.onchange = async () => {
               const want = chk.checked;
 
-              // ✅ 只有在“勾选”时自动保存一次，确保 Manager 能看到
               if (want) {
+                // ✅ PERF: Single POST — save prices + confirm flag together
                 const fields = [
                   'Adjusted Price', 'Carrier', 'Note',
                   'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
                   'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price'
                 ];
-                const okSave = await saveFields(quote, fields, 'TRUCK');
-                if (!okSave) { chk.checked = false; return; }
+                const ok = await saveAndConfirm(quote, fields, 'TRUCK', 'truckingSalesConfirmed');
+                if (!ok) { chk.checked = false; return; }
                 lockRow(quote, 'TRUCK');
+              } else {
+                const ok = await setConfirm(quote, 'truckingSalesConfirmed', false);
+                if (!ok) { chk.checked = true; return; }
               }
 
-              const ok = await setConfirm(quote, 'truckingSalesConfirmed', want);
-              if (!ok) { chk.checked = !want; return; }
-
-              // ✅ Update row color immediately without full reload
+              // ✅ Update row color immediately
               document.querySelectorAll(`tr.row-truck-val[data-quote="${quote}"]`).forEach(tr => {
                 if (want) {
                   tr.classList.remove('editing-row', 'saved-price', 'cost-received');
@@ -2623,8 +2645,8 @@
             chk.onchange = async () => {
               const want = chk.checked;
 
-              // ✅ 勾选时自动保存 Warehouse Price
               if (want) {
+                // ✅ PERF: Single POST — save prices + confirm flag together
                 const fields = [
                   'Vendor', 'Note',
                   'Order Processing Price',
@@ -2635,17 +2657,15 @@
                   'Storage Price',
                   'Outbound Price'
                 ];
-
-                const okSave = await saveFields(quote, fields, 'WH');
-                if (!okSave) { chk.checked = false; return; }
+                const ok = await saveAndConfirm(quote, fields, 'WH', 'warehouseSalesConfirmed');
+                if (!ok) { chk.checked = false; return; }
                 lockRow(quote, 'WH');
+              } else {
+                const ok = await setConfirm(quote, 'warehouseSalesConfirmed', false);
+                if (!ok) { chk.checked = true; return; }
               }
 
-
-              const ok = await setConfirm(quote, 'warehouseSalesConfirmed', want);
-              if (!ok) { chk.checked = !want; return; }
-
-              // ✅ Update row color immediately without full reload
+              // ✅ Update row color immediately
               document.querySelectorAll(`tr.row-wh-val[data-quote="${quote}"]`).forEach(tr => {
                 if (want) {
                   tr.classList.remove('editing-row', 'saved-price', 'cost-received');

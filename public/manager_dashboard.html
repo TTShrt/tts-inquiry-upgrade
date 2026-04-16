@@ -2007,6 +2007,19 @@
         return await postUpdate(payload);
       }
 
+      // ✅ PERF: Merge saveFields + confirm into one single POST
+      async function saveAndConfirm(quote, fields, scope, confirmField) {
+        const payload = { 'Quotation #': quote, 'Saved': 'true' };
+        if (scope === 'TRUCK') payload['truckingPriceSaved'] = 'true';
+        if (scope === 'WH') payload['warehousePriceSaved'] = 'true';
+        payload[confirmField] = 'true';
+        const inputs = Array.from(document.querySelectorAll(`input[data-scope="${scope}"][data-quote="${quote}"]`));
+        const map = new Map();
+        inputs.forEach(el => { const f = el.getAttribute('data-field'); if (f) map.set(f, el.value); });
+        fields.forEach(f => { if (map.has(f)) payload[f] = map.get(f); });
+        return await postUpdate(payload);
+      }
+
       function lockRow(quote, scope, locked) {
         document.querySelectorAll(`input[data-scope="${scope}"][data-quote="${quote}"]`).forEach(el => {
           el.disabled = !!locked;
@@ -2153,14 +2166,12 @@
 
           // If manager is confirming (or upgrading sales-only to manager-confirm)
           if (want) {
+            // ✅ PERF: Single POST — save prices + confirm flag together
             const fields = scope === 'WH'
               ? ['Vendor', 'Note', 'Order Processing Price', 'Inbound Price', 'Sorting Price', 'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price']
               : ['Adjusted Price', 'Carrier', 'Note', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price', 'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price'];
-            const rSave = await saveFields(quote, fields, scope);
-            if (!rSave.ok) { chk.checked = mgrConfirmed || salesConfirmed; return; }
-
-            const field = scope === 'WH' ? 'warehouseManagerConfirmed' : 'truckingManagerConfirmed';
-            const r = await setConfirm(quote, field, true);
+            const confirmField = scope === 'WH' ? 'warehouseManagerConfirmed' : 'truckingManagerConfirmed';
+            const r = await saveAndConfirm(quote, fields, scope, confirmField);
             if (!r.ok) { chk.checked = mgrConfirmed || salesConfirmed; return; }
             await loadInquiries();
             return;

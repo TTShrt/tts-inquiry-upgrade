@@ -1800,6 +1800,42 @@
           return r.ok;
         }
 
+        // ✅ PERF: Merge autosave + costSaved + costSent flags into ONE single POST
+        async function sendCost(quote, scope, want) {
+          const qTrim = String(quote || '').trim();
+          const sTrim = String(scope || '').trim();
+
+          const costSentField  = sTrim === 'TRUCK' ? 'truckingCostSent'  : 'warehouseCostSent';
+          const costSavedField = sTrim === 'TRUCK' ? 'truckingCostSaved' : 'warehouseCostSaved';
+          const draftField     = sTrim === 'TRUCK' ? 'truckingCostDraft' : 'warehouseCostDraft';
+          const costFields     = sTrim === 'TRUCK'
+            ? ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
+               'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier']
+            : ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee',
+               'Storage', 'Outbound', 'Vendor'];
+
+          const payload = {
+            'Quotation #': qTrim,
+            'Saved': 'true',
+            [costSavedField]: 'true',
+            [costSentField]:  want ? 'true' : 'false',
+            [draftField]:     want ? 'false' : 'true',
+          };
+
+          // Only include cost field values when checking (sending to Sales)
+          if (want) {
+            const inputs = Array.from(document.querySelectorAll(`input[data-scope="${sTrim}"]`))
+              .filter(el => String(el.getAttribute('data-quote') || '').trim() === qTrim);
+            const map = new Map();
+            inputs.forEach(el => { const f = el.getAttribute('data-field'); if (f) map.set(f, el.value); });
+            costFields.forEach(f => { if (map.has(f)) payload[f] = map.get(f); });
+          }
+
+          const r = await postUpdate(payload);
+          if (!r.ok) alert('❌ Update failed: ' + (r.text || ''));
+          return r.ok;
+        }
+
         function unlockRow(quote, scope) {
           // ✅ 给该 scope 行加 editing class（让输入框变白）
           const rowSel = scope === 'TRUCK' ? 'tr.row-truck-val' : 'tr.row-wh-val';
@@ -2011,26 +2047,15 @@
           chk.className = 'w-5 h-5 accent-blue-600 cursor-pointer';
 
           chk.onchange = async () => {
+          chk.onchange = async () => {
             const want = chk.checked;
             chk.disabled = true;
 
             try {
-              if (want) {
-                const okSave = await autosaveScopeIfHasAnyValue(quote, 'TRUCK');
-                if (!okSave) { chk.checked = false; return; }
+              // ✅ PERF: Single POST — autosave + costSaved + costSent + draft all together
+              const ok = await sendCost(quote, 'TRUCK', want);
+              if (!ok) { chk.checked = !want; return; }
 
-                const okFlag1 = await setFlags(quote, { [costSavedField]: 'true' });
-                if (!okFlag1) { chk.checked = false; return; }
-              }
-
-              // ✅ costSent + draft flag: check → clear draft (Sales sees); uncheck → set draft (Sales hidden)
-              const okFlag2 = await setFlags(quote, {
-                [costSentField]: want ? 'true' : 'false',
-                'truckingCostDraft': want ? 'false' : 'true'
-              });
-              if (!okFlag2) { chk.checked = !want; return; }
-
-              // ✅ 不 reload，不 loadInquiries
               lockRow(quote, 'TRUCK');
 
               const row = findRowByQuoteScope(quote, 'TRUCK');
@@ -2208,22 +2233,14 @@ ${qDel}`)) return;
           chk.disabled = scopeConfirmed(item, 'WH');
           chk.className = 'w-5 h-5 accent-blue-600 cursor-pointer';
           chk.onchange = async () => {
+          chk.onchange = async () => {
             const want = chk.checked;
             chk.disabled = true;
 
             try {
-              if (want) {
-                const okSave = await autosaveScopeIfHasAnyValue(quote, 'WH');
-                if (!okSave) { chk.checked = false; return; }
-                const okFlag1 = await setFlags(quote, { [costSavedField]: 'true' });
-                if (!okFlag1) { chk.checked = false; return; }
-              }
-
-              const okFlag2 = await setFlags(quote, {
-                [costSentField]: want ? 'true' : 'false',
-                'warehouseCostDraft': want ? 'false' : 'true'
-              });
-              if (!okFlag2) { chk.checked = !want; return; }
+              // ✅ PERF: Single POST — autosave + costSaved + costSent + draft all together
+              const ok = await sendCost(quote, 'WH', want);
+              if (!ok) { chk.checked = !want; return; }
 
               lockRow(quote, 'WH');
 
@@ -2238,8 +2255,6 @@ ${qDel}`)) return;
               chk.disabled = false;
             }
           };
-          wrap.appendChild(chk);
-
           td.appendChild(wrap);
 
           // ➕ ADD (只新增 WH 子行)

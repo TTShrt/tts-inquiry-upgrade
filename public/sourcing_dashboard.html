@@ -1667,10 +1667,14 @@
         }
 
         function lockState(item, scope) {
-          // Sourcing row is locked if Sales/Manager confirmed OR if this cost scope has been saved/sent.
-          const costSentField = scope === 'TRUCK' ? 'truckingCostSent' : 'warehouseCostSent';
-          const costSavedField = scope === 'TRUCK' ? 'truckingCostSaved' : 'warehouseCostSaved';
-          return scopeConfirmed(item, scope) || isTruthy(item[costSentField]) || isTruthy(item[costSavedField]);
+          // Sourcing row is locked when:
+          //   - Sales/Manager has confirmed, OR
+          //   - Sales has saved Adjusted Price/Price (truckingPriceSaved / warehousePriceSaved = true).
+          // SAVE / SEND alone no longer lock the row — Sourcing keeps full edit rights
+          // until Sales actually commits a price.
+          if (scopeConfirmed(item, scope)) return true;
+          const priceSavedField = scope === 'TRUCK' ? 'truckingPriceSaved' : 'warehousePriceSaved';
+          return isTruthy(item[priceSavedField]);
         }
 
         async function postUpdate(payload) {
@@ -1996,7 +2000,7 @@
           const costSentField = 'truckingCostSent';
           const costSavedField = 'truckingCostSaved';
 
-          const hardLocked = scopeConfirmed(item, 'TRUCK') || isTruthy(item[costSentField]) || !!groupLocked;
+          const hardLocked = lockState(item, 'TRUCK') || !!groupLocked;
 
           const wrap = document.createElement('div');
           wrap.className = 'action-button-row';
@@ -2181,7 +2185,7 @@ ${qDel}`)) return;
           const costSentField = 'warehouseCostSent';
           const costSavedField = 'warehouseCostSaved';
 
-          const hardLocked = scopeConfirmed(item, 'WH') || isTruthy(item[costSentField]) || !!groupLocked;
+          const hardLocked = lockState(item, 'WH') || !!groupLocked;
 
           const wrap = document.createElement('div');
           wrap.className = 'action-button-row';

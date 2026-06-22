@@ -54,6 +54,17 @@ app.use(cookieParser(process.env.COOKIE_SECRET));
 // Pointing req.cookies at the verified set makes every existing req.cookies.x read
 // forgery-proof — role / salesGroup / username can no longer be edited client-side.
 app.use((req, _res, next) => { req.cookies = req.signedCookies || {}; next(); });
+// ✅ Offboarding guard: a verified cookie is only honored while its username still exists in
+// `users`. Deleting or renaming a user in `users` (+ deploy) invalidates that person's existing
+// cookie on their very next request — not just future logins. Runs per-request; `users` is
+// initialized at module load (below) before any request is served, so referencing it here is safe.
+app.use((req, _res, next) => {
+  const uname = req.cookies && req.cookies.username;
+  if (uname && !users.some(u => u.username === uname)) {
+    req.cookies = {}; // username no longer exists → treat as logged out (downstream guards 403/redirect)
+  }
+  next();
+});
 
 // ==============================
 // ✅ Auth helpers (FIX requireRole)
@@ -717,7 +728,7 @@ app.post('/login', async (req, res) => {
   if (!user) return res.json({ success: false, message: 'Invalid credentials' });
 
   // ✅ cookies — SameSite:Lax ensures cookies are sent on same-origin POST/GET in all browsers (Chrome, Edge, Firefox, Safari)
-  const cookieOpts = { sameSite: 'Lax', httpOnly: true, secure: true, signed: true };
+  const cookieOpts = { sameSite: 'Lax', httpOnly: true, secure: true, signed: true, maxAge: 8 * 60 * 60 * 1000 };
   res.cookie('username', user.username, cookieOpts);
   res.cookie('role', user.role, cookieOpts);
   res.cookie('salesGroup', user.salesGroup || '', cookieOpts);

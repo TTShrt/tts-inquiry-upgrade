@@ -72,24 +72,7 @@ app.use((req, _res, next) => {
 
 app.use(bodyParser.json());
 
-// ✅✅✅ 把 debug 路由加在這裡！（bodyParser 之後，static 之前）
-app.get('/__debug/db', async (req, res) => {
-  try {
-    const mongoReady = !!conn && conn.readyState === 1 && !!Inquiry;
-    const count = mongoReady ? await Inquiry.countDocuments({}) : null;
-    res.json({
-      USE_MOCK,
-      mongoReady,
-      dbName: conn?.name || conn?.db?.databaseName || null,
-      collection: 'inquiries',
-      count,
-      MONGO_URI: process.env.MONGODB_URI ? '設有值（隱藏細節）' : '未設定',
-      connReadyState: conn ? conn.readyState : 'null'
-    });
-  } catch (e) {
-    res.status(500).json({ error: String(e?.message || e) });
-  }
-});
+// (Removed unauthenticated /__debug/db endpoint — it exposed DB metadata to anyone.)
 
 
 function requireRole(role) {
@@ -1152,30 +1135,8 @@ app.post('/inquiries', async (req, res) => {
   }
 });
 
-// Manager only
-app.get('/manager_dashboard.html', requireRole('manager'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'manager_dashboard.html'));
-});
-
-function requireAnyRole(roles) {
-  return (req, res, next) => {
-    const r = String(req.cookies.role || '').toLowerCase();
-    if (!roles.includes(r)) return res.status(403).send('Forbidden');
-    next();
-  };
-}
-
-// Sales + OPS Teams
-app.get(
-  '/sales_dashboard_v2.html',
-  requireAnyRole(['sales', 'ops_view']),
-  (req, res) => res.sendFile(path.join(__dirname, 'public', 'sales_dashboard_v2.html'))
-);
-
-// Sourcing only
-app.get('/sourcing_dashboard.html', requireRole('sourcing'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'sourcing_dashboard.html'));
-});
+// (Dashboard page guards are registered above, before express.static. The old duplicate
+//  routes that used to live here were dead — static/#2-guards handle these paths first.)
 
 
 
@@ -2265,22 +2226,6 @@ app.use((req, res, next) => {
   }
 
   next();
-});
-
-app.get('/__debug/db', async (req, res) => {
-  try {
-    const mongoReady = !!conn && conn.readyState === 1 && !!Inquiry;
-    const count = mongoReady ? await Inquiry.countDocuments({}) : null;
-    res.json({
-      USE_MOCK,
-      mongoReady,
-      dbName: conn?.name || conn?.db?.databaseName || null,
-      collection: 'inquiries',
-      count,
-    });
-  } catch (e) {
-    res.status(500).json({ error: String(e?.message || e) });
-  }
 });
 
 server.listen(PORT, () => {

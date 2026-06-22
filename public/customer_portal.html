@@ -157,6 +157,11 @@
 
       <form id="rfqForm">
 
+        <!-- Anti-spam honeypot: hidden from real users; bots that fill it are rejected. Leave empty. -->
+        <div aria-hidden="true" style="position:absolute; left:-9999px; top:-9999px; width:1px; height:1px; overflow:hidden;">
+          <label>Website (leave empty)<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+        </div>
+
         <!-- Contact Info -->
         <div class="section-label">Contact Information</div>
         <div class="form-grid">
@@ -347,6 +352,9 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // Anti-spam time-trap: record when the form became ready (used to reject instant bot submits).
+    window.__rfqLoadedAt = Date.now();
+
     document.getElementById('rfqForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const form = e.target;
@@ -366,6 +374,9 @@
       const toState = (data.toState || '').trim();
       const toZip = (data.toZip || '').trim();
       data.to = [toCity, [toState, toZip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+
+      // Anti-spam: how long the form was open (server rejects sub-3s / missing).
+      data.elapsedMs = Date.now() - (window.__rfqLoadedAt || 0);
 
       try {
         const res = await fetch('/public/inquiries', {

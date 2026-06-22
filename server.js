@@ -72,6 +72,24 @@ app.use((req, _res, next) => {
 
 app.use(bodyParser.json());
 
+// ---- Security: neutralize NoSQL operator-injection in request inputs ----
+// Recursively removes any key starting with '$' or containing '.' from the parsed body/query.
+// This defuses payloads like { "Quotation #": { "$ne": null } } before they ever reach a query.
+// (None of this app's real field names contain '$' or '.', so nothing legitimate is dropped.)
+function deepMongoSanitize(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  if (Array.isArray(obj)) { obj.forEach(deepMongoSanitize); return; }
+  for (const key of Object.keys(obj)) {
+    if (key.startsWith('$') || key.includes('.')) { delete obj[key]; }
+    else { deepMongoSanitize(obj[key]); }
+  }
+}
+app.use((req, _res, next) => {
+  deepMongoSanitize(req.body);
+  try { deepMongoSanitize(req.query); } catch (_) { /* query may be read-only on some Express versions */ }
+  next();
+});
+
 // (Removed unauthenticated /__debug/db endpoint — it exposed DB metadata to anyone.)
 
 
@@ -915,8 +933,8 @@ app.get('/api/kpi', async (req, res) => {
 app.post('/inquiries', async (req, res) => {
   // ✅ New permission model: ops_view is strictly read-only
   const role = String(req.cookies?.role || '').toLowerCase();
-  if (role === 'ops_view') {
-    return res.status(403).send('OPS view-only cannot create inquiry.');
+  if (!['sales', 'sourcing', 'manager'].includes(role)) {
+    return res.status(403).send(role === 'ops_view' ? 'OPS view-only cannot create inquiry.' : 'Not authorized.');
   }
 
   try {
@@ -1230,15 +1248,15 @@ app.get('/inquiries', async (req, res) => {
 
 app.post('/inquiries/update', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();
-  if (role === 'ops_view') {
-    return res.status(403).json({ success: false, message: 'OPS view-only cannot modify data.' });
+  if (!['sales', 'sourcing', 'manager'].includes(role)) {
+    return res.status(403).json({ success: false, message: role === 'ops_view' ? 'OPS view-only cannot modify data.' : 'Not authorized.' });
   }
 
   try {
     const incoming = req.body || {};
     console.log('[UPDATE] role=', role, 'quotation=', incoming['Quotation #'], 'keys=', Object.keys(incoming || {}));
 
-    const quotationId = incoming['Quotation #'];
+    const quotationId = String(incoming['Quotation #'] || '').trim();
 
     function buildSafePatch(payload) {
   const patch = {};
@@ -1614,8 +1632,8 @@ if (blocked.length) {
 
 app.post('/api/push-to-gofreight', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();
-  if (role === 'ops_view') {
-    return res.status(403).json({ success: false, message: 'OPS view-only cannot modify data.' });
+  if (!['sales', 'sourcing', 'manager'].includes(role)) {
+    return res.status(403).json({ success: false, message: role === 'ops_view' ? 'OPS view-only cannot modify data.' : 'Not authorized.' });
   }
 
   const inquiry = req.body;
@@ -1848,11 +1866,11 @@ app.post('/api/push-to-gofreight', async (req, res) => {
 
 app.post('/duplicate_inquiry', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();
-  if (role === 'ops_view') {
-    return res.status(403).json({ success: false, message: 'OPS view-only cannot modify data.' });
+  if (!['sales', 'sourcing', 'manager'].includes(role)) {
+    return res.status(403).json({ success: false, message: role === 'ops_view' ? 'OPS view-only cannot modify data.' : 'Not authorized.' });
   }
 
-  const { quoteId } = req.body;
+  const quoteId = String((req.body || {}).quoteId || '').trim();
   if (!quoteId) return res.status(400).json({ success: false, message: 'Missing quoteId' });
 
   try {
@@ -1860,7 +1878,8 @@ app.post('/duplicate_inquiry', async (req, res) => {
     if (!original) return res.status(404).json({ success: false, message: 'Quotation # not found' });
 
     const baseId = quoteId.split('-')[0];
-    const siblings = await Inquiry.find({ 'Quotation #': { $regex: `^${baseId}-` } });
+    const escapeRegExp = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const siblings = await Inquiry.find({ 'Quotation #': { $regex: `^${escapeRegExp(baseId)}-` } });
 
     const suffixes = siblings.map(doc => {
       const parts = (doc['Quotation #'] || '').split('-');
@@ -1945,11 +1964,11 @@ app.post('/duplicate_inquiry', async (req, res) => {
 
 app.post('/delete_inquiry', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();
-  if (role === 'ops_view') {
-    return res.status(403).json({ success: false, message: 'OPS view-only cannot modify data.' });
+  if (!['sales', 'sourcing', 'manager'].includes(role)) {
+    return res.status(403).json({ success: false, message: role === 'ops_view' ? 'OPS view-only cannot modify data.' : 'Not authorized.' });
   }
 
-  const { quoteId } = req.body;
+  const quoteId = String((req.body || {}).quoteId || '').trim();
   console.log(`[DEBUG] /delete_inquiry called with quoteId: ${quoteId}`);
 
   if (!quoteId || String(quoteId).trim() === '') {
@@ -2092,9 +2111,55 @@ function regionAssignment(region) {
 }
 
 // Public endpoint (NO cookies required)
+// ---- Customer portal anti-spam: simple in-memory per-IP rate limit ----
+const portalSubmitLog = new Map(); // ip -> [timestamps within window]
+const PORTAL_RL_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const PORTAL_RL_MAX = 5;                     // max submissions per IP per window
+function portalClientIp(req) {
+  const xff = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return xff || req.socket?.remoteAddress || 'unknown';
+}
+function portalRateLimited(req) {
+  const ip = portalClientIp(req);
+  const now = Date.now();
+  const arr = (portalSubmitLog.get(ip) || []).filter(t => now - t < PORTAL_RL_WINDOW_MS);
+  if (arr.length >= PORTAL_RL_MAX) { portalSubmitLog.set(ip, arr); return true; }
+  arr.push(now);
+  portalSubmitLog.set(ip, arr);
+  return false;
+}
+
 app.post('/public/inquiries', async (req, res) => {
   try {
     const raw = req.body || {};
+
+    // ===== Anti-spam guard (this endpoint is public) =====
+    // 1) Per-IP rate limit — caps floods from a single source.
+    if (portalRateLimited(req)) {
+      return res.status(429).json({ success: false, message: 'Too many requests. Please try again later.' });
+    }
+    // 2) Honeypot — a hidden field real users never see. If filled, it's a bot: drop
+    //    silently (fake success so it stops retrying) and save nothing.
+    if (String(raw.website || '').trim()) {
+      return res.json({ success: true, portalRef: genPortalRef(), assignedSales: '—' });
+    }
+    // 3) Time-trap — a human can't complete this form in under 3s; a direct POST won't carry a valid value.
+    const elapsedMs = Number(raw.elapsedMs);
+    if (!Number.isFinite(elapsedMs) || elapsedMs < 3000) {
+      return res.status(400).json({ success: false, message: 'Form submitted too quickly. Please try again.' });
+    }
+    // 4) Field sanity — strict email format, length caps, and reject links in free-text fields.
+    const emailStr = String(raw.email || raw['Email'] || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+    }
+    const tooLong = v => String(v || '').length > 1000;
+    const hasLink = v => /(https?:\/\/|www\.|\[url)/i.test(String(v || ''));
+    if ([raw.companyName, raw.contactName, raw.from, raw.note, raw.warehouseNote].some(tooLong) ||
+        [raw.companyName, raw.contactName, raw.note, raw.warehouseNote].some(hasLink)) {
+      return res.status(400).json({ success: false, message: 'Submission rejected. Please remove links and shorten long fields.' });
+    }
+    // ===== end anti-spam guard =====
 
     // basic validation
     const region = String(raw.region || raw['Region'] || '').trim();

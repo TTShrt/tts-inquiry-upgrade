@@ -219,6 +219,9 @@
       window.location.href = '/logout'; // server clears the httpOnly auth cookies, then redirects to login
     }
 
+    // Escape user-supplied values before inserting into innerHTML (prevents stored XSS).
+    const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
     async function loadKPI() {
       try {
         const r = await fetch('/api/kpi');
@@ -244,9 +247,9 @@
                               item.status === 'Sourcing Quoted' ? 'quoted' : 'pending';
           return `<div class="activity-item">
             <div class="activity-dot ${statusClass}"></div>
-            <div class="activity-text"><span class="quote">${item.quote}</span> — ${item.customer}</div>
+            <div class="activity-text"><span class="quote">${esc(item.quote)}</span> — ${esc(item.customer)}</div>
             <span class="status ${statusClass}">${item.status}</span>
-            <div class="activity-meta">${item.date}</div>
+            <div class="activity-meta">${esc(item.date)}</div>
           </div>`;
         }).join('');
       } catch (e) {

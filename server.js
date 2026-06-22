@@ -1153,7 +1153,16 @@ app.get('/inquiries', async (req, res) => {
     // ✅ read source
     // ✅ read source
     if (!mongoReady) return res.json([]);   // 关键：Mongo不通就不要用mock
-    const inquiries = await Inquiry.find({}).lean();
+
+    // ✅ Push the role filter into the query (sales uses the salesGroup_1 index) instead of
+    // fetching every doc and filtering in JS. Verified equivalent to the in-JS filters below:
+    // stored values are clean ('true' only; exact group names, no case/space variants), and
+    // docs missing the field are excluded by both. The JS filters below are kept unchanged and
+    // simply become no-ops on the already-narrowed set, so results are identical.
+    let queryFilter = {};
+    if (role === 'sourcing') queryFilter = { 'Submitted To Sourcing': 'true' };
+    else if ((role === 'sales' || role === 'ops_view') && salesGroup) queryFilter = { salesGroup };
+    const inquiries = await Inquiry.find(queryFilter).lean();
 
     // ✅ manager sees all
     if (role === 'manager') {

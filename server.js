@@ -484,6 +484,100 @@ function applyTruckingUnits(doc) {
   setIfEmpty(doc, 'Bond Fee Unit', 'Container');
 }
 
+// ==================== Warehouse redesign (additive, backward-compatible) ====================
+// Each template bucket gets: <name> (mirrored selected-supplier cost) / <name> Price /
+// <name> Unit / <name> Qty / <name> Cost S1..S5 ; storage buckets also get <name> Period.
+// [group, name, default unit, isStorage]
+const WH_NEW_BUCKETS = [
+  ['Inbound', 'Inbound Floor Load', 'Carton', false],
+  ['Inbound', 'Inbound Palletized', 'Pallet', false],
+  ['Inbound', 'OW Handling Fee', 'Container', false],
+  ['Inbound', 'Inbound Others', '', false],
+  ['Outbound', 'Outbound Order Processing', 'BOL', false],
+  ['Outbound', 'Order Picking', 'Pallet', false],
+  ['Outbound', 'Staging Palletizing', 'Pallet', false],
+  ['Outbound', 'Outbound Pallet Fee', 'Pallet', false],
+  ['Outbound', 'Handling Out', 'Container', false],
+  ['Outbound', 'Floor Load Loading', 'Container', false],
+  ['Outbound', 'Fulfillment', 'Unit', false],
+  ['Storage', 'Storage Pallet Stackable', 'Pallet', true],
+  ['Storage', 'Storage Pallet NonStackable', 'Pallet', true],
+  ['Storage', 'Storage Crate', 'Crate', true],
+  ['Storage', 'Storage Bundle', 'Bundle', true],
+  ['Storage', 'Storage Sack', 'Sack', true],
+  ['Storage', 'Storage Container', 'Container', true],
+  ['Storage', 'Storage CBF', 'CBF', true],
+  ['Storage', 'Storage CBM', 'CBM', true],
+  ['Other', 'Depalletizing', 'Pallet', false],
+  ['Other', 'Repacking', 'Each', false],
+  ['Other', 'Block Brace', 'Container', false],
+  ['Other', 'Pallet Crate Repair', 'Each', false],
+  ['Other', 'Rush Order', 'Order', false],
+  ['Other', 'Rework Other', 'Each', false],
+  ['Other', 'Others', '', false],
+];
+// existing buckets reused as multi-supplier template buckets (keep their existing cost/price/unit)
+const WH_REUSED_BUCKETS = ['Order Processing', 'Sorting', 'Palletizing', 'Label'];
+// every bucket that uses 5 supplier costs + a mirrored selected cost
+const WH_TEMPLATE_BUCKETS = WH_NEW_BUCKETS.map(b => b[1]).concat(WH_REUSED_BUCKETS);
+// legacy single-cost buckets kept for backward-compat (shown as "(existing)" in the modal)
+const WH_LEGACY_BUCKETS = ['Inbound', 'Outbound', 'Pallet Fee', 'Storage', 'Cross Dock'];
+// all bare cost field names that contribute to WH totals (template + legacy)
+const WH_ALL_BUCKETS = WH_TEMPLATE_BUCKETS.concat(WH_LEGACY_BUCKETS);
+const WH_SUPPLIER_COUNT = 5;
+
+// Ensure new WH fields exist with sane defaults (idempotent; safe on old docs).
+function applyWarehouseDefaults(doc) {
+  setIfEmpty(doc, 'Selected Supplier', '1');
+  for (let s = 1; s <= WH_SUPPLIER_COUNT; s++) setIfEmpty(doc, 'Supplier ' + s + ' Name', '');
+  setIfEmpty(doc, 'ETA', '');
+  setIfEmpty(doc, '# of Containers', '');
+  setIfEmpty(doc, 'Service Types', '');
+  for (const [, name, unit, storage] of WH_NEW_BUCKETS) {
+    setIfEmpty(doc, name, '');
+    setIfEmpty(doc, name + ' Unit', unit);
+    setIfEmpty(doc, name + ' Price', '');
+    setIfEmpty(doc, name + ' Qty', '');
+    for (let s = 1; s <= WH_SUPPLIER_COUNT; s++) setIfEmpty(doc, name + ' Cost S' + s, '');
+    if (storage) setIfEmpty(doc, name + ' Period', 'mo');
+  }
+  for (const name of WH_REUSED_BUCKETS) {
+    setIfEmpty(doc, name + ' Qty', '');
+    for (let s = 1; s <= WH_SUPPLIER_COUNT; s++) setIfEmpty(doc, name + ' Cost S' + s, '');
+  }
+}
+
+// Mirror the selected supplier's cost into the bare bucket field so existing GP / auto-price /
+// masking logic keeps working unchanged. Only overwrites when that supplier's cost is non-empty,
+// so OLD single-cost docs (no supplier columns) keep their legacy value untouched.
+function syncSelectedSupplierCost(doc) {
+  let sel = parseInt(doc['Selected Supplier'], 10);
+  if (!(sel >= 1 && sel <= WH_SUPPLIER_COUNT)) sel = 1;
+  const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
+  for (const name of WH_TEMPLATE_BUCKETS) {
+    const v = doc[name + ' Cost S' + sel];
+    if (v !== undefined && v !== null && String(v).trim() !== '') {
+      doc[name] = v;
+      if (isMongoDoc) doc.set(name, v);
+    }
+  }
+}
+
+// Compute WH cost/price totals across all buckets (template selected-cost + legacy single-cost).
+function computeWarehouseTotals(doc) {
+  const num = v => {
+    const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, ''));
+    return isFinite(n) ? n : 0;
+  };
+  let cost = 0, price = 0;
+  for (const name of WH_ALL_BUCKETS) { cost += num(doc[name]); price += num(doc[name + ' Price']); }
+  const c = cost ? String(Math.round(cost * 100) / 100) : '';
+  const p = price ? String(Math.round(price * 100) / 100) : '';
+  const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
+  doc['WH Cost Total'] = c; if (isMongoDoc) doc.set('WH Cost Total', c);
+  doc['WH Price Total'] = p; if (isMongoDoc) doc.set('WH Price Total', p);
+}
+
 function applyWarehouseUnits(doc) {
   setIfEmpty(doc, 'Order Processing Unit', '');
   setIfEmpty(doc, 'Inbound Unit', '');
@@ -646,6 +740,8 @@ function applyWarehouseAutoPrices(prevDoc, doc) {
     { cost: 'Label', price: 'Label Price' },
     { cost: 'Cross Dock', price: 'Cross Dock Price' },
   ];
+  // ▼ WH redesign: auto-price the new buckets too (25% GP, same rule)
+  for (const b of WH_NEW_BUCKETS) items.push({ cost: b[1], price: b[1] + ' Price' });
 
   for (const it of items) {
     autoPriceWarehouseItem(prevDoc, doc, it.cost, it.price);
@@ -1128,9 +1224,12 @@ app.post('/inquiries', async (req, res) => {
     // ✅ 自動計算邏輯
     applyTruckingUnits(data);
     applyWarehouseUnits(data);
+    applyWarehouseDefaults(data);
+    syncSelectedSupplierCost(data);
     applyBaseRateAutoPriceAndGP(data);
     applyTruckingAutoPrices(null, data);
     applyWarehouseAutoPrices(null, data);
+    computeWarehouseTotals(data);
 
     // ✅ 儲存
     let saved;
@@ -1217,6 +1316,11 @@ app.get('/inquiries', async (req, res) => {
         'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price',
         'Vendor'
       ];
+      // ▼ WH redesign: also mask new bucket costs, the 5 supplier costs, and the cost total
+      WH_NEW_BUCKETS.forEach(b => { whCostFields.push(b[1]); whPriceFields.push(b[1] + ' Price'); });
+      WH_TEMPLATE_BUCKETS.forEach(b => { for (let s = 1; s <= WH_SUPPLIER_COUNT; s++) whCostFields.push(b + ' Cost S' + s); });
+      whCostFields.push('WH Cost Total');
+      whPriceFields.push('Label Price', 'Cross Dock Price');
 
       const masked = filtered.map(it => {
         const doc = { ...it };
@@ -1332,6 +1436,21 @@ app.post('/inquiries/update', async (req, res) => {
       'Submitted To Sourcing', 'Submitted To Sourcing At'
 
     ];
+
+    // ▼ WH redesign: make the new WH fields writable by the right roles (additive)
+    WH_NEW_BUCKETS.forEach(b => {
+      WH_COST_FIELDS.push(b[1]);
+      WH_PRICE_FIELDS.push(b[1] + ' Price');
+      if (b[3]) WH_COST_FIELDS.push(b[1] + ' Period');
+    });
+    WH_TEMPLATE_BUCKETS.forEach(b => {
+      WH_COST_FIELDS.push(b + ' Qty');
+      for (let s = 1; s <= WH_SUPPLIER_COUNT; s++) WH_COST_FIELDS.push(b + ' Cost S' + s);
+    });
+    for (let s = 1; s <= WH_SUPPLIER_COUNT; s++) WH_COST_FIELDS.push('Supplier ' + s + ' Name');
+    WH_COST_FIELDS.push('Selected Supplier', 'Label', 'Cross Dock', 'ETA', '# of Containers', 'Service Types');
+    WH_PRICE_FIELDS.push('Label Price', 'Cross Dock Price');
+    INQUIRY_EDIT_FIELDS.push('ETA', '# of Containers', 'Service Types');
 
     const META_DENY_ALWAYS = new Set(['_id', 'Quotation #']); // cannot change primary key in update
 
@@ -1557,6 +1676,8 @@ if (blocked.length) {
     // Always apply units and auto rules
     applyTruckingUnits(existing);
     applyWarehouseUnits(existing);
+    applyWarehouseDefaults(existing);
+    syncSelectedSupplierCost(existing);
 
     // Auto for Base Rate + GP
     applyBaseRateAutoPriceAndGP(existing);
@@ -1564,6 +1685,7 @@ if (blocked.length) {
     // Auto for other items (preserve manual overrides based on prevSnapshot)
     applyTruckingAutoPrices(prevSnapshot, existing);
     applyWarehouseAutoPrices(prevSnapshot, existing);
+    computeWarehouseTotals(existing);
 
     // ========= Save =========
     if (loaded.mode === 'mock') {
@@ -2148,6 +2270,30 @@ app.post('/public/inquiries', async (req, res) => {
     if (!Number.isFinite(elapsedMs) || elapsedMs < 3000) {
       return res.status(400).json({ success: false, message: 'Form submitted too quickly. Please try again.' });
     }
+    // 3.5) Cloudflare Turnstile — verify the bot-challenge token. Only enforced when the
+    //      TURNSTILE_SECRET_KEY env var is set, so deploying before you configure it won't break the form.
+    const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET_KEY;
+    if (TURNSTILE_SECRET) {
+      const tsToken = String(raw['cf-turnstile-response'] || raw.turnstileToken || '').trim();
+      if (!tsToken) {
+        return res.status(400).json({ success: false, message: 'Please complete the verification and try again.' });
+      }
+      try {
+        const tsRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ secret: TURNSTILE_SECRET, response: tsToken, remoteip: portalClientIp(req) })
+        });
+        const tsJson = await tsRes.json();
+        if (!tsJson.success) {
+          return res.status(400).json({ success: false, message: 'Verification failed. Please reload and try again.' });
+        }
+      } catch (e) {
+        // Fail-open on a transient network error so a Cloudflare hiccup doesn't drop a real lead;
+        // the honeypot / time-trap / rate-limit layers above still apply.
+        console.warn('[PORTAL] Turnstile verify error (allowing through):', e?.message || e);
+      }
+    }
     // 4) Field sanity — strict email format, length caps, and reject links in free-text fields.
     const emailStr = String(raw.email || raw['Email'] || '').trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) {
@@ -2265,6 +2411,7 @@ app.post('/public/inquiries', async (req, res) => {
     // Units defaults (safe)
     applyTruckingUnits(data);
     applyWarehouseUnits(data);
+    applyWarehouseDefaults(data);
 
     // Save
     let saved;

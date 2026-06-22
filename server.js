@@ -1476,6 +1476,18 @@ app.post('/inquiries/update', async (req, res) => {
         continue;
       }
 
+      // ✅ #4: cannot lock/confirm a scope whose cost hasn't been "sent to Sales" yet.
+      // Confirming while still draft would hide the locked price from Sales AND disable
+      // Sourcing's "Send to Sales" (deadlock). Only blocks setting a confirm flag to true;
+      // unchecking (value falsy) stays allowed so a stuck row can still be unlocked.
+      if (/Confirmed$/.test(k) && isTruthy(v)) {
+        const confScope = k.startsWith('warehouse') ? 'warehouse' : 'trucking';
+        if (isTruthy(existing[confScope + 'CostDraft'])) {
+          blocked.push({ field: k, reason: 'cannot-confirm-while-draft' });
+          continue;
+        }
+      }
+
       // ✅ 防止前端空字串把已有值覆盖成空（特别是 autosave / checkbox）
       if (v === '' && k !== 'Note' && k !== 'Vendor Note' && k !== 'WH Vendor Note' && k !== 'Warehouse Note') {
         continue;
@@ -1502,6 +1514,17 @@ if (blocked.length) {
     Object.keys(patch).forEach(key => {
       existing[key] = patch[key];               // own property: readable via doc[field] in same request
       if (isMongoDoc) existing.set(key, patch[key]); // _doc: persists via .save()
+    });
+
+    // ✅ #3 invariant: a scope that is still a draft can never be marked "sent".
+    // Saving cost sets CostDraft='true' but historically left CostSent untouched, so a
+    // re-saved line could keep a stale CostSent='true'. Force them consistent here, BEFORE
+    // the Selected / Cost Sent flags below are derived from CostSent.
+    ['trucking', 'warehouse'].forEach(p => {
+      if (isTruthy(existing[p + 'CostDraft'])) {
+        existing[p + 'CostSent'] = 'false';
+        if (isMongoDoc) existing.set(p + 'CostSent', 'false');
+      }
     });
 
 

@@ -2166,6 +2166,15 @@
         chk.checked = mgrConfirmed || salesConfirmed;
         chk.title = salesOnly ? 'Sales confirmed (uncheck in Sales to cancel)' : 'Manager confirm';
 
+        // ✅ #4: don't allow locking a scope whose cost hasn't been sent to Sales yet.
+        // Watches the same draft flag the server masks Sales on. Stays enabled when the row
+        // is already confirmed, so a stuck row can still be unchecked/unlocked.
+        const scopeDraft = isTruthy(item[scope === 'WH' ? 'warehouseCostDraft' : 'truckingCostDraft']);
+        if (scopeDraft && !mgrConfirmed && !salesConfirmed) {
+          chk.disabled = true;
+          chk.title = 'Cost not sent to Sales yet — ask Sourcing to tick "Send to Sales" first';
+        }
+
         chk.onchange = async () => {
           const want = chk.checked;
 
@@ -2188,6 +2197,12 @@
 
           // If manager is confirming (or upgrading sales-only to manager-confirm)
           if (want) {
+            // ✅ #4 backstop: never confirm while the scope is still a draft (not sent to Sales)
+            if (scopeDraft && !mgrConfirmed && !salesConfirmed) {
+              alert('Cost has not been sent to Sales yet. Ask Sourcing to tick "Send to Sales" first, then lock the price.');
+              chk.checked = false;
+              return;
+            }
             // ✅ PERF: Single POST — save prices + confirm flag together
             const fields = scope === 'WH'
               ? ['Vendor', 'Note', 'Order Processing Price', 'Inbound Price', 'Sorting Price', 'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price']

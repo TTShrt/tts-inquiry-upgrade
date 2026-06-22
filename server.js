@@ -48,7 +48,12 @@ const io = socketIo(server);
 
 const PORT = process.env.PORT || 3000;
 
-app.use(cookieParser());
+app.use(cookieParser(process.env.COOKIE_SECRET));
+// ✅ #1 auth hardening: trust ONLY signed cookies. cookie-parser puts verified signed
+// cookies in req.signedCookies; forged/tampered unsigned cookies never appear there.
+// Pointing req.cookies at the verified set makes every existing req.cookies.x read
+// forgery-proof — role / salesGroup / username can no longer be edited client-side.
+app.use((req, _res, next) => { req.cookies = req.signedCookies || {}; next(); });
 
 // ==============================
 // ✅ Auth helpers (FIX requireRole)
@@ -95,6 +100,16 @@ function requireAnyRole(roles) {
   };
 }
 
+
+// ✅ #2: guard the sensitive role pages BEFORE express.static can serve them from /public.
+// Otherwise express.static (below) returns these HTML files directly and the role guards
+// further down never run. Only the manager & sourcing pages are guarded — the sales
+// dashboard is intentionally left to the existing SPA fallback at the bottom of this file
+// (it's served to every role as the default shell; its data is role-gated server-side).
+app.get('/manager_dashboard.html', requireRole('manager'), (req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'manager_dashboard.html')));
+app.get('/sourcing_dashboard.html', requireRole('sourcing'), (req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'sourcing_dashboard.html')));
 
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: false,
@@ -702,7 +717,7 @@ app.post('/login', async (req, res) => {
   if (!user) return res.json({ success: false, message: 'Invalid credentials' });
 
   // ✅ cookies — SameSite:Lax ensures cookies are sent on same-origin POST/GET in all browsers (Chrome, Edge, Firefox, Safari)
-  const cookieOpts = { sameSite: 'Lax', httpOnly: false };
+  const cookieOpts = { sameSite: 'Lax', httpOnly: true, secure: true, signed: true };
   res.cookie('username', user.username, cookieOpts);
   res.cookie('role', user.role, cookieOpts);
   res.cookie('salesGroup', user.salesGroup || '', cookieOpts);

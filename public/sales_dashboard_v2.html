@@ -3974,7 +3974,7 @@
 
           btnExit?.addEventListener('click', () => {
             console.log('[TOP] exit clicked');
-            window.location.href = '/index.html';
+            window.location.href = '/logout'; // clears httpOnly auth cookies server-side, then redirects to login
           });
 
           // 3) warehouse checkbox bind + initial sync

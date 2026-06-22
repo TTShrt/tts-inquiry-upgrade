@@ -291,9 +291,7 @@
   <script>
     function logout() {
       localStorage.removeItem('username');
-      document.cookie = 'username=; Max-Age=0';
-      document.cookie = 'role=; Max-Age=0';
-      window.location.href = '/index.html';
+      window.location.href = '/logout'; // server clears the httpOnly auth cookies, then redirects to login
     }
 
     document.getElementById('loginForm').addEventListener('submit', async (e) => {

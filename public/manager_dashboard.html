@@ -1334,6 +1334,8 @@
     .status-new { background: #fef3c7; color: #92400e; }
     .status-sent { background: #dbeafe; color: #1e40af; }
     .status-confirmed { background: #dcfce7; color: #166534; }
+    /* Cost saved by Sourcing but NOT yet "Sent to Sales" → Manager sees it, Sales is masked */
+    .status-blind { background: #ffedd5; color: #9a3412; margin-left: 4px; }
     #summaryTable input {
       border: 1px solid #e2e8f0 !important;
       border-radius: 4px !important;
@@ -2051,6 +2053,26 @@
         if (confirmed) tr.classList.add('row-confirmed');
         else if (saved) tr.classList.add('saved-price');
         else if (costReceived) tr.classList.add('cost-received');
+
+        // ── "Sales can't see this yet" indicator ──
+        // Keyed off the SAME flag the server masks Sales on (trucking/warehouseCostDraft),
+        // so this badge mirrors Sales visibility exactly: present = Sourcing saved the cost
+        // but hasn't checked "Send to Sales", so Sales sees "—" while Manager sees the cost.
+        const salesBlind = isTruthy(item[scope === 'WH' ? 'warehouseCostDraft' : 'truckingCostDraft']);
+        tr.classList.toggle('sales-blind', salesBlind);
+        const labelCell = tr.firstElementChild;
+        if (labelCell) {
+          const existingBadge = labelCell.querySelector('.status-blind');
+          if (salesBlind && !existingBadge) {
+            const b = document.createElement('span');
+            b.className = 'status-badge status-blind';
+            b.textContent = 'NOT SENT';
+            b.title = 'Sourcing saved the cost but has NOT checked "Send to Sales" yet — Sales currently sees this as blank.';
+            labelCell.appendChild(b);
+          } else if (!salesBlind && existingBadge) {
+            existingBadge.remove();
+          }
+        }
       }
 
       function actionCell(item, quote, scope) {

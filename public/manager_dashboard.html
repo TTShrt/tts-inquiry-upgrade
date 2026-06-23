@@ -102,6 +102,23 @@
       text-align: left !important;
     }
 
+    /* ===== WH summary cell (replaces old 14 cost/price cells) ===== */
+    .wh-summary-box {
+      display: flex; align-items: center; justify-content: flex-start;
+      gap: 18px; padding: 2px 10px; flex-wrap: wrap;
+    }
+    .wh-sum-item { font-size: 13px; color: #1f2430; white-space: nowrap; }
+    .wh-sum-item i { font-style: normal; color: #8a8f98; font-size: 11px; margin-right: 3px; }
+    .wh-sum-cost { font-weight: 600; }
+    .wh-sum-gp { font-weight: 600; color: #15803d; }
+    .wh-details-btn {
+      margin-left: auto; height: 26px; padding: 0 12px; border: 1px solid #2563eb;
+      color: #2563eb; background: #fff; border-radius: 7px; font-size: 12px;
+      font-weight: 500; cursor: pointer; font-family: inherit; white-space: nowrap;
+    }
+    .wh-details-btn:hover { background: #eff4ff; }
+    .wh-details-btn:disabled { border-color: #cbd5e1; color: #94a3b8; cursor: not-allowed; }
+
     .note-line {
       display: block;
       max-width: 520px;
@@ -1787,6 +1804,9 @@
     </div>
   </div>
 
+  <!-- Shared warehouse cost/price modal component -->
+  <script src="/wh_modal.js"></script>
+
   <script>
     (() => {
       window.pageSize = 100;
@@ -2421,8 +2441,14 @@
 
           const r5 = document.createElement('tr'); r5.className = 'row-wh-head';
           WH_LEFT_HEADERS.forEach((h, i) => {
-            if (i === 0) r5.appendChild(tdHeader(k, 'text-left'));
-            else r5.appendChild(tdHeader(h));
+            if (i === 0) { r5.appendChild(tdHeader(k, 'text-left')); return; }   // quote #
+            if (i === 15) { r5.appendChild(tdHeader(h)); return; }              // Vendor
+            if (i === 1) {                                                       // one merged header over the old 14 cost/price cols
+              const whHead = tdHeader('Warehouse  \u2014  Cost / Price / GP', 'text-center');
+              whHead.colSpan = 14;
+              r5.appendChild(whHead);
+            }
+            // i = 2..14 absorbed by the colSpan above \u2192 skip
           });
 
           // ✅ NEW: EST GP column (after Vendor)
@@ -2535,32 +2561,52 @@
         const locked = isTruthy(item['warehouseManagerConfirmed']) || isTruthy(item['warehouseSalesConfirmed']);
 
         tr.appendChild(tdCell(displayQuote, isSub ? 'text-center font-semibold' : ''));
-        const whPairs = [['Order Processing', 'Order Processing Price'], ['Inbound', 'Inbound Price'], ['Sorting', 'Sorting Price'], ['Palletizing', 'Palletizing Price'], ['Pallet Fee', 'Pallet Fee Price'], ['Storage', 'Storage Price'], ['Outbound', 'Outbound Price']];
-        whPairs.forEach(([cF, pF]) => {
-          tr.appendChild(tdCell(fmt2(item[cF])));
-          const pi = makeInput(item[pF] || '', pF, quote, locked, 'WH');
-          const tdP = document.createElement('td'); tdP.appendChild(pi); tr.appendChild(tdP);
-        });
+        // ===== WH summary (3 numbers) + Details button -> shared modal =====
+        // Replaces the old 14 inline cost/price cells. One colSpan=14 cell keeps the 27-col grid intact.
+        // Manager edits PRICE inside the modal (canEditPrice). Cost is visible but read-only.
+        {
+          const t = (window.WHModal ? WHModal.totals(item) : { cost: 0, price: 0, gp: null });
+          const money = v => '$' + Math.round(v || 0).toLocaleString();
+          const tdSum = document.createElement('td');
+          tdSum.colSpan = 14;
+
+          const box = document.createElement('div');
+          box.className = 'wh-summary-box';
+          const mk = (label, val, cls) => {
+            const s = document.createElement('span');
+            s.className = 'wh-sum-item ' + (cls || '');
+            const lab = document.createElement('i'); lab.textContent = label;
+            s.appendChild(lab);
+            s.appendChild(document.createTextNode(' ' + val));
+            return s;
+          };
+          box.appendChild(mk('WH cost', money(t.cost), 'wh-sum-cost'));
+          box.appendChild(mk('WH price', money(t.price), 'wh-sum-price'));
+          box.appendChild(mk('WH GP', (t.gp == null ? '\u2014' : t.gp + '%'), 'wh-sum-gp'));
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'wh-details-btn';
+          btn.textContent = 'Details \u25b8';
+          btn.onclick = () => {
+            if (!window.WHModal) { alert('WH modal component not loaded'); return; }
+            WHModal.open({ item, role: window.userRole, onSaved: () => loadInquiries() });
+          };
+          box.appendChild(btn);
+
+          tdSum.appendChild(box);
+          tr.appendChild(tdSum);
+        }
 
         const ven = makeInput(item['Vendor'] || '', 'Vendor', quote, locked, 'WH');
         const tdVen = document.createElement('td'); tdVen.appendChild(ven); tr.appendChild(tdVen);
 
 
 
-        // ✅ NEW: WH EST GP = (sumPrice - sumCost) / sumPrice — uses auto-prices as fallback
-        const whCostFields = ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'];
-        const whPriceFields = ['Order Processing Price', 'Inbound Price', 'Sorting Price', 'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price'];
-
-        let sumCost = 0;
-        let sumPrice = 0;
-
-        whCostFields.forEach((f, idx) => {
-          const n = num(item[f]);
-          if (n !== null) sumCost += n;
-          // ✅ FIX: Use whAuto (cost*1.25 fallback) when no saved price
-          const autoP = parseFloat(whAuto(item[f], item[whPriceFields[idx]]) || 0);
-          if (!isNaN(autoP)) sumPrice += autoP;
-        });
+        // ✅ WH EST GP — now sourced from WHModal.totals so new buckets + selected supplier are included
+        const _wt = (window.WHModal ? WHModal.totals(item) : { cost: 0, price: 0, gp: null });
+        let sumCost = _wt.cost;
+        let sumPrice = _wt.price;
 
         let estGpText = '—';
         let estGpVal = null;

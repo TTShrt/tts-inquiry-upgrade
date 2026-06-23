@@ -132,7 +132,36 @@
       .col-span-2 { grid-column: span 1; }
       .wh-services { grid-template-columns: 1fr; }
     }
+    /* ── Warehouse grouped services (mirrors quote modal) ── */
+    .wh-group { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+    .wh-group-hd { background: var(--bg); padding: 8px 12px; font-size: 0.8rem; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--border); }
+    .wh-grow { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid #f1f5f9; }
+    .wh-grow:first-of-type { border-top: none; }
+    .wh-grow:has(input[type="checkbox"]:checked) { background: var(--success-bg); }
+    .wh-pick { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; cursor: pointer; font-size: 0.82rem; font-weight: 500; color: var(--text); }
+    .wh-pick input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary); border-radius: 4px; flex: 0 0 auto; }
+    .wh-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wh-unit { flex: 0 0 auto; font-size: 0.68rem; color: var(--text-secondary); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 7px; min-width: 30px; text-align: center; }
+    .wh-unit-none { background: transparent; border-color: transparent; }
+    .wh-qty { flex: 0 0 130px; height: 30px; font-size: 0.78rem; border: 1px solid var(--border); border-radius: 6px; padding: 0 8px; color: var(--text); font-family: inherit; }
+    .wh-qty:focus { outline: none; border-color: var(--primary); }
+    .wh-period { flex: 0 0 72px; height: 30px; font-size: 0.74rem; border: 1px solid var(--border); border-radius: 6px; padding: 0 4px; color: var(--text); background: #fff; font-family: inherit; }
+    /* ── Warehouse green common-info block (mirrors quote modal green zone) ── */
+    .wh-common { background: #f0faf3; border: 1px solid #bbf0cd; box-shadow: inset 4px 0 0 #22c55e; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+    .wh-common-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px 14px; }
+    .wh-cf { display: flex; flex-direction: column; }
+    .wh-cf input, .wh-cf textarea { height: 32px; font-size: 0.8rem; border: 1px solid var(--border); border-radius: 6px; padding: 0 8px; color: var(--text); font-family: inherit; background: #fff; }
+    .wh-cf textarea { height: auto; min-height: 56px; padding: 6px 8px; resize: vertical; line-height: 1.4; }
+    .wh-cf input:focus, .wh-cf textarea:focus { outline: none; border-color: var(--primary); }
+    .wh-cf-svc { grid-column: span 3; }
+    .wh-cf-note { grid-column: span 3; }
+    .wh-svc-checks { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+    .wh-svc-chk { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 500; color: var(--text); cursor: pointer; }
+    .wh-svc-chk input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary); }
+    @media (max-width: 640px) { .wh-common-grid { grid-template-columns: 1fr; } .wh-cf-svc, .wh-cf-note { grid-column: span 1; } }
   </style>
+  <!-- Cloudflare Turnstile (bot protection) -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
 
@@ -278,43 +307,69 @@
 
         <div id="whBlock" style="display:none;">
           <div class="wh-block">
-            <div class="field-label" style="margin-bottom:10px;">Select Warehouse Services</div>
-            <div class="wh-services">
-              <label class="check-item"><input type="checkbox" name="whService" value="Order Processing"> Order Processing</label>
-              <label class="check-item"><input type="checkbox" name="whService" value="Inbound"> Inbound</label>
-              <label class="check-item"><input type="checkbox" name="whService" value="Outbound"> Outbound</label>
-              <label class="check-item"><input type="checkbox" name="whService" value="Sorting"> Sorting</label>
-              <label class="check-item"><input type="checkbox" name="whService" value="Palletizing"> Palletizing</label>
-              <label class="check-item"><input type="checkbox" name="whService" value="Pallet Fee"> Pallet Fee</label>
-              <label class="check-item"><input type="checkbox" name="whService" value="Storage"> Storage</label>
-              <label class="check-item"><input type="checkbox" name="whService" value="Label"> Label</label>
-              <label class="check-item"><input type="checkbox" name="whService" value="Cross Dock"> Cross Dock</label>
+            <!-- Green common-info block (mirrors the quote modal's green zone) -->
+            <div class="wh-common">
+              <div class="wh-common-grid">
+                <div class="wh-cf wh-cf-svc">
+                  <label class="field-label">Service type</label>
+                  <div class="wh-svc-checks">
+                    <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Transload"> Transload</label>
+                    <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Distribution"> Distribution</label>
+                    <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Fulfillment"> Fulfillment</label>
+                    <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Storage"> Storage</label>
+                  </div>
+                </div>
+                <div class="wh-cf"><label class="field-label">Container size</label><input name="whContainerSize" placeholder="e.g. 40'" /></div>
+                <div class="wh-cf"><label class="field-label">Container weight</label><input name="whContainerWeight" placeholder="e.g. 18,000 lbs" /></div>
+                <div class="wh-cf"><label class="field-label"># of containers</label><input name="whNumContainers" placeholder="e.g. 3" /></div>
+                <div class="wh-cf"><label class="field-label">ETA</label><input name="whEta" type="date" /></div>
+                <div class="wh-cf"><label class="field-label">Commodity</label><input name="whCommodity" placeholder="e.g. furniture" /></div>
+                <div class="wh-cf"><label class="field-label">Total pkgs / container</label><input name="whTotalPkgs" placeholder="e.g. 480" /></div>
+                <div class="wh-cf wh-cf-note"><label class="field-label">Note</label><textarea name="warehouseNote" placeholder="Any additional warehouse requirements..."></textarea></div>
+              </div>
             </div>
-            <div class="form-grid">
-              <div>
-                <label class="field-label">Estimated Pallets</label>
-                <input name="estimatedPallets" placeholder="e.g. 20" />
-              </div>
-              <div>
-                <label class="field-label">Estimated Boxes / Cartons</label>
-                <input name="estimatedBoxes" placeholder="e.g. 200" />
-              </div>
-              <div>
-                <label class="field-label">Estimated SKU Count</label>
-                <input name="estimatedSkuCount" placeholder="e.g. 5" />
-              </div>
-              <div>
-                <label class="field-label">Storage Duration</label>
-                <input name="storageDuration" placeholder="e.g. 30" />
-              </div>
-              <div class="col-span-2">
-                <label class="field-label">Duration Unit</label>
-                <input name="storageDurationUnit" placeholder="Days / Weeks / Months" />
-              </div>
-              <div class="col-span-2">
-                <label class="field-label">Warehouse Note</label>
-                <textarea name="warehouseNote" placeholder="Any additional warehouse requirements..."></textarea>
-              </div>
+            <div class="field-label" style="margin-bottom:10px;">Select the warehouse services you need (fill qty / detail where you can)</div>
+            <div class="wh-group">
+              <div class="wh-group-hd">📥 Inbound</div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Order processing"><span class="wh-name">Order processing</span></label><span class="wh-unit">Order</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Inbound — floor load"><span class="wh-name">Inbound — floor load</span></label><span class="wh-unit">Carton</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Inbound — palletized"><span class="wh-name">Inbound — palletized</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Sorting"><span class="wh-name">Sorting</span></label><span class="wh-unit">SKU</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Palletizing"><span class="wh-name">Palletizing</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="OW handling fee"><span class="wh-name">OW handling fee</span></label><span class="wh-unit">Container</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Others (inbound)"><span class="wh-name">Others (inbound)</span></label><span class="wh-unit wh-unit-none"></span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+            </div>
+            <div class="wh-group">
+              <div class="wh-group-hd">📤 Outbound</div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Outbound order processing"><span class="wh-name">Outbound order processing</span></label><span class="wh-unit">BOL</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Order picking"><span class="wh-name">Order picking</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Staging &amp; palletizing"><span class="wh-name">Staging &amp; palletizing</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Pallet fee"><span class="wh-name">Pallet fee</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Handling out"><span class="wh-name">Handling out</span></label><span class="wh-unit">Container</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Floor-load loading"><span class="wh-name">Floor-load loading</span></label><span class="wh-unit">Container</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Fulfillment / small parcel"><span class="wh-name">Fulfillment / small parcel</span></label><span class="wh-unit">Unit</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+            </div>
+            <div class="wh-group">
+              <div class="wh-group-hd">🏬 Storage</div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per pallet — stackable"><span class="wh-name">Per pallet — stackable</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per pallet — non-stackable"><span class="wh-name">Per pallet — non-stackable</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per crate"><span class="wh-name">Per crate</span></label><span class="wh-unit">Crate</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per bundle"><span class="wh-name">Per bundle</span></label><span class="wh-unit">Bundle</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per sack"><span class="wh-name">Per sack</span></label><span class="wh-unit">Sack</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per container"><span class="wh-name">Per container</span></label><span class="wh-unit">Container</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per CBF"><span class="wh-name">Per CBF</span></label><span class="wh-unit">CBF</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per CBM"><span class="wh-name">Per CBM</span></label><span class="wh-unit">CBM</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+            </div>
+            <div class="wh-group">
+              <div class="wh-group-hd">🛠️ Other / surcharge</div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Label / labeling"><span class="wh-name">Label / labeling</span></label><span class="wh-unit">Each</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Depalletizing"><span class="wh-name">Depalletizing</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Repacking"><span class="wh-name">Repacking</span></label><span class="wh-unit">Each</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Block &amp; brace"><span class="wh-name">Block &amp; brace</span></label><span class="wh-unit">Container</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Pallet / crate repair"><span class="wh-name">Pallet / crate repair</span></label><span class="wh-unit">Each</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Rush order"><span class="wh-name">Rush order</span></label><span class="wh-unit">Order</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Rework / other"><span class="wh-name">Rework / other</span></label><span class="wh-unit">Each</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Others"><span class="wh-name">Others</span></label><span class="wh-unit wh-unit-none"></span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
             </div>
           </div>
         </div>
@@ -327,6 +382,9 @@
         </div>
 
         <div style="margin-top: 24px;">
+          <!-- Cloudflare Turnstile widget. Replace data-sitekey with your real SITE key from Cloudflare. -->
+          <div class="cf-turnstile" data-sitekey="YOUR_TURNSTILE_SITE_KEY" data-theme="light" style="margin-bottom:14px;"></div>
+
           <button type="submit" class="btn-submit">Submit Inquiry</button>
         </div>
 
@@ -342,6 +400,26 @@
 
     needWH.addEventListener('change', () => {
       whBlock.style.display = needWH.checked ? 'block' : 'none';
+      // Pre-fill the WH green common block from Shipment Details so the customer doesn't re-enter
+      if (needWH.checked) {
+        const sync = (srcName, dstName) => {
+          const src = document.querySelector('[name="' + srcName + '"]');
+          const dst = whBlock.querySelector('[name="' + dstName + '"]');
+          if (src && dst && !dst.value && src.value) dst.value = src.value;
+        };
+        sync('containerSize', 'whContainerSize');
+        sync('grossWeight', 'whContainerWeight');
+        sync('commodity', 'whCommodity');
+      }
+    });
+
+    // Typing a qty/detail (or picking a period) auto-selects that service row
+    whBlock.addEventListener('input', (e) => {
+      if (e.target.classList.contains('wh-qty') || e.target.classList.contains('wh-period')) {
+        const row = e.target.closest('.wh-grow');
+        const cb = row && row.querySelector('input[name="whService"]');
+        if (cb && e.target.value.trim()) cb.checked = true;
+      }
     });
 
     function setResult(type, html) {
@@ -366,9 +444,37 @@
       data.bonded = form.querySelector('input[name="bonded"]')?.checked ? 'true' : 'false';
       data.needWarehouseService = needWH.checked ? 'true' : 'false';
 
-      const selectedServices = Array.from(form.querySelectorAll('input[name="whService"]:checked')).map(x => x.value);
-      data.warehouseServices = selectedServices.join('; ');
-      data.warehouseServiceDetail = selectedServices.map(s => `✅ ${s}`).join(' | ');
+      // Gather grouped WH services: name + qty/detail + unit(/period) → packed into the SAME two fields (no server change)
+      const whRows = Array.from(form.querySelectorAll('.wh-grow')).filter(r => r.querySelector('input[name="whService"]')?.checked);
+      const whNames = [];
+      const whDetails = [];
+      whRows.forEach(r => {
+        const name = r.querySelector('input[name="whService"]').value;
+        const unit = (r.querySelector('.wh-unit')?.textContent || '').trim();
+        const qty = (r.querySelector('.wh-qty')?.value || '').trim();
+        const period = r.querySelector('.wh-period')?.value || '';
+        whNames.push(name);
+        let d = '✅ ' + name;
+        if (qty) d += ': ' + qty;
+        const unitPart = unit + (period ? '/' + period : '');
+        if (unitPart) d += ' (' + unitPart + ')';
+        whDetails.push(d);
+      });
+      data.warehouseServices = whNames.join('; ');
+      data.warehouseServiceDetail = whDetails.join(' | ');
+
+      // WH green common-info (mirrors modal green zone) → canonical server fields
+      const whServiceTypes = Array.from(form.querySelectorAll('input[name="whServiceType"]:checked')).map(x => x.value);
+      data.serviceTypes = whServiceTypes.join('; ');
+      data.eta = (form.querySelector('[name="whEta"]')?.value || '').trim();
+      data.numContainers = (form.querySelector('[name="whNumContainers"]')?.value || '').trim();
+      const whCom = (form.querySelector('[name="whCommodity"]')?.value || '').trim();
+      if (whCom) data.commodity = whCom;
+      data.packagesPerContainer = (form.querySelector('[name="whTotalPkgs"]')?.value || '').trim();
+      const whCS = (form.querySelector('[name="whContainerSize"]')?.value || '').trim();
+      if (whCS) data.containerSize = whCS;
+      const whCW = (form.querySelector('[name="whContainerWeight"]')?.value || '').trim();
+      if (whCW) data.grossWeight = whCW;
 
       const toCity = (data.toCity || '').trim();
       const toState = (data.toState || '').trim();

@@ -1433,8 +1433,9 @@ app.post('/inquiries/update', async (req, res) => {
       'Legal or Over Weight', 'Gross Weight', 'Live or Drop', 'From', 'To',
       'To City', 'To State', 'To ZIP', 'QTY', 'Quotation #',
       'External Quotation #',
-      'Submitted To Sourcing', 'Submitted To Sourcing At'
-
+      'Submitted To Sourcing', 'Submitted To Sourcing At',
+      // ▼ WH redesign: green common-info fields are filled by Sales/Manager (Sourcing reads only)
+      'ETA', '# of Containers', 'Service Types'
     ];
 
     // ▼ WH redesign: make the new WH fields writable by the right roles (additive)
@@ -1502,7 +1503,10 @@ app.post('/inquiries/update', async (req, res) => {
       if (field === 'Saved') return true;
 
       if (role === 'sourcing') {
-        // Sourcing updates COST + cost flags only
+        // Sourcing updates COST + cost flags only.
+        // Supplier CHOICE belongs to Sales: Sourcing fills the 5 supplier costs + supplier names,
+        // but cannot pick which supplier is selected.
+        if (field === 'Selected Supplier') return false;
         return (
           inList(field, TRUCK_COST_FIELDS) ||
           inList(field, WH_COST_FIELDS) ||
@@ -1517,6 +1521,8 @@ app.post('/inquiries/update', async (req, res) => {
           inList(field, TRUCK_PRICE_FIELDS) ||
           inList(field, WH_PRICE_FIELDS) ||
           inList(field, PRICE_SAVED_FLAGS) ||
+          field === 'Selected Supplier' ||          // ✅ Sales picks which supplier to quote
+          field.endsWith(' Qty') ||                 // ✅ Sales fills the per-service Qty / detail (green zone)
           field === 'truckingSalesConfirmed' ||
           field === 'warehouseSalesConfirmed' ||
           inList(field, INQUIRY_EDIT_FIELDS)
@@ -1528,6 +1534,8 @@ app.post('/inquiries/update', async (req, res) => {
           inList(field, TRUCK_PRICE_FIELDS) ||
           inList(field, WH_PRICE_FIELDS) ||
           inList(field, PRICE_SAVED_FLAGS) ||
+          field === 'Selected Supplier' ||          // ✅ Manager can override the supplier choice
+          field.endsWith(' Qty') ||                 // ✅ Manager can fill the per-service Qty / detail
           field === 'truckingManagerConfirmed' ||
           field === 'warehouseManagerConfirmed' ||
 
@@ -2379,6 +2387,11 @@ app.post('/public/inquiries', async (req, res) => {
       'Hazmat': String(raw.hazmat || raw['Hazmat'] || 'false'),
       'Reefer': String(raw.reefer || raw['Reefer'] || 'false'),
       'Bonded': String(raw.bonded || raw['Bonded'] || 'false'),
+
+      // Common info filled by the customer (mirrors the quote modal green zone)
+      'Service Types': String(raw.serviceTypes || raw['Service Types'] || ''),
+      'ETA': String(raw.eta || raw['ETA'] || ''),
+      '# of Containers': String(raw.numContainers || raw['# of Containers'] || ''),
 
       // Warehouse request
       'Need Warehouse Service': String(raw.needWarehouseService || raw['Need Warehouse Service'] || 'false'),

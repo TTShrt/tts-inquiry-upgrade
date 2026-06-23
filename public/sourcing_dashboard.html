@@ -156,6 +156,24 @@
       background: #fcf9e0;
     }
 
+    /* ===== WH summary cell (replaces old 14 cost/price cells) ===== */
+    .wh-summary-cell { background: #fcf9e0; }
+    .wh-summary-box {
+      display: flex; align-items: center; justify-content: flex-start;
+      gap: 18px; padding: 2px 10px; flex-wrap: wrap;
+    }
+    .wh-sum-item { font-size: 13px; color: #1f2430; white-space: nowrap; }
+    .wh-sum-item i { font-style: normal; color: #8a8f98; font-size: 11px; margin-right: 3px; }
+    .wh-sum-cost b, .wh-sum-cost { font-weight: 600; }
+    .wh-sum-gp { font-weight: 600; color: #15803d; }
+    .wh-details-btn {
+      margin-left: auto; height: 26px; padding: 0 12px; border: 1px solid #2563eb;
+      color: #2563eb; background: #fff; border-radius: 7px; font-size: 12px;
+      font-weight: 500; cursor: pointer; font-family: inherit; white-space: nowrap;
+    }
+    .wh-details-btn:hover { background: #eff4ff; }
+    .wh-details-btn:disabled { border-color: #cbd5e1; color: #94a3b8; cursor: not-allowed; }
+
 
     /* 每票之间的分隔 */
     .row-sep td {
@@ -1466,6 +1484,9 @@
       </div>
 
 
+      <!-- Shared warehouse cost/price modal component -->
+      <script src="/wh_modal.js"></script>
+
       <script>
         // ===============================
         // Sourcing Dashboard (Clean)
@@ -2585,8 +2606,14 @@ ${qDel}`)) return;
             r5.className = 'row-wh-head';
 
             WH_LEFT_HEADERS.forEach((h, i) => {
-              if (i === 0) r5.appendChild(tdHeader(key, 'text-center'));
-              else r5.appendChild(tdHeader(h));
+              if (i === 0) { r5.appendChild(tdHeader(key, 'text-center')); return; }   // quote #
+              if (i === 15) { r5.appendChild(tdHeader(h)); return; }                   // Vendor
+              if (i === 1) {                                                            // one merged header over the old 14 cost/price cols
+                const whHead = tdHeader('Warehouse  \u2014  Cost / Price / GP', 'text-center');
+                whHead.colSpan = 14;
+                r5.appendChild(whHead);
+              }
+              // i = 2..14 are absorbed by the colSpan above \u2192 skip
             });
 
             r5.appendChild(tdHeader('')); // 第17留空
@@ -2698,7 +2725,9 @@ ${qDel}`)) return;
           const confirmed = scopeConfirmed(item, 'WH');
           const costSent = isTruthy(item['warehouseCostSent']);  // ✅ 只看 WH
           const costSaved = isTruthy(item['warehouseCostSaved']);
-          const hasAnyCost = ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound']
+          const whT = (window.WHModal ? WHModal.totals(item) : { cost: 0, price: 0, gp: null });
+          const hasAnyCost = (whT.cost > 0 || whT.price > 0) ||
+            ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound']
             .some(k => (num(item[k]) || 0) > 0 || String(item[k] || '').trim() !== '');
           const isNew = !confirmed && !costSent && !costSaved && !hasAnyCost;
 
@@ -2713,14 +2742,42 @@ ${qDel}`)) return;
           // ✅ FIX: First column — quotation # (was missing, causing column shift)
           r6.appendChild(tdCell(displayQ, 'text-center'));
 
-          // 7个Cost + 每个后面一个 “—” Price 占位（你原逻辑）
-          ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound'].forEach(cF => {
-            const ci = makeInput(item[cF] ?? '', cF, quote, lockedWH, 'WH');
-            const tc = document.createElement('td');
-            tc.appendChild(ci);
-            r6.appendChild(tc);
-            r6.appendChild(tdCell('—'));
-          });
+          // ===== WH summary (3 numbers) + Details button -> shared modal =====
+          // Replaces the old 14 inline cost/price cells. One colSpan=14 cell keeps the 27-col grid intact.
+          {
+            const t = (window.WHModal ? WHModal.totals(item) : { cost: 0, price: 0, gp: null });
+            const money = v => '$' + Math.round(v || 0).toLocaleString();
+            const tdSum = document.createElement('td');
+            tdSum.colSpan = 14;
+            tdSum.className = 'wh-summary-cell';
+
+            const box = document.createElement('div');
+            box.className = 'wh-summary-box';
+
+            const mk = (label, val, cls) => {
+              const s = document.createElement('span');
+              s.className = 'wh-sum-item ' + (cls || '');
+              const lab = document.createElement('i'); lab.textContent = label;
+              s.appendChild(lab);
+              s.appendChild(document.createTextNode(' ' + val));
+              return s;
+            };
+            box.appendChild(mk('WH cost', money(t.cost), 'wh-sum-cost'));
+            // Sourcing (like TRUCK) does not see Price / GP — cost only.
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'wh-details-btn';
+            btn.textContent = 'Details \u25b8';
+            btn.onclick = () => {
+              if (!window.WHModal) { alert('WH modal component not loaded'); return; }
+              WHModal.open({ item, role: userRole, onSaved: () => loadInquiries() });
+            };
+            box.appendChild(btn);
+
+            tdSum.appendChild(box);
+            r6.appendChild(tdSum);
+          }
 
           // ✅ (WH) Column 16: Vendor (恢复这一格)
           const vendorInp = makeInput(item['Vendor'] || '', 'Vendor', quote, lockedWH, 'WH', true);

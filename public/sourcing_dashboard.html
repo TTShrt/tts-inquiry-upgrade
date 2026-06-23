@@ -2611,7 +2611,7 @@ ${qDel}`)) return;
 
             WH_LEFT_HEADERS.forEach((h, i) => {
               if (i === 0) { r5.appendChild(tdHeader(key, 'text-center')); return; }   // quote #
-              if (i === 15) { r5.appendChild(tdHeader(h)); return; }                   // Vendor
+              if (i === 15) { r5.appendChild(tdHeader('')); return; }                   // Vendor column removed → blank header
               if (i === 1) {                                                            // one merged header over the old 14 cost/price cols
                 const whHead = tdHeader('Warehouse  \u2014  Cost / Price / GP', 'text-center');
                 whHead.colSpan = 14;
@@ -2791,11 +2791,8 @@ ${qDel}`)) return;
             r6.appendChild(tdSum);
           }
 
-          // ✅ (WH) Column 16: Vendor (恢复这一格)
-          const vendorInp = makeInput(item['Vendor'] || '', 'Vendor', quote, lockedWH, 'WH', true);
-          const tdVen = document.createElement('td');
-          tdVen.appendChild(vendorInp);
-          r6.appendChild(tdVen);
+          // ✅ (WH) Column 16: Vendor — removed (vestigial, unused). Blank placeholder keeps 27-col grid.
+          r6.appendChild(tdCell(''));
 
           // ✅ (WH) Column 17: blank placeholder (保持留白)
           r6.appendChild(tdCell(''));

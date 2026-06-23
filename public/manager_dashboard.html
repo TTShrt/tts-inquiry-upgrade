@@ -1628,7 +1628,7 @@
               <input type="checkbox" id="needWarehouseService" name="needWarehouseService" />
               Need Warehouse Service
             </label>
-            <span class="tiny-note">Check to show warehouse service request details.</span>
+            <span class="tiny-note">Check to show warehouse service request details. <span class="req-legend"><span class="req-star">*</span> = required</span></span>
           </div>
 
           <div id="warehouseBlock" class="mt-4 hidden">
@@ -1639,7 +1639,7 @@
               <div class="wh-common">
                 <div class="wh-common-grid">
                   <div class="wh-cf wh-cf-svc">
-                    <label>Service type</label>
+                    <label>Service type<span class="req-star">*</span></label>
                     <div class="wh-svc-checks">
                       <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Transload"> Transload</label>
                       <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Distribution"> Distribution</label>
@@ -1647,12 +1647,12 @@
                       <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Storage"> Storage</label>
                     </div>
                   </div>
-                  <div class="wh-cf"><label>Container size</label><input name="whContainerSize" placeholder="e.g. 40'" /></div>
-                  <div class="wh-cf"><label>Container weight</label><input name="whContainerWeight" placeholder="e.g. 18,000 lbs" /></div>
-                  <div class="wh-cf"><label># of containers</label><input name="whNumContainers" placeholder="e.g. 3" /></div>
-                  <div class="wh-cf"><label>ETA</label><input name="whEta" type="date" /></div>
-                  <div class="wh-cf"><label>Commodity</label><input name="whCommodity" placeholder="e.g. furniture" /></div>
-                  <div class="wh-cf"><label>Total pkgs / container</label><input name="whTotalPkgs" placeholder="e.g. 480" /></div>
+                  <div class="wh-cf"><label>Container size<span class="req-star">*</span></label><select name="whContainerSize"><option value="">Select size</option><option>20'</option><option>40'</option><option>40HQ</option><option>53'</option></select></div>
+                  <div class="wh-cf"><label>Container weight<span class="req-star">*</span></label><input name="whContainerWeight" placeholder="e.g. 18,000 lbs" /></div>
+                  <div class="wh-cf"><label># of containers<span class="req-star">*</span></label><input name="whNumContainers" placeholder="e.g. 3" /></div>
+                  <div class="wh-cf"><label>ETA<span class="req-star">*</span></label><input name="whEta" type="date" /></div>
+                  <div class="wh-cf"><label>Commodity<span class="req-star">*</span></label><input name="whCommodity" placeholder="e.g. furniture" /></div>
+                  <div class="wh-cf"><label>Total pkgs / container<span class="req-star">*</span></label><input name="whTotalPkgs" placeholder="e.g. 480" /></div>
                   <div class="wh-cf wh-cf-note"><label>Note</label><textarea name="warehouseNote" placeholder="Any additional warehouse requirements..."></textarea></div>
                 </div>
               </div>
@@ -1660,15 +1660,15 @@
               <div class="wh-group">
                 <div class="wh-group-hd">📥 Inbound</div>
                 <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Order processing"><span class="wh-name">Order processing</span></label><span class="wh-unit">Order</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
-                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Inbound — floor load"><span class="wh-name">Inbound — floor load</span></label><span class="wh-unit">Carton</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
-                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Inbound — palletized"><span class="wh-name">Inbound — palletized</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
-                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Sorting"><span class="wh-name">Sorting</span></label><span class="wh-unit">SKU</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Inbound — floor load"><span class="wh-name">Inbound — floor load<span class="req-star">*</span></span></label><span class="wh-unit">Carton</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Inbound — palletized"><span class="wh-name">Inbound — palletized<span class="req-star">*</span></span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Sorting"><span class="wh-name">Sorting<span class="req-star">*</span></span></label><span class="wh-unit">SKU</span><input class="wh-qty" type="text" placeholder="# of SKUs"></div>
                 <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Palletizing"><span class="wh-name">Palletizing</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
                 <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="OW handling fee"><span class="wh-name">OW handling fee</span></label><span class="wh-unit">Container</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
                 <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Others (inbound)"><span class="wh-name">Others (inbound)</span></label><span class="wh-unit wh-unit-none"></span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
               </div>
               <div class="wh-group">
-                <div class="wh-group-hd">📤 Outbound</div>
+                <div class="wh-group-hd">📤 Outbound <span class="req-star">*</span><span class="wh-ob-mode"><label><input type="radio" name="outboundMode" value="FTL"> FTL</label><label><input type="radio" name="outboundMode" value="LTL"> LTL</label><label><input type="radio" name="outboundMode" value="SP"> SP</label></span></div>
                 <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Outbound order processing"><span class="wh-name">Outbound order processing</span></label><span class="wh-unit">BOL</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
                 <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Order picking"><span class="wh-name">Order picking</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
                 <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Staging &amp; palletizing"><span class="wh-name">Staging &amp; palletizing</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
@@ -2305,7 +2305,7 @@
 
         const BASIC_HEAD = ['#', 'Date', 'Customer ID', 'Requested By', 'Inquiry Type', 'Container Size', 'Commodity', 'Packages', 'Flags', 'Dry Van Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop', 'From', 'To', 'QTY', 'Quotation #'];
         const TRUCK_HEADERS = ['', 'Base Rate', 'Price', 'GP', 'Adjusted Price', 'Adjusted GP', 'Chassis Cost', 'Chassis Price', 'Pre-Pull Cost', 'Pre-Pull Price', 'Yard Storage Cost', 'Yard Storage Price', 'Driver Waiting Cost', 'Driver Waiting Price', 'Over Weight Cost', 'Over Weight Price', 'Chassis Split Cost', 'Chassis Split Price', 'Toll Cost', 'Toll Price', 'Reefer Fee Cost', 'Reefer Fee Price', 'Bond Fee Cost', 'Bond Fee Price', 'Carrier', '', 'Action'];
-        const WH_LEFT_HEADERS = ['', 'WH Order Proc', 'WH Order Proc Price', 'WH Inbound', 'WH Inbound Price', 'WH Sorting', 'WH Sorting Price', 'WH Palletizing', 'WH Palletizing Price', 'WH Pallet', 'WH Pallet Price', 'WH Storage', 'WH Storage Price', 'WH Outbound', 'WH Outbound Price', 'Vendor'];
+        const WH_LEFT_HEADERS = ['', 'WH Order Proc', 'WH Order Proc Price', 'WH Inbound', 'WH Inbound Price', 'WH Sorting', 'WH Sorting Price', 'WH Palletizing', 'WH Palletizing Price', 'WH Pallet', 'WH Pallet Price', 'WH Storage', 'WH Storage Price', 'WH Outbound', 'WH Outbound Price', ''];
 
         let displayIndex = start;
 
@@ -2568,8 +2568,8 @@
           tr.appendChild(tdSum);
         }
 
-        const ven = makeInput(item['Vendor'] || '', 'Vendor', quote, locked, 'WH');
-        const tdVen = document.createElement('td'); tdVen.appendChild(ven); tr.appendChild(tdVen);
+        // Vendor column removed (vestigial, unused). Blank placeholder keeps the grid aligned.
+        const tdVen = document.createElement('td'); tr.appendChild(tdVen);
 
 
 
@@ -2779,6 +2779,16 @@
           if (qty && cb) qty.addEventListener('input', () => { if (qty.value.trim()) cb.checked = true; });
         });
 
+        // Inbound: "floor load" and "palletized" are mutually exclusive (pick one)
+        (function () {
+          const fl = document.querySelector('#warehouseBlock input[name="whService"][value="Inbound — floor load"]');
+          const pl = document.querySelector('#warehouseBlock input[name="whService"][value="Inbound — palletized"]');
+          if (fl && pl) {
+            fl.addEventListener('change', () => { if (fl.checked) pl.checked = false; });
+            pl.addEventListener('change', () => { if (pl.checked) fl.checked = false; });
+          }
+        })();
+
         // Pre-fill the WH green common block from the main form when WH is toggled on
         const _needWHel = document.querySelector('input[name="needWarehouseService"]');
         if (_needWHel) _needWHel.addEventListener('change', () => {
@@ -2816,7 +2826,11 @@
             if (u) line += ' (' + u + ')';
             svcLines.push(line);
           });
-          const serviceDetail = svcLines.join(' | ');
+          let serviceDetail = svcLines.join(' | ');
+
+          // Outbound shipping mode (FTL/LTL/SP) → packed into the detail text (no server change)
+          const obMode = form.querySelector('input[name="outboundMode"]:checked')?.value || '';
+          if (obMode) serviceDetail += (serviceDetail ? ' | ' : '') + 'Outbound mode: ' + obMode;
 
           // WH green common-info → canonical fields
           const whServiceTypes = Array.from(form.querySelectorAll('input[name="whServiceType"]:checked')).map(x => x.value).join('; ');
@@ -2826,6 +2840,31 @@
           const reefer = form.querySelector('input[name="reefer"]')?.checked ? 'true' : 'false';
           const bonded = form.querySelector('input[name="bonded"]')?.checked ? 'true' : 'false';
           const needWH = form.querySelector('input[name="needWarehouseService"]')?.checked ? 'true' : 'false';
+
+          // Required fields when warehouse service is requested
+          if (needWH === 'true') {
+            const missing = [];
+            if (!whServiceTypes) missing.push('Service Type');
+            if (!g('whContainerSize')) missing.push('Container Size');
+            if (!g('whContainerWeight')) missing.push('Container Weight');
+            if (!g('whNumContainers')) missing.push('# of Containers');
+            if (!g('whEta')) missing.push('ETA');
+            if (!g('whCommodity')) missing.push('Commodity');
+            if (!g('whTotalPkgs')) missing.push('Total Pkgs / Container');
+            const fl = form.querySelector('#warehouseBlock input[name="whService"][value="Inbound — floor load"]');
+            const pl = form.querySelector('#warehouseBlock input[name="whService"][value="Inbound — palletized"]');
+            if (!(fl?.checked || pl?.checked)) missing.push('Inbound type (floor load or palletized)');
+            const sortCb = form.querySelector('#warehouseBlock input[name="whService"][value="Sorting"]');
+            if (sortCb?.checked) {
+              const sq = (sortCb.closest('.wh-grow')?.querySelector('.wh-qty')?.value || '').trim();
+              if (!sq) missing.push('Sorting: # of SKUs');
+            }
+            if (!form.querySelector('input[name="outboundMode"]:checked')) missing.push('Outbound mode (FTL / LTL / SP)');
+            if (missing.length) {
+              alert('⚠️ Warehouse service requires these fields:\n\n• ' + missing.join('\n• '));
+              return;
+            }
+          }
 
           const toCity = (entry.toCity || '').trim();
           const toState = (entry.toState || '').trim();
@@ -2949,6 +2988,11 @@ body.mode-summary #fixed-scroll-wrapper {
     .wh-block { margin-top: 4px; }
     .wh-group { border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
     .wh-group-hd { background: #f1f5f9; padding: 8px 12px; font-size: 0.8rem; font-weight: 700; color: #1e293b; border-bottom: 1px solid #e2e8f0; }
+    .req-star { color: #dc2626; font-weight: 700; margin-left: 2px; }
+    .req-legend { margin-left: 10px; font-size: 0.72rem; font-weight: 500; color: #64748b; }
+    .wh-ob-mode { float: right; font-weight: 500; font-size: 0.74rem; display: inline-flex; gap: 12px; }
+    .wh-ob-mode label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; color: #64748b; }
+    .wh-ob-mode input[type="radio"] { width: 14px; height: 14px; cursor: pointer; accent-color: #1a4f8a; }
     .wh-grow { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid #f1f5f9; }
     .wh-grow:first-of-type { border-top: none; }
     .wh-grow:has(input[type="checkbox"]:checked) { background: #ecfdf5; }

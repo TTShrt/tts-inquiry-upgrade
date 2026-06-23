@@ -1790,21 +1790,20 @@
         // This prevents unsaved edits from disappearing when we call loadInquiries() (full re-render).
         async function flushAllDrafts() {
           try {
+            // ✅ PERF: only flush rows the user ACTUALLY edited this session.
+            // draftCache is populated on real keystrokes (makeInput 'input' listener)
+            // and cleared after each successful save. Previously this scanned every
+            // unlocked non-empty input and re-saved EVERY editable row on the page,
+            // firing one POST per row on each ADD — the cause of the long wait.
             const pairs = new Set();
-            const inputs = Array.from(document.querySelectorAll('input[data-quote][data-scope]'));
-            for (const el of inputs) {
-              const q = String(el.getAttribute('data-quote') || '').trim();
-              const s = String(el.getAttribute('data-scope') || '').trim();
-              if (!q || !s) continue;
-
-              // ✅ Only flush rows where at least one input is UNLOCKED (being edited)
-              // Skip locked/confirmed rows — their data is already saved
-              if (!el.disabled) {
-                const v = String(el.value ?? '').trim();
-                if (v !== '') {
-                  pairs.add(q + '||' + s);
-                }
-              }
+            for (const key of Object.keys(draftCache)) {
+              const parts = key.split('__');          // key = `${quote}__${scope}__${field}`
+              if (parts.length < 3) continue;
+              const q = String(parts[0] || '').trim();
+              const s = String(parts[1] || '').trim();
+              const v = String(draftCache[key] ?? '').trim();
+              if (!q || !s || v === '') continue;     // empty draft = nothing to persist (matches saveFields skipping empty)
+              pairs.add(q + '||' + s);
             }
 
             for (const key of pairs) {

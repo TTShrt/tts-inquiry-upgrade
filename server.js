@@ -1529,6 +1529,7 @@ app.post('/inquiries/update', async (req, res) => {
           inList(field, PRICE_SAVED_FLAGS) ||
           field === 'Selected Supplier' ||          // ✅ Sales picks which supplier to quote
           field.endsWith(' Qty') ||                 // ✅ Sales fills the per-service Qty / detail (green zone)
+          field.endsWith(' OnQuote') ||             // ✅ Sales marks which rows go on the quote sheet
           field === 'truckingSalesConfirmed' ||
           field === 'warehouseSalesConfirmed' ||
           inList(field, INQUIRY_EDIT_FIELDS)
@@ -1542,6 +1543,7 @@ app.post('/inquiries/update', async (req, res) => {
           inList(field, PRICE_SAVED_FLAGS) ||
           field === 'Selected Supplier' ||          // ✅ Manager can override the supplier choice
           field.endsWith(' Qty') ||                 // ✅ Manager can fill the per-service Qty / detail
+          field.endsWith(' OnQuote') ||             // ✅ Manager marks which rows go on the quote sheet
           field === 'truckingManagerConfirmed' ||
           field === 'warehouseManagerConfirmed' ||
 
@@ -1595,6 +1597,21 @@ app.post('/inquiries/update', async (req, res) => {
         continue;
       }
 
+      // ── Issue 4: WH manual lock field. Validate the lock/unlock transition by role.
+      //   set 'sales'   : sales or manager     set 'manager' : manager only
+      //   unlock (''): a Manager lock clears only by manager; a Sales lock by sales or manager.
+      if (k === 'WH Locked By') {
+        const cur = String(existing['WH Locked By'] || '').toLowerCase().trim();
+        const next = String(v || '').toLowerCase().trim();
+        let allow = false;
+        if (next === 'sales') allow = (role === 'sales' || role === 'manager');
+        else if (next === 'manager') allow = (role === 'manager');
+        else if (next === '') allow = (cur === 'manager') ? (role === 'manager') : (role === 'sales' || role === 'manager');
+        if (!allow) { blocked.push({ field: k, reason: 'wh-lock-permission' }); continue; }
+        filtered[k] = next; // bypass empty-string guard so unlock ('') persists
+        continue;
+      }
+
       if (!roleCanUpdateField(role, k)) {
         blocked.push({ field: k, reason: 'field-not-allowed-for-role' });
         continue;
@@ -1610,6 +1627,21 @@ app.post('/inquiries/update', async (req, res) => {
       if (scope === 'WH' && scopeLockedForRole(existing, 'WH', role)) {
         blocked.push({ field: k, reason: 'wh-scope-locked' });
         continue;
+      }
+
+      // ── Issue 4: when WH is manually locked ('WH Locked By' set), freeze supplier choice +
+      // Sourcing cost + Price for ALL roles. Green-zone common fields, qty/detail and OnQuote stay editable.
+      {
+        const whLockedBy = String(existing['WH Locked By'] || '').toLowerCase().trim();
+        if (whLockedBy && (
+              / Price$/.test(k) ||
+              / Cost S\d+$/.test(k) ||
+              /^Supplier \d+ Name$/.test(k) ||
+              k === 'Selected Supplier'
+            )) {
+          blocked.push({ field: k, reason: 'wh-manual-locked' });
+          continue;
+        }
       }
 
       // Extra: Sales cannot uncheck once Manager confirmed (already covered by scope lock),

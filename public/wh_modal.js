@@ -144,6 +144,10 @@
       '.whm-gp{font-size:11px;font-weight:600;color:#9aa1ab}',
       '.whm-col.sel .whm-cell{border:2px solid #2563eb;padding:0 4px}',
       '.whm-col.dim{opacity:.72}',
+      '.whm-srcg .whm-col.sel .whm-cell{border:1px solid #cfd4da;padding:0 5px}',
+      '.whm-srcg .whm-col.dim{opacity:1}',
+      '.whm-oqcol{text-align:center}',
+      '.whm-oq{cursor:pointer;width:14px;height:14px;accent-color:#15803d}',
       '.whm-exist{color:#9aa1ab;font-style:italic}',
       '.whm-vnote{padding:8px 18px 4px;border-top:1px solid #eef0f2;display:flex;flex-direction:column;gap:4px;background:#eef4ff;box-shadow:inset 4px 0 0 #3b82f6}',
       '.whm-vnote>label{font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.3px}',
@@ -187,6 +191,11 @@
     var showPrice = role !== 'sourcing';   // Sourcing (like TRUCK) only enters cost — Price & GP are hidden from it
     var canEditCommon = role === 'sales' || role === 'manager';   // green zone (common info + top Note) is Sales/Manager; Sourcing read-only
 
+    // ── Issue 4: manual supplier lock. Independent field 'WH Locked By' ('', 'sales', 'manager').
+    // When locked, freeze supplier radio + Sourcing cost + Price. Green zone & OnQuote stay editable.
+    // Sales may lock/unlock its OWN ('sales') lock; Manager may lock/unlock ANY; a Manager lock blocks Sales.
+    var canLockRole = (role === 'sales' || role === 'manager');
+
     injectStyles();
 
     var draft = {};                            // changed fields pending save
@@ -198,7 +207,7 @@
 
     /* ---- build DOM ---- */
     var ov = document.createElement('div');
-    ov.className = 'whm-ov';
+    ov.className = 'whm-ov' + (role === 'sourcing' ? ' whm-srcg' : '');
 
     var supNames = [];
     for (var s = 1; s <= SUP; s++) supNames.push(get('Supplier ' + s + ' Name'));
@@ -249,7 +258,7 @@
             (showPrice ? '<col style="width:80px"><col style="width:48px">' : '') +
           '</colgroup>' +
           '<thead><tr>' +
-            '<th></th><th class="l">Service</th><th class="l whm-qcol">Qty / detail</th><th>Unit</th>' +
+            '<th class="whm-oqcol" title="Include this row in the quote sheet">\uD83D\uDCC4</th><th class="l">Service</th><th class="l whm-qcol">Qty / detail</th><th>Unit</th>' +
             headCols +
             (showPrice ? '<th class="r whm-pcol">Price</th><th class="r">GP</th>' : '') +
           '</tr></thead>' +
@@ -269,6 +278,8 @@
             (showPrice ? '<span><span style="color:#6b7280">GP</span> <b data-tgp style="color:#15803d">\u2014</b></span>' : '') +
           '</div>' +
           '<div style="display:flex;align-items:center;gap:8px">' +
+            '<span class="whm-lockstate" data-lockstate style="font-size:11px;font-weight:600;color:#b45309"></span>' +
+            (canLockRole ? '<button class="whm-btn" data-lock></button>' : '') +
             '<span class="whm-save-state" data-savestate></span>' +
             '<button class="whm-btn" data-close>Close</button>' +
             '<button class="whm-btn pri" data-save>\u2713 Save</button>' +
@@ -304,7 +315,9 @@
         if (kind === 'legacy' && (legacyVal == null || String(legacyVal).trim() === '')) return;
 
         rowsHTML += '<tr data-row data-g="' + gi + '" data-field="' + esc(fld) + '" data-kind="' + kind + '">';
-        rowsHTML += '<td></td>';
+        rowsHTML += '<td class="whm-oqcol">' + (kind === 'template'
+          ? '<input type="checkbox" class="whm-oq" data-onquote="' + esc(fld) + '" ' + (get(fld + ' OnQuote') === 'true' ? 'checked' : '') + (canEditCommon ? '' : ' disabled') + '>'
+          : '') + '</td>';
         rowsHTML += '<td class="l ' + (kind === 'legacy' ? 'whm-exist' : '') + '">' + esc(label) + '</td>';
         // qty
         rowsHTML += '<td class="l whm-qcol">' + (kind === 'template'
@@ -406,6 +419,28 @@
       });
     }
 
+    // ── Issue 4: reflect manual lock in the UI (freeze supplier radio + cost + price) ──
+    function applyLockUI() {
+      var lb = String(get('WH Locked By') || '').toLowerCase().trim();
+      var locked = (lb === 'sales' || lb === 'manager');
+      ov.querySelectorAll('input[name="whm-selwh"]').forEach(function (r) { r.disabled = !canEditPrice || locked; });
+      ov.querySelectorAll('.whm-sname').forEach(function (s) { s.disabled = !canEditCost || locked; });
+      ov.querySelectorAll('.whm-cell[data-cost],.whm-cell[data-costbare]').forEach(function (c) { c.disabled = !canEditCost || locked; });
+      ov.querySelectorAll('.whm-cell[data-price]').forEach(function (p) { p.disabled = !canEditPrice || locked; });
+      var st = ov.querySelector('[data-lockstate]');
+      if (st) st.textContent = locked ? ('\uD83D\uDD12 Locked by ' + (lb === 'manager' ? 'Manager' : 'Sales')) : '';
+      var b = ov.querySelector('[data-lock]');
+      if (b) {
+        if (!locked) {
+          b.textContent = '\uD83D\uDD12 Lock'; b.disabled = false; b.setAttribute('data-act', 'lock'); b.title = '';
+        } else {
+          var canU = (lb === 'manager') ? (role === 'manager') : true; // sales lock: sales or manager can unlock
+          b.textContent = '\uD83D\uDD13 Unlock'; b.disabled = !canU; b.setAttribute('data-act', 'unlock');
+          b.title = canU ? '' : 'Locked by Manager \u2014 only a Manager can unlock';
+        }
+      }
+    }
+
     /* ---- change tracking + autosave ---- */
     function trackField(el) {
       var f = el.getAttribute('data-field');
@@ -465,6 +500,12 @@
       var r = e.target.closest('input[name="whm-selwh"]');
       if (r) { sel = +r.value; set('Selected Supplier', String(sel)); applySel(); recalc(); autosave(['Selected Supplier']); return; }
       if (e.target.matches('[data-svc]')) { rebuildServiceTypes(); autosave(['Service Types']); return; }
+      if (e.target.matches('[data-onquote]')) {
+        var oqKey = e.target.getAttribute('data-onquote') + ' OnQuote';
+        set(oqKey, e.target.checked ? 'true' : 'false');
+        autosave([oqKey]);
+        return;
+      }
       var keys = trackField(e.target);
       recalc();
       if (keys.length) autosave(keys);
@@ -483,6 +524,14 @@
     function close() { clearTimeout(saveTimer); ov.remove(); }
     ov.addEventListener('click', function (e) {
       if (e.target === ov) return close();
+      var lockBtn = e.target.closest('[data-lock]');
+      if (lockBtn && !lockBtn.disabled) {
+        var next = (lockBtn.getAttribute('data-act') === 'lock') ? role : '';
+        set('WH Locked By', next);
+        applyLockUI();
+        postUpdate({ 'WH Locked By': next }).then(function (ok) { if (ok) { flashSaved('\u2713 saved'); onSaved(); } });
+        return;
+      }
       if (e.target.closest('[data-close]')) return close();
       if (e.target.closest('[data-save]')) {
         // commit everything in draft at once
@@ -494,6 +543,7 @@
     document.addEventListener('keydown', function esckey(ev) { if (ev.key === 'Escape') { close(); document.removeEventListener('keydown', esckey); } });
 
     applySel();
+    applyLockUI();
     recalc();
   };
 })();

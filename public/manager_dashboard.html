@@ -111,8 +111,9 @@
     .wh-sum-item i { font-style: normal; color: #8a8f98; font-size: 11px; margin-right: 3px; }
     .wh-sum-cost { font-weight: 600; }
     .wh-sum-gp { font-weight: 600; color: #15803d; }
+    .wh-needed-badge { display: inline-block; background: #f97316; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 6px; letter-spacing: 0.02em; white-space: nowrap; }
     .wh-details-btn {
-      margin-left: auto; height: 26px; padding: 0 12px; border: 1px solid #2563eb;
+      height: 26px; padding: 0 12px; border: 1px solid #2563eb;
       color: #2563eb; background: #fff; border-radius: 7px; font-size: 12px;
       font-weight: 500; cursor: pointer; font-family: inherit; white-space: nowrap;
     }
@@ -1321,6 +1322,7 @@
     .flag-hazmat { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
     .flag-reefer { background: #e0f2fe; color: #075985; border: 1px solid #7dd3fc; }
     .flag-bonded { background: #f3e8ff; color: #6b21a8; border: 1px solid #c4b5fd; }
+    .flag-wh { background: #ffedd5; color: #9a3412; border: 1px solid #fb923c; }
 
     /* ── Lock Badge ── */
     .lock-badge {
@@ -1854,6 +1856,7 @@
           }
           function flagBadges(item) {
             let html = '';
+            if (String(item['Need Warehouse Service'] || '').toLowerCase() === 'true') html += '<span class="flag-badge flag-wh" title="Needs warehouse quote">🏬 WH</span>';
             if (String(item['Hazmat'] || '').toLowerCase() === 'true') html += '<span class="flag-badge flag-hazmat">HAZ</span>';
             if (String(item['Reefer'] || '').toLowerCase() === 'true') html += '<span class="flag-badge flag-reefer">RFR</span>';
             if (String(item['Bonded'] || '').toLowerCase() === 'true') html += '<span class="flag-badge flag-bonded">BND</span>';
@@ -2533,6 +2536,12 @@
 
           const box = document.createElement('div');
           box.className = 'wh-summary-box';
+          if (String(item['Need Warehouse Service'] || '').toLowerCase().trim() === 'true') {
+            const badge = document.createElement('span');
+            badge.className = 'wh-needed-badge';
+            badge.textContent = '🏬 NEEDS WAREHOUSE QUOTE';
+            box.appendChild(badge);
+          }
           const mk = (label, val, cls) => {
             const s = document.createElement('span');
             s.className = 'wh-sum-item ' + (cls || '');

@@ -135,6 +135,9 @@
     /* ── Warehouse grouped services (mirrors quote modal) ── */
     .wh-group { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
     .wh-group-hd { background: var(--bg); padding: 8px 12px; font-size: 0.8rem; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--border); }
+    .wh-ob-mode { float: right; font-weight: 500; font-size: 0.74rem; display: inline-flex; gap: 12px; }
+    .wh-ob-mode label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; color: var(--text-secondary); }
+    .wh-ob-mode input[type="radio"] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--primary); }
     .wh-grow { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid #f1f5f9; }
     .wh-grow:first-of-type { border-top: none; }
     .wh-grow:has(input[type="checkbox"]:checked) { background: var(--success-bg); }
@@ -340,7 +343,7 @@
               <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Others (inbound)"><span class="wh-name">Others (inbound)</span></label><span class="wh-unit wh-unit-none"></span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
             </div>
             <div class="wh-group">
-              <div class="wh-group-hd">📤 Outbound</div>
+              <div class="wh-group-hd">📤 Outbound <span class="wh-ob-mode"><label><input type="radio" name="outboundMode" value="FTL"> FTL</label><label><input type="radio" name="outboundMode" value="LTL"> LTL</label><label><input type="radio" name="outboundMode" value="SP"> SP</label></span></div>
               <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Outbound order processing"><span class="wh-name">Outbound order processing</span></label><span class="wh-unit">BOL</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
               <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Order picking"><span class="wh-name">Order picking</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
               <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Staging &amp; palletizing"><span class="wh-name">Staging &amp; palletizing</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
@@ -422,6 +425,16 @@
       }
     });
 
+    // Inbound: "floor load" and "palletized" are mutually exclusive (pick one)
+    (function () {
+      const floorCb = whBlock.querySelector('input[name="whService"][value="Inbound — floor load"]');
+      const palletCb = whBlock.querySelector('input[name="whService"][value="Inbound — palletized"]');
+      if (floorCb && palletCb) {
+        floorCb.addEventListener('change', () => { if (floorCb.checked) palletCb.checked = false; });
+        palletCb.addEventListener('change', () => { if (palletCb.checked) floorCb.checked = false; });
+      }
+    })();
+
     function setResult(type, html) {
       const box = document.getElementById('resultBox');
       box.className = type === 'ok' ? 'ok' : 'bad';
@@ -444,6 +457,23 @@
       data.bonded = form.querySelector('input[name="bonded"]')?.checked ? 'true' : 'false';
       data.needWarehouseService = needWH.checked ? 'true' : 'false';
 
+      // A) Required fields when warehouse service is requested
+      if (needWH.checked) {
+        const v = n => (form.querySelector('[name="' + n + '"]')?.value || '').trim();
+        const missing = [];
+        if (!form.querySelector('input[name="whServiceType"]:checked')) missing.push('Service Type');
+        if (!v('whContainerSize')) missing.push('Container Size');
+        if (!v('whContainerWeight')) missing.push('Container Weight');
+        if (!v('whNumContainers')) missing.push('# of Containers');
+        if (!v('whEta')) missing.push('ETA');
+        if (!v('whCommodity')) missing.push('Commodity');
+        if (!v('whTotalPkgs')) missing.push('Total Pkgs / Container');
+        if (missing.length) {
+          setResult('bad', '⚠️ Warehouse service requires these fields: <b>' + missing.join(', ') + '</b>. Please complete them and submit again.');
+          return;
+        }
+      }
+
       // Gather grouped WH services: name + qty/detail + unit(/period) → packed into the SAME two fields (no server change)
       const whRows = Array.from(form.querySelectorAll('.wh-grow')).filter(r => r.querySelector('input[name="whService"]')?.checked);
       const whNames = [];
@@ -462,6 +492,10 @@
       });
       data.warehouseServices = whNames.join('; ');
       data.warehouseServiceDetail = whDetails.join(' | ');
+
+      // C) Outbound shipping mode (FTL/LTL/SP) → packed into the detail text (no server change)
+      const obMode = form.querySelector('input[name="outboundMode"]:checked')?.value || '';
+      if (obMode) data.warehouseServiceDetail += (data.warehouseServiceDetail ? ' | ' : '') + 'Outbound mode: ' + obMode;
 
       // WH green common-info (mirrors modal green zone) → canonical server fields
       const whServiceTypes = Array.from(form.querySelectorAll('input[name="whServiceType"]:checked')).map(x => x.value);

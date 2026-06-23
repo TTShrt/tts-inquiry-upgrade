@@ -143,7 +143,7 @@
       '.whm-perd{height:26px;font-size:11px;border:1px solid #cfd4da;border-radius:5px;width:100%;font-family:inherit;color:#1f2430;background:#fff;padding:0 3px}',
       '.whm-gp{font-size:11px;font-weight:600;color:#9aa1ab}',
       '.whm-col.sel .whm-cell{border:2px solid #2563eb;padding:0 4px}',
-      '.whm-col.dim{opacity:.42}',
+      '.whm-col.dim{opacity:.72}',
       '.whm-exist{color:#9aa1ab;font-style:italic}',
       '.whm-vnote{padding:8px 18px 4px;border-top:1px solid #eef0f2;display:flex;flex-direction:column;gap:4px;background:#eef4ff;box-shadow:inset 4px 0 0 #3b82f6}',
       '.whm-vnote>label{font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.3px}',

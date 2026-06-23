@@ -2278,6 +2278,7 @@ ${qDel}`)) return;
               chk.disabled = false;
             }
           };
+          wrap.appendChild(chk);   // ✅ FIX: checkbox was created but never appended — now renders (matches TRUCK actionCell)
           td.appendChild(wrap);
 
           // ➕ ADD (只新增 WH 子行)

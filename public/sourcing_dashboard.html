@@ -1497,6 +1497,11 @@
         const pageSize = 100;
         let currentPage = 1;
         let filteredData = [];
+        // ✅ PERF (A): full UNFILTERED list from the last /inquiries load. Used to number new
+        // sub-rows (nextTruckQuote/nextWhQuote) from memory instead of a fresh full GET on every ADD.
+        // Kept separate from filteredData so an active search filter can't hide siblings and cause
+        // a duplicate row number.
+        let allInquiriesCache = [];
         let currentUser = '';
         let userRole = '';
 
@@ -2107,16 +2112,14 @@
           addBtn.onclick = async () => {
             if (!confirm('Add a new Truck option?')) return;
 
+            // ✅ PERF (A): flush already persists the row you just edited (via draftCache),
+            // so the previous extra autosave of the current row here was redundant — removed.
             const okFlush = await flushAllDrafts();
             if (!okFlush) { alert('❌ Auto-save failed. Add cancelled.'); return; }
 
-            const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'TRUCK');
-            if (!okAuto) {
-              alert('❌ Failed to save current Truck cost. Add cancelled.');
-              return;
-            }
             const parent = String(mainKey || '').trim();
-            const all = await fetchAllInquiries();
+            // ✅ PERF (A): number the new row from data already in memory instead of a full GET /inquiries.
+            const all = (allInquiriesCache && allInquiriesCache.length) ? allInquiriesCache : await fetchAllInquiries();
             const newQuote = nextTruckQuote(parent, all);
 
             const newItem = {
@@ -2293,18 +2296,14 @@ ${qDel}`)) return;
           addBtn.onclick = async () => {
             if (!confirm('Add a new Warehouse option?')) return;
 
+            // ✅ PERF (A): flush already persists the row you just edited (via draftCache),
+            // so the previous extra autosave of the current WH row here was redundant — removed.
             const okFlush = await flushAllDrafts();
             if (!okFlush) { alert('❌ Auto-save failed. Add cancelled.'); return; }
 
-            // ✅ 先 autosave 自己这个 WH scope（不是 TRUCK）
-            const okAuto = await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');
-            if (!okAuto) {
-              alert('❌ Failed to save current WH cost. Add cancelled.');
-              return;
-            }
-
             const parent = String(mainKey || '').trim();
-            const all = await fetchAllInquiries();
+            // ✅ PERF (A): number the new row from data already in memory instead of a full GET /inquiries.
+            const all = (allInquiriesCache && allInquiriesCache.length) ? allInquiriesCache : await fetchAllInquiries();
             const newQuote = nextWhQuote(parent, all);
 
             const newItem = {
@@ -3080,6 +3079,7 @@ ${qDel}`)) return;
               return;
             }
 
+            allInquiriesCache = Array.isArray(data) ? data : [];   // ✅ PERF (A): keep full unfiltered list for row numbering
             filteredData = data;
             filteredData = applySearchFilter(filteredData, searchTerm);
             renderPage();

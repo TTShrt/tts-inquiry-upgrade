@@ -1100,6 +1100,12 @@ app.post('/inquiries', async (req, res) => {
       'Hazmat': raw['Hazmat'] || raw.hazmat || 'false',
       'Reefer': raw['Reefer'] || raw.reefer || 'false',
       'Bonded': raw['Bonded'] || raw.bonded || 'false',
+
+      // Common info filled in the WH green block (mirrors public endpoint + quote modal)
+      'Service Types': raw['Service Types'] || raw.serviceTypes || '',
+      'ETA': raw['ETA'] || raw.eta || '',
+      '# of Containers': raw['# of Containers'] || raw.numContainers || '',
+
       'Need Warehouse Service': raw['Need Warehouse Service'] || raw.needWarehouseService || 'false',
       'Warehouse Services': raw['Warehouse Services'] || raw.warehouseServices || '',
       'Warehouse Service Detail': raw['Warehouse Service Detail'] || raw.warehouseServiceDetail || '',

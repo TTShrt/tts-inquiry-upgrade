@@ -2793,11 +2793,9 @@ ${qDel}`)) return;
 
           const whServices = String(item['Warehouse Services'] || '').trim();
           const whDetail = String(item['Warehouse Service Detail'] || '').trim();
-          const estPallets = String(item['Estimated Pallets'] || '').trim();
-          const estBoxes = String(item['Estimated Boxes / Cartons'] || item['Estimated Boxes'] || '').trim();
-          const estSku = String(item['Estimated SKU Count'] || '').trim();
-          const dur = String(item['Storage Duration'] || '').trim();
-          const durUnit = String(item['Storage Duration Unit'] || item['Duration Unit'] || '').trim();
+          const svcTypes = String(item['Service Types'] || '').trim();
+          const whEta = String(item['ETA'] || '').trim();
+          const whNumCont = String(item['# of Containers'] || '').trim();
 
           const warehouseNote = String(item['Warehouse Note'] || '').trim();
           const salesNote = String(item['Note'] || '').trim();
@@ -2816,6 +2814,8 @@ ${qDel}`)) return;
 
           // ===== Services line (prefer detail with qty/unit) =====
           if (needWH) {
+            if (svcTypes) lines.push(`Type: ${svcTypes}`);
+
             if (whDetail) lines.push(whDetail);
             else if (whServices) {
               const list = whServices
@@ -2825,15 +2825,11 @@ ${qDel}`)) return;
               if (list.length) lines.push(list.map(s => `✅ ${s}`).join(' '));
             }
 
-            // Estimated
-            const estParts = [];
-            if (estPallets) estParts.push(`Pallets ${estPallets}`);
-            if (estBoxes) estParts.push(`Boxes ${estBoxes}`);
-            if (estSku) estParts.push(`SKU ${estSku}`);
-            if (estParts.length) lines.push('Est: ' + estParts.join(', '));
-
-            // Duration
-            if (dur || durUnit) lines.push('Storage: ' + [dur, durUnit].filter(Boolean).join(' '));
+            // ETA / # of Containers
+            const ecParts = [];
+            if (whEta) ecParts.push(`ETA ${whEta}`);
+            if (whNumCont) ecParts.push(`${whNumCont} cntr`);
+            if (ecParts.length) lines.push(ecParts.join(', '));
           }
 
           // Warehouse Note (Inquiry)

@@ -1631,112 +1631,73 @@
 
           <div id="warehouseBlock" class="mt-4 hidden">
 
-            <!-- ===== Warehouse Services ===== -->
-            <div class="tiny-note font-semibold text-gray-700 mb-2">
-              Warehouse Services (multi-select)
+            <!-- ===== Warehouse request (new bucket taxonomy, mirrors customer portal) ===== -->
+            <div class="wh-block">
+              <!-- Green common-info block (mirrors the quote modal's green zone) -->
+              <div class="wh-common">
+                <div class="wh-common-grid">
+                  <div class="wh-cf wh-cf-svc">
+                    <label>Service type</label>
+                    <div class="wh-svc-checks">
+                      <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Transload"> Transload</label>
+                      <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Distribution"> Distribution</label>
+                      <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Fulfillment"> Fulfillment</label>
+                      <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Storage"> Storage</label>
+                    </div>
+                  </div>
+                  <div class="wh-cf"><label>Container size</label><input name="whContainerSize" placeholder="e.g. 40'" /></div>
+                  <div class="wh-cf"><label>Container weight</label><input name="whContainerWeight" placeholder="e.g. 18,000 lbs" /></div>
+                  <div class="wh-cf"><label># of containers</label><input name="whNumContainers" placeholder="e.g. 3" /></div>
+                  <div class="wh-cf"><label>ETA</label><input name="whEta" type="date" /></div>
+                  <div class="wh-cf"><label>Commodity</label><input name="whCommodity" placeholder="e.g. furniture" /></div>
+                  <div class="wh-cf"><label>Total pkgs / container</label><input name="whTotalPkgs" placeholder="e.g. 480" /></div>
+                  <div class="wh-cf wh-cf-note"><label>Note</label><textarea name="warehouseNote" placeholder="Any additional warehouse requirements..."></textarea></div>
+                </div>
+              </div>
+              <div style="font-size:0.78rem;color:#64748b;font-weight:600;margin-bottom:10px;">Select the warehouse services you need (fill qty / detail where you can)</div>
+              <div class="wh-group">
+                <div class="wh-group-hd">📥 Inbound</div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Order processing"><span class="wh-name">Order processing</span></label><span class="wh-unit">Order</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Inbound — floor load"><span class="wh-name">Inbound — floor load</span></label><span class="wh-unit">Carton</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Inbound — palletized"><span class="wh-name">Inbound — palletized</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Sorting"><span class="wh-name">Sorting</span></label><span class="wh-unit">SKU</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Palletizing"><span class="wh-name">Palletizing</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="OW handling fee"><span class="wh-name">OW handling fee</span></label><span class="wh-unit">Container</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Others (inbound)"><span class="wh-name">Others (inbound)</span></label><span class="wh-unit wh-unit-none"></span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              </div>
+              <div class="wh-group">
+                <div class="wh-group-hd">📤 Outbound</div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Outbound order processing"><span class="wh-name">Outbound order processing</span></label><span class="wh-unit">BOL</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Order picking"><span class="wh-name">Order picking</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Staging &amp; palletizing"><span class="wh-name">Staging &amp; palletizing</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Pallet fee"><span class="wh-name">Pallet fee</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Handling out"><span class="wh-name">Handling out</span></label><span class="wh-unit">Container</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Floor-load loading"><span class="wh-name">Floor-load loading</span></label><span class="wh-unit">Container</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Fulfillment / small parcel"><span class="wh-name">Fulfillment / small parcel</span></label><span class="wh-unit">Unit</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              </div>
+              <div class="wh-group">
+                <div class="wh-group-hd">🏬 Storage</div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per pallet — stackable"><span class="wh-name">Per pallet — stackable</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per pallet — non-stackable"><span class="wh-name">Per pallet — non-stackable</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per crate"><span class="wh-name">Per crate</span></label><span class="wh-unit">Crate</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per bundle"><span class="wh-name">Per bundle</span></label><span class="wh-unit">Bundle</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per sack"><span class="wh-name">Per sack</span></label><span class="wh-unit">Sack</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per container"><span class="wh-name">Per container</span></label><span class="wh-unit">Container</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per CBF"><span class="wh-name">Per CBF</span></label><span class="wh-unit">CBF</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Per CBM"><span class="wh-name">Per CBM</span></label><span class="wh-unit">CBM</span><input class="wh-qty" type="text" placeholder="qty / detail"><select class="wh-period"><option value="mo">/ mo</option><option value="wk">/ wk</option><option value="day">/ day</option></select></div>
+              </div>
+              <div class="wh-group">
+                <div class="wh-group-hd">🛠️ Other / surcharge</div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Label / labeling"><span class="wh-name">Label / labeling</span></label><span class="wh-unit">Each</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Depalletizing"><span class="wh-name">Depalletizing</span></label><span class="wh-unit">Pallet</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Repacking"><span class="wh-name">Repacking</span></label><span class="wh-unit">Each</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Block &amp; brace"><span class="wh-name">Block &amp; brace</span></label><span class="wh-unit">Container</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Pallet / crate repair"><span class="wh-name">Pallet / crate repair</span></label><span class="wh-unit">Each</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Rush order"><span class="wh-name">Rush order</span></label><span class="wh-unit">Order</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Rework / other"><span class="wh-name">Rework / other</span></label><span class="wh-unit">Each</span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+                <div class="wh-grow"><label class="wh-pick"><input type="checkbox" name="whService" value="Others"><span class="wh-name">Others</span></label><span class="wh-unit wh-unit-none"></span><input class="wh-qty" type="text" placeholder="qty / detail"></div>
+              </div>
             </div>
-
-            <div class="grid grid-cols-3 gap-x-10 gap-y-3 text-sm">
-
-              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
-                <label class="flex items-center gap-2">
-                  <input type="checkbox" name="whService" value="Order Processing" />
-                  <span>Order Processing</span>
-                </label>
-                <input class="border wh-mini w-full" name="whQty_Order Processing" placeholder="Qty" disabled />
-                <input class="border wh-mini w-full" name="whUnit_Order Processing" placeholder="Unit" disabled />
-              </div>
-
-              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
-                <label class="flex items-center gap-2">
-                  <input type="checkbox" name="whService" value="Inbound" />
-                  <span>Inbound</span>
-                </label>
-                <input class="border wh-mini w-full" name="whQty_Inbound" placeholder="Qty" disabled />
-                <input class="border wh-mini w-full" name="whUnit_Inbound" placeholder="Unit" disabled />
-              </div>
-
-              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
-                <label class="flex items-center gap-2">
-                  <input type="checkbox" name="whService" value="Outbound" />
-                  <span>Outbound</span>
-                </label>
-                <input class="border wh-mini w-full" name="whQty_Outbound" placeholder="Qty" disabled />
-                <input class="border wh-mini w-full" name="whUnit_Outbound" placeholder="Unit" disabled />
-              </div>
-
-              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
-                <label class="flex items-center gap-2">
-                  <input type="checkbox" name="whService" value="Sorting" />
-                  <span>Sorting</span>
-                </label>
-                <input class="border wh-mini w-full" name="whQty_Sorting" placeholder="Qty" disabled />
-                <input class="border wh-mini w-full" name="whUnit_Sorting" placeholder="Unit" disabled />
-              </div>
-
-              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
-                <label class="flex items-center gap-2">
-                  <input type="checkbox" name="whService" value="Palletizing" />
-                  <span>Palletizing</span>
-                </label>
-                <input class="border wh-mini w-full" name="whQty_Palletizing" placeholder="Qty" disabled />
-                <input class="border wh-mini w-full" name="whUnit_Palletizing" placeholder="Unit" disabled />
-              </div>
-
-              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
-                <label class="flex items-center gap-2">
-                  <input type="checkbox" name="whService" value="Pallet Fee" />
-                  <span>Pallet Fee</span>
-                </label>
-                <input class="border wh-mini w-full" name="whQty_Pallet Fee" placeholder="Qty" disabled />
-                <input class="border wh-mini w-full" name="whUnit_Pallet Fee" placeholder="Unit" disabled />
-              </div>
-
-              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
-                <label class="flex items-center gap-2">
-                  <input type="checkbox" name="whService" value="Storage" />
-                  <span>Storage</span>
-                </label>
-                <input class="border wh-mini w-full" name="whQty_Storage" placeholder="Qty" disabled />
-                <input class="border wh-mini w-full" name="whUnit_Storage" placeholder="Unit" disabled />
-              </div>
-
-              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
-                <label class="flex items-center gap-2">
-                  <input type="checkbox" name="whService" value="Label" />
-                  <span>Label</span>
-                </label>
-                <input class="border wh-mini w-full" name="whQty_Label" placeholder="Qty" disabled />
-                <input class="border wh-mini w-full" name="whUnit_Label" placeholder="Unit" disabled />
-              </div>
-
-              <div class="grid grid-cols-[160px_70px_80px] items-center gap-2">
-                <label class="flex items-center gap-2">
-                  <input type="checkbox" name="whService" value="Cross Dock" />
-                  <span>Cross Dock</span>
-                </label>
-                <input class="border wh-mini w-full" name="whQty_Cross Dock" placeholder="Qty" disabled />
-                <input class="border wh-mini w-full" name="whUnit_Cross Dock" placeholder="Unit" disabled />
-              </div>
-
-            </div>
-
-
-            <!-- ===== Estimated ===== -->
-            <div class="grid grid-cols-3 gap-3 mt-4">
-              <input class="border p-2" name="estimatedPallets" placeholder="Estimated Pallets" />
-              <input class="border p-2" name="estimatedBoxes" placeholder="Estimated Boxes / Cartons" />
-              <input class="border p-2" name="estimatedSkuCount" placeholder="Estimated SKU Count" />
-            </div>
-
-            <!-- ===== Storage Duration ===== -->
-            <div class="grid grid-cols-2 gap-3 mt-3">
-              <input class="border p-2" name="storageDuration" placeholder="Storage Duration (number)" />
-              <input class="border p-2" name="storageDurationUnit" placeholder="Duration Unit (Days/Weeks/Months)" />
-            </div>
-
-            <!-- ===== Notes ===== -->
-            <textarea class="border p-2 mt-3 w-full" name="warehouseNote" placeholder="Warehouse Note"></textarea>
             <textarea class="border p-2 mt-3 w-full" name="note" placeholder="General Note"></textarea>
 
           </div>
@@ -2634,21 +2595,19 @@
         const needWH = String(noteSource['Need Warehouse Service'] || '').toLowerCase() === 'true';
         const svcDetail = (noteSource['Warehouse Service Detail'] || '').toString().trim();
         const svc = (noteSource['Warehouse Services'] || '').toString().trim();
-        const estP = (noteSource['Estimated Pallets'] || '').toString().trim();
-        const estB = (noteSource['Estimated Boxes'] || '').toString().trim();
-        const estSKU = (noteSource['Estimated SKU Count'] || '').toString().trim();
-        const dur = (noteSource['Storage Duration'] || '').toString().trim();
-        const durUnit = (noteSource['Storage Duration Unit'] || '').toString().trim();
+        const svcTypes = (noteSource['Service Types'] || '').toString().trim();
+        const whEta = (noteSource['ETA'] || '').toString().trim();
+        const whNumCont = (noteSource['# of Containers'] || '').toString().trim();
         const whNote = (item['Warehouse Note'] || '').toString().trim(); // sub's own note
 
         // 你红圈那块汇总
         let whReqLine = '';
         if (needWH) {
           const parts = [];
+          if (svcTypes) parts.push(`Type: ${svcTypes}`);
           if (svcDetail) parts.push(svcDetail);
           else if (svc) parts.push(`✅ ${svc.split(';').map(x => x.trim()).filter(Boolean).join(' ✅ ')}`); // 兼容 ; 分隔
-          if (estP || estB || estSKU) parts.push(`Est: Pallets ${estP || '-'}, Boxes ${estB || '-'}, SKU ${estSKU || '-'}`);
-          if (dur || durUnit) parts.push(`Storage: ${dur || '-'} ${durUnit || ''}`.trim());
+          if (whEta || whNumCont) parts.push([whEta ? `ETA ${whEta}` : '', whNumCont ? `${whNumCont} cntr` : ''].filter(Boolean).join(', '));
           whReqLine = parts.filter(Boolean).join(' | ');
         }
 
@@ -2804,21 +2763,25 @@
         if (whChk) whChk.addEventListener('change', window.refreshWarehouseBlock);
         window.refreshWarehouseBlock();
 
-        // Enable/disable Qty & Unit inputs for Warehouse Services
-        document.querySelectorAll('input[name="whService"]').forEach(chk => {
-          const svc = chk.value;
-          const qty = document.querySelector(`input[name="whQty_${svc}"]`);
-          const unit = document.querySelector(`input[name="whUnit_${svc}"]`);
-          if (!qty || !unit) return;
+        // New WH block: typing qty/detail auto-checks its row
+        document.querySelectorAll('#warehouseBlock .wh-grow').forEach(row => {
+          const cb = row.querySelector('input[name="whService"]');
+          const qty = row.querySelector('.wh-qty');
+          if (qty && cb) qty.addEventListener('input', () => { if (qty.value.trim()) cb.checked = true; });
+        });
 
-          const sync = () => {
-            const on = chk.checked;
-            qty.disabled = !on;
-            unit.disabled = !on;
-            if (!on) { qty.value = ''; unit.value = ''; }
+        // Pre-fill the WH green common block from the main form when WH is toggled on
+        const _needWHel = document.querySelector('input[name="needWarehouseService"]');
+        if (_needWHel) _needWHel.addEventListener('change', () => {
+          if (!_needWHel.checked) return;
+          const sync = (src, dst) => {
+            const s = document.querySelector(`[name="${src}"]`);
+            const d = document.querySelector(`#warehouseBlock [name="${dst}"]`);
+            if (s && d && !d.value && s.value) d.value = s.value;
           };
-          chk.addEventListener('change', sync);
-          sync();
+          sync('containerSize', 'whContainerSize');
+          sync('grossWeight', 'whContainerWeight');
+          sync('commodity', 'whCommodity');
         });
 
         // Inquiry submit (Manager)
@@ -2828,17 +2791,27 @@
           const fd = new FormData(form);
           const entry = Object.fromEntries(fd.entries());
 
-          const selectedServices = Array.from(form.querySelectorAll('input[name="whService"]:checked')).map(x => x.value);
-
-          const svcLines = selectedServices.map(svc => {
-            const qtyEl = form.querySelector(`input[name="whQty_${svc}"]`);
-            const unitEl = form.querySelector(`input[name="whUnit_${svc}"]`);
-            const qty = (qtyEl?.value || '').trim();
-            const unit = (unitEl?.value || '').trim();
-            if (!qty && !unit) return `✅ ${svc}`;
-            return `✅ ${svc}: ${qty || '-'} ${unit || ''}`.trim();
-          }).filter(Boolean);
+          const selectedServices = [];
+          const svcLines = [];
+          form.querySelectorAll('#warehouseBlock .wh-grow').forEach(row => {
+            const cb = row.querySelector('input[name="whService"]');
+            if (!cb || !cb.checked) return;
+            const name = cb.value;
+            selectedServices.push(name);
+            const unit = (row.querySelector('.wh-unit')?.textContent || '').trim();
+            const qty = (row.querySelector('.wh-qty')?.value || '').trim();
+            const period = row.querySelector('.wh-period')?.value || '';
+            let line = '✅ ' + name;
+            if (qty) line += ': ' + qty;
+            const u = [unit, period].filter(Boolean).join('/');
+            if (u) line += ' (' + u + ')';
+            svcLines.push(line);
+          });
           const serviceDetail = svcLines.join(' | ');
+
+          // WH green common-info → canonical fields
+          const whServiceTypes = Array.from(form.querySelectorAll('input[name="whServiceType"]:checked')).map(x => x.value).join('; ');
+          const g = n => (form.querySelector(`[name="${n}"]`)?.value || '').trim();
 
           const hazmat = form.querySelector('input[name="hazmat"]')?.checked ? 'true' : 'false';
           const reefer = form.querySelector('input[name="reefer"]')?.checked ? 'true' : 'false';
@@ -2860,10 +2833,10 @@
             'Created By': window.currentUser || '',
 
             'Inquiry Type': entry.inquiryType || '',
-            'Container Size': entry.containerSize || '',
+            'Container Size': g('whContainerSize') || entry.containerSize || '',
             'Dry Van Type': entry.dryVanType || '',
             'Legal or Over Weight': entry.legalOverWeight || '',
-            'Gross Weight': entry.grossWeight || '',
+            'Gross Weight': g('whContainerWeight') || entry.grossWeight || '',
             'Live or Drop': entry.liveOrDrop || '',
             'From': entry.from || '',
 
@@ -2875,21 +2848,20 @@
             'QTY': entry.qty || '',
             'Quotation #': entry.quotationId || '',
 
-            'Commodity': entry.commodity || '',
+            'Commodity': g('whCommodity') || entry.commodity || '',
             'Package Type': entry.packageType || '',
-            'Packages Per Container': entry.packagesPerContainer || '',
+            'Packages Per Container': g('whTotalPkgs') || entry.packagesPerContainer || '',
             'Hazmat': hazmat,
             'Reefer': reefer,
             'Bonded': bonded,
 
+            'Service Types': whServiceTypes,
+            'ETA': g('whEta'),
+            '# of Containers': g('whNumContainers'),
+
             'Need Warehouse Service': needWH,
             'Warehouse Services': selectedServices.join('; '),
             'Warehouse Service Detail': serviceDetail,
-            'Estimated Pallets': entry.estimatedPallets || '',
-            'Estimated Boxes': entry.estimatedBoxes || '',
-            'Estimated SKU Count': entry.estimatedSkuCount || '',
-            'Storage Duration': entry.storageDuration || '',
-            'Storage Duration Unit': entry.storageDurationUnit || '',
             'Warehouse Note': entry.warehouseNote || '',
 
             'Note': entry.note || '',
@@ -2964,7 +2936,35 @@ body.mode-summary #fixed-scroll-wrapper {
   border-top: 3px solid #e2e8f0 !important;
   box-shadow: none !important;
 }
-</style>
+    /* ===== Warehouse request block (new bucket taxonomy, mirrors customer portal) ===== */
+    .wh-block { margin-top: 4px; }
+    .wh-group { border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+    .wh-group-hd { background: #f1f5f9; padding: 8px 12px; font-size: 0.8rem; font-weight: 700; color: #1e293b; border-bottom: 1px solid #e2e8f0; }
+    .wh-grow { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid #f1f5f9; }
+    .wh-grow:first-of-type { border-top: none; }
+    .wh-grow:has(input[type="checkbox"]:checked) { background: #ecfdf5; }
+    .wh-pick { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; cursor: pointer; font-size: 0.82rem; font-weight: 500; color: #1e293b; }
+    .wh-pick input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: #1a4f8a; border-radius: 4px; flex: 0 0 auto; }
+    .wh-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wh-unit { flex: 0 0 auto; font-size: 0.68rem; color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 2px 7px; min-width: 30px; text-align: center; }
+    .wh-unit-none { background: transparent; border-color: transparent; }
+    .wh-qty { flex: 0 0 130px; height: 30px; font-size: 0.78rem; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0 8px; color: #1e293b; font-family: inherit; }
+    .wh-qty:focus { outline: none; border-color: #1a4f8a; }
+    .wh-period { flex: 0 0 72px; height: 30px; font-size: 0.74rem; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0 4px; color: #1e293b; background: #fff; font-family: inherit; }
+    .wh-common { background: #f0faf3; border: 1px solid #bbf0cd; box-shadow: inset 4px 0 0 #22c55e; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+    .wh-common-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px 14px; }
+    .wh-cf { display: flex; flex-direction: column; }
+    .wh-cf > label { font-size: 0.72rem; color: #27500A; margin-bottom: 4px; font-weight: 600; }
+    .wh-cf input, .wh-cf textarea { height: 32px; font-size: 0.8rem; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0 8px; color: #1e293b; font-family: inherit; background: #fff; }
+    .wh-cf textarea { height: auto; min-height: 56px; padding: 6px 8px; resize: vertical; line-height: 1.4; }
+    .wh-cf input:focus, .wh-cf textarea:focus { outline: none; border-color: #1a4f8a; }
+    .wh-cf-svc { grid-column: span 3; }
+    .wh-cf-note { grid-column: span 3; }
+    .wh-svc-checks { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+    .wh-svc-chk { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 500; color: #1e293b; cursor: pointer; }
+    .wh-svc-chk input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: #1a4f8a; }
+    @media (max-width: 700px) { .wh-common-grid { grid-template-columns: 1fr; } .wh-cf-svc, .wh-cf-note { grid-column: span 1; } }
+  </style>
 </body>
 
 </html>

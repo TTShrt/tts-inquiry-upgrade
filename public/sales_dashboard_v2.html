@@ -1975,6 +1975,7 @@
               </div>
             </div>
             <textarea class="border p-2 mt-3 w-full" name="note" placeholder="General Note"></textarea>
+            <textarea class="border p-2 mt-3 w-full" name="truckInquiryNote" placeholder="Truck Inquiry Note — special requirements for this truck inquiry"></textarea>
 
           </div>
 
@@ -3525,76 +3526,25 @@
                 });
               });
 
-              // ===== 解析 Warehouse Services 字符串 =====
-              const whServicesStr = (item['Warehouse Services'] || '').toString().trim();
-              const whServicesList = whServicesStr
-                ? whServicesStr.split(';').map(s => s.trim()).filter(Boolean)
-                : [];
-
-
-              // ===== 18-25 => NOTE (Warehouse 汇总，占 9 列) =====
-
-              // 图标函数
-              const icon = (on, emoji) =>
-                (String(on).toLowerCase() === 'true' ? emoji : '');
-
-              const haz = icon(item['Hazmat'], '☣️');
-              const ree = icon(item['Reefer'], 'RFR');
-              const bon = icon(item['Bonded'], 'BND');
-              const needWHIcon = icon(item['Need Warehouse Service'], '🏬');
-
-              // ✅ 加这一行
-              const iconLine = [needWHIcon, haz, ree, bon].filter(Boolean).join(' ');
-
-
-              // Warehouse services (multi-select)
-              // ✅ 1) Service Detail（优先显示带 Qty/Unit 的版本）
-              const detail = (item['Warehouse Service Detail'] || '').toString().trim();
-              const servicesLine =
-                detail ||
-                (whServicesList.length ? whServicesList.map(s => `✅ ${s}`).join(' ') : '');
-
-              // ✅ 2) Service Types
-              const svcTypes = (item['Service Types'] || '').toString().trim();
-              const typeLine = svcTypes ? `Type: ${svcTypes}` : '';
-
-              // ✅ 3) ETA / # of Containers
-              const whEta = (item['ETA'] || '').toString().trim();
-              const whNumCont = (item['# of Containers'] || '').toString().trim();
-              const storageLine =
-                (whEta || whNumCont)
-                  ? [whEta ? `ETA ${whEta}` : '', whNumCont ? `${whNumCont} cntr` : ''].filter(Boolean).join(', ')
-                  : '';
-
-              // ✅ 4) Warehouse Note 文本
-              const whNote = (item['Warehouse Note'] || '').toString().trim();
-              const whNoteLine = whNote ? `WH Note: ${whNote}` : '';
-
-              // ✅ 5) Sourcing Vendor Note (from WH cost entry)
+              // ✅ Sourcing Vendor Note (WH) — used by the Vendor Note cell (column 26) below.
               // ✅ FIX: Use separate 'WH Vendor Note' field (TRUCK uses 'Vendor Note')
               const whVendorNote = (item['WH Vendor Note'] || '').toString().trim();
-              const whVendorNoteLine = whVendorNote ? `Vendor Note: ${whVendorNote}` : '';
-
-              const mergedWhNote = [
-                iconLine,
-                typeLine,
-                servicesLine,
-                storageLine,
-                whNoteLine,
-              ].filter(Boolean).join(' | ');
 
 
-              const whFull = (mergedWhNote || '').toString();
-              const whPreview = whFull.replace(/\s+/g, ' ').trim(); // ✅ 压扁换行
+              // ✅ This cell now shows the TRUCK INQUIRY NOTE (was: warehouse requirement summary).
+              const truckInquiryNote = String(item['Truck Inquiry Note'] || '').trim();
+              const tinPreview = truckInquiryNote.replace(/\s+/g, ' ').trim();
 
               const whNoteVal = tdCell('', 'text-left note-preview');
               whNoteVal.colSpan = 8;
-              whNoteVal.dataset.fullNote = whFull;
-              whNoteVal.dataset.which = 'WAREHOUSE NOTE';
+              whNoteVal.dataset.fullNote = truckInquiryNote;
+              whNoteVal.dataset.which = 'TRUCK INQUIRY NOTE';
+              whNoteVal.dataset.field = 'Truck Inquiry Note';   // ✅ editable → saves to this inquiry
+              whNoteVal.dataset.quote = String(quote || '').trim();
 
               const line2 = document.createElement('div');
               line2.className = 'note-line';
-              line2.textContent = whPreview;           // 一行预览
+              line2.textContent = tinPreview;          // 一行预览
               whNoteVal.appendChild(line2);
 
               r6.appendChild(whNoteVal);
@@ -3727,22 +3677,21 @@
                   });
                 });
 
-                // ===== 然后才进入 NOTE =====
-                // ✅ FIX: Show full WH note (icons, services, estimates) inherited from parent + sub's own notes
-                const subWhNote = (sub['Warehouse Note'] || '').toString().trim();
-                const subWhNoteLine = subWhNote ? `WH Note: ${subWhNote}` : '';
+                // ===== Sub row NOTE =====
                 const subWhVendorNote = (sub['WH Vendor Note'] || '').toString().trim();
-                // Merge parent WH info + sub's own WH Note (Vendor Note goes to column 26)
-                const whFullS = [mergedWhNote, subWhNoteLine].filter(Boolean).join(' | ');
+                // ✅ Sub rows show the inquiry-level TRUCK INQUIRY NOTE (same as the main row);
+                // editing saves to the parent inquiry.
+                const truckInquiryNoteS = String(item['Truck Inquiry Note'] || '').trim();
 
-                // ✅ FIX: Use note-line div (same as main row) for single-line truncation + click popup
                 const whNoteTdS = tdCell('', 'text-left note-preview');
                 whNoteTdS.colSpan = 8;
-                whNoteTdS.dataset.fullNote = whFullS;
-                whNoteTdS.dataset.which = 'WAREHOUSE NOTE';
+                whNoteTdS.dataset.fullNote = truckInquiryNoteS;
+                whNoteTdS.dataset.which = 'TRUCK INQUIRY NOTE';
+                whNoteTdS.dataset.field = 'Truck Inquiry Note';
+                whNoteTdS.dataset.quote = String(quote || '').trim();   // parent inquiry quote
                 const noteLineS = document.createElement('div');
                 noteLineS.className = 'note-line';
-                noteLineS.textContent = whFullS.replace(/\s+/g, ' ').trim();
+                noteLineS.textContent = truckInquiryNoteS.replace(/\s+/g, ' ').trim();
                 whNoteTdS.appendChild(noteLineS);
                 r6s.appendChild(whNoteTdS);
 
@@ -4188,6 +4137,7 @@
 
             // General note
             'Note': entry.note || '',
+            'Truck Inquiry Note': entry.truckInquiryNote || '',
 
             // default flags
             'Saved': 'false',
@@ -4230,21 +4180,57 @@
 
           if (!modal || !input) return;
 
-          // Sales端：只读查看
+          // Default: read-only view, Save hidden. Only the Truck Inquiry Note flips these on.
           if (saveBtn) saveBtn.style.display = 'none';
           input.setAttribute('readonly', 'readonly');
+          let noteEditCtx = null;   // { field, quote } when the open note is editable
 
-          function openModal(text, which) {
-            if (titleEl) titleEl.textContent = which || 'NOTE';
-            input.value = text || '';
+          function openModal(td) {
+            const which = (td && td.dataset.which) || 'NOTE';
+            const text  = (td && (td.dataset.fullNote ?? td.textContent)) || '';
+            const field = ((td && td.dataset.field) || '').trim();
+            const quote = ((td && td.dataset.quote) || '').trim();
+            const editable = (field === 'Truck Inquiry Note') && !!quote;
+
+            if (titleEl) titleEl.textContent = which;
+            input.value = text;
+            if (editable) {
+              noteEditCtx = { field, quote };
+              input.removeAttribute('readonly');
+              if (saveBtn) saveBtn.style.display = '';
+            } else {
+              noteEditCtx = null;
+              input.setAttribute('readonly', 'readonly');
+              if (saveBtn) saveBtn.style.display = 'none';
+            }
             modal.classList.remove('hidden');
             document.body.classList.add('no-body-scroll');
           }
           function closeModal() {
             modal.classList.add('hidden');
             input.value = '';
+            input.setAttribute('readonly', 'readonly');
+            if (saveBtn) saveBtn.style.display = 'none';
+            noteEditCtx = null;
             document.body.classList.remove('no-body-scroll');
           }
+
+          saveBtn?.addEventListener('click', async () => {
+            if (!noteEditCtx) return;
+            const payload = { 'Quotation #': noteEditCtx.quote, [noteEditCtx.field]: input.value };
+            saveBtn.disabled = true;
+            try {
+              const r = (typeof postUpdate === 'function')
+                ? await postUpdate(payload)
+                : await fetch('/inquiries/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'same-origin' }).then(res => ({ ok: res.ok }));
+              if (r && r.ok !== false) {
+                closeModal();
+                if (typeof window.loadInquiries === 'function') window.loadInquiries();
+              }
+            } finally {
+              saveBtn.disabled = false;
+            }
+          });
 
           modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
           document.addEventListener('keydown', (e) => {
@@ -4254,7 +4240,7 @@
           document.addEventListener('click', (e) => {
             const td = e.target.closest('#summaryTable td.note-preview');
             if (!td) return;
-            openModal(td.dataset.fullNote || td.textContent || '', td.dataset.which || 'NOTE');
+            openModal(td);
           });
         })();
 

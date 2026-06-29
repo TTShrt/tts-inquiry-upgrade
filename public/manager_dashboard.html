@@ -1701,6 +1701,7 @@
               </div>
             </div>
             <textarea class="border p-2 mt-3 w-full" name="note" placeholder="General Note"></textarea>
+            <textarea class="border p-2 mt-3 w-full" name="truckInquiryNote" placeholder="Truck Inquiry Note — special requirements for this truck inquiry"></textarea>
 
           </div>
 
@@ -1761,7 +1762,8 @@
     <div class="bg-white rounded-lg shadow-lg w-[720px] max-w-[92vw] p-4">
       <h2 class="text-lg font-semibold mb-2">NOTE</h2>
       <textarea id="noteModalInput" class="w-full border p-2 h-48 resize-none" readonly></textarea>
-      <div class="mt-4 flex justify-end">
+      <div class="mt-4 flex justify-end gap-2">
+        <button id="noteModalSave" class="bg-green-600 text-white px-4 py-1 rounded hidden">Save</button>
         <button id="noteModalClose" class="bg-blue-500 text-white px-4 py-1 rounded">Close</button>
       </div>
     </div>
@@ -2263,22 +2265,60 @@
         const modal = document.getElementById('noteModal');
         const input = document.getElementById('noteModalInput');
         const closeBtn = document.getElementById('noteModalClose');
+        const saveBtn = document.getElementById('noteModalSave');
         const titleEl = modal?.querySelector('h2');
-        function openModal(text, which) {
-          if (titleEl) titleEl.textContent = which || 'NOTE';
-          input.value = text || '';
+        let noteEditCtx = null;   // { field, quote, td } when the open note is editable
+
+        function openModal(td) {
+          const which = (td && td.dataset.which) || 'NOTE';
+          const text  = (td && (td.dataset.fullNote ?? td.textContent)) || '';
+          const field = ((td && td.dataset.field) || '').trim();
+          const quote = ((td && td.dataset.quote) || '').trim();
+          // ✅ Only the Truck Inquiry Note is editable here; every other note stays read-only.
+          const editable = (field === 'Truck Inquiry Note') && !!quote;
+
+          if (titleEl) titleEl.textContent = which;
+          input.value = text;
+          if (editable) {
+            noteEditCtx = { field, quote, td };
+            input.removeAttribute('readonly');
+            saveBtn?.classList.remove('hidden');
+          } else {
+            noteEditCtx = null;
+            input.setAttribute('readonly', 'readonly');
+            saveBtn?.classList.add('hidden');
+          }
           modal.classList.remove('hidden');
         }
         function closeModal() {
           modal.classList.add('hidden');
           input.value = '';
+          input.setAttribute('readonly', 'readonly');
+          saveBtn?.classList.add('hidden');
+          noteEditCtx = null;
         }
         closeBtn?.addEventListener('click', closeModal);
         modal?.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+        saveBtn?.addEventListener('click', async () => {
+          if (!noteEditCtx) return;
+          const payload = { 'Quotation #': noteEditCtx.quote, [noteEditCtx.field]: input.value };
+          saveBtn.disabled = true;
+          try {
+            const r = (typeof postUpdate === 'function')
+              ? await postUpdate(payload)
+              : await fetch('/inquiries/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'same-origin' }).then(res => ({ ok: res.ok }));
+            if (r && r.ok !== false) {
+              closeModal();
+              if (typeof loadInquiries === 'function') loadInquiries();
+            }
+          } finally {
+            saveBtn.disabled = false;
+          }
+        });
         document.addEventListener('click', (e) => {
           const td = e.target.closest('#summaryTable td.note-preview');
           if (!td) return;
-          openModal(td.dataset.fullNote || td.textContent || '', td.dataset.which || 'NOTE');
+          openModal(td);
         });
       }
 
@@ -2589,48 +2629,23 @@
         applyGPColor(tdEstGP, estGpVal);
         tr.appendChild(tdEstGP);
 
-        // ===== Icons (add this block) =====
-        // ✅ FIX: For sub-rows, inherit WH service info from parent document
+        // ✅ For sub-rows, inherit inquiry-level fields from the parent document
         const noteSource = (isSub && parentDoc) ? parentDoc : item;
-        const icon = (on, emoji) => (String(on || '').toLowerCase() === 'true' ? emoji : '');
 
-        const needWHIcon = icon(noteSource['Need Warehouse Service'], '🏢'); // or 🏬
-        const haz = icon(noteSource['Hazmat'], 'HAZ');                       // or ☣️
-        const ree = icon(noteSource['Reefer'], 'RFR');
-        const bon = icon(noteSource['Bonded'], 'BND');
-
-        const iconLine = [needWHIcon, haz, ree, bon].filter(Boolean).join(' ');
-
-        const needWH = String(noteSource['Need Warehouse Service'] || '').toLowerCase() === 'true';
-        const svcDetail = (noteSource['Warehouse Service Detail'] || '').toString().trim();
-        const svc = (noteSource['Warehouse Services'] || '').toString().trim();
-        const svcTypes = (noteSource['Service Types'] || '').toString().trim();
-        const whEta = (noteSource['ETA'] || '').toString().trim();
-        const whNumCont = (noteSource['# of Containers'] || '').toString().trim();
-        const whNote = (item['Warehouse Note'] || '').toString().trim(); // sub's own note
-
-        // 你红圈那块汇总
-        let whReqLine = '';
-        if (needWH) {
-          const parts = [];
-          if (svcTypes) parts.push(`Type: ${svcTypes}`);
-          if (svcDetail) parts.push(svcDetail);
-          else if (svc) parts.push(`✅ ${svc.split(';').map(x => x.trim()).filter(Boolean).join(' ✅ ')}`); // 兼容 ; 分隔
-          if (whEta || whNumCont) parts.push([whEta ? `ETA ${whEta}` : '', whNumCont ? `${whNumCont} cntr` : ''].filter(Boolean).join(', '));
-          whReqLine = parts.filter(Boolean).join(' | ');
-        }
-
-        // 最终显示：先红圈内容，再 Warehouse Note（Vendor Note goes to column 26）
         // ✅ FIX: Use separate 'WH Vendor Note' field (TRUCK uses 'Vendor Note')
         const whVendorNote = (item['WH Vendor Note'] || '').toString().trim();
-        const whFull = [
-          iconLine,
-          whReqLine,
-          whNote ? `WH Note: ${whNote}` : ''
-        ].filter(Boolean).join('\n');
+
+        // ✅ This cell now shows the TRUCK INQUIRY NOTE (was: warehouse requirement summary).
+        // Warehouse details live in the Warehouse cost/price columns — no longer duplicated here.
+        const truckInquiryNote = String(noteSource['Truck Inquiry Note'] || '').trim();
+        const mainQuoteForNote = String(noteSource['Quotation #'] || quote || '').trim();
+
         const noteTd = tdCell('', 'note-preview'); noteTd.colSpan = 8;
-        noteTd.dataset.fullNote = whFull; noteTd.dataset.which = 'WAREHOUSE NOTE';
-        const line = document.createElement('div'); line.className = 'note-line'; line.textContent = whFull.replace(/\s+/g, ' ').trim();
+        noteTd.dataset.fullNote = truckInquiryNote;
+        noteTd.dataset.which = 'TRUCK INQUIRY NOTE';
+        noteTd.dataset.field = 'Truck Inquiry Note';   // ✅ editable → saves to the main inquiry
+        noteTd.dataset.quote = mainQuoteForNote;
+        const line = document.createElement('div'); line.className = 'note-line'; line.textContent = truckInquiryNote.replace(/\s+/g, ' ').trim();
         noteTd.appendChild(line);
         tr.appendChild(noteTd);
 
@@ -2913,6 +2928,7 @@
             'Warehouse Note': entry.warehouseNote || '',
 
             'Note': entry.note || '',
+            'Truck Inquiry Note': entry.truckInquiryNote || '',
 
             'Saved': 'false',
             'truckingCostSaved': 'false',

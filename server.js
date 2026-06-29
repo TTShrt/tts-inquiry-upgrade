@@ -1187,6 +1187,7 @@ app.post('/inquiries', async (req, res) => {
       'Cross Dock Price': raw['Cross Dock Price'] || '',
 
       'Note': raw['Note'] || raw.note || '',
+      'Truck Inquiry Note': raw['Truck Inquiry Note'] || raw.truckInquiryNote || '',
 
       // ===== Sourcing cost send/save flags (scope-specific) =====
       'truckingCostSaved': raw['truckingCostSaved'] || 'false',
@@ -1497,6 +1498,9 @@ app.post('/inquiries/update', async (req, res) => {
       // Everyone can update Note (used as communication field)
       if (field === 'Note') return true;
 
+      // ✅ Truck Inquiry Note: editable by all roles (entered on the inquiry form, tweakable in-cell)
+      if (field === 'Truck Inquiry Note') return true;
+
       // ✅ 允许 Sourcing 更新 Warehouse Note
       if (field === 'Warehouse Note') return true;
 
@@ -1668,7 +1672,7 @@ app.post('/inquiries/update', async (req, res) => {
       }
 
       // ✅ 防止前端空字串把已有值覆盖成空（特别是 autosave / checkbox）
-      if (v === '' && k !== 'Note' && k !== 'Vendor Note' && k !== 'WH Vendor Note' && k !== 'Warehouse Note') {
+      if (v === '' && k !== 'Note' && k !== 'Truck Inquiry Note' && k !== 'Vendor Note' && k !== 'WH Vendor Note' && k !== 'Warehouse Note') {
         continue;
       }
       filtered[k] = v;
@@ -2444,6 +2448,7 @@ app.post('/public/inquiries', async (req, res) => {
 
       // Notes
       'Note': String(raw.note || raw['Note'] || '').trim(),
+      'Truck Inquiry Note': String(raw.truckInquiryNote || raw['Truck Inquiry Note'] || '').trim(),
 
       // Default flags (align with your system)
       'Saved': 'false',

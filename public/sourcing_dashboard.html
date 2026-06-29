@@ -2795,69 +2795,22 @@ ${qDel}`)) return;
           // ✅ (WH) Column 17: blank placeholder (保持留白)
           r6.appendChild(tdCell(''));
 
-          // ===== Warehouse Requirement summary (from Inquiry form fields) =====
-          const needWH = String(item['Need Warehouse Service'] || '').toLowerCase().trim() === 'true';
-
-          const whServices = String(item['Warehouse Services'] || '').trim();
-          const whDetail = String(item['Warehouse Service Detail'] || '').trim();
-          const svcTypes = String(item['Service Types'] || '').trim();
-          const whEta = String(item['ETA'] || '').trim();
-          const whNumCont = String(item['# of Containers'] || '').trim();
-
-          const warehouseNote = String(item['Warehouse Note'] || '').trim();
-          const salesNote = String(item['Note'] || '').trim();
-
-          const lines = [];
-
-          // ===== Icons (same as Sales/Manager) =====
-          const icon = (on, emoji) => (String(on || '').toLowerCase().trim() === 'true' ? emoji : '');
-          const needWHIcon = icon(item['Need Warehouse Service'], '🏬');
-          const haz = icon(item['Hazmat'], 'HAZ');
-          const ree = icon(item['Reefer'], 'RFR');
-          const bon = icon(item['Bonded'], 'BND');
-
-          const iconLine = [needWHIcon, haz, ree, bon].filter(Boolean).join(' ');
-          if (iconLine) lines.push(iconLine);
-
-          // ===== Services line (prefer detail with qty/unit) =====
-          if (needWH) {
-            if (svcTypes) lines.push(`Type: ${svcTypes}`);
-
-            if (whDetail) lines.push(whDetail);
-            else if (whServices) {
-              const list = whServices
-                .split(';')
-                .map(s => s.trim())
-                .filter(Boolean);
-              if (list.length) lines.push(list.map(s => `✅ ${s}`).join(' '));
-            }
-
-            // ETA / # of Containers
-            const ecParts = [];
-            if (whEta) ecParts.push(`ETA ${whEta}`);
-            if (whNumCont) ecParts.push(`${whNumCont} cntr`);
-            if (ecParts.length) lines.push(ecParts.join(', '));
-          }
-
-          // Warehouse Note (Inquiry)
-          if (warehouseNote) lines.push(`WH Note: ${warehouseNote}`);
-
-          // Sales Note (General Note)
-          if (salesNote) lines.push(`Sales Note: ${salesNote}`);
-
-          const whFull = lines.filter(Boolean).join('\n');
-          const whPreview = whFull.replace(/\s+/g, ' ').trim();
+          // ===== TRUCK INQUIRY NOTE (was: warehouse requirement summary) =====
+          // Warehouse details live in the Warehouse cost/price columns — no longer duplicated here.
+          // Inquiry-level field on the main doc (parentDoc); main & sub rows show/edit the same value.
+          const truckInquiryNote = String((parentDoc || item)['Truck Inquiry Note'] || '').trim();
+          const tinPreview = truckInquiryNote.replace(/\s+/g, ' ').trim();
 
           const whNoteTd = tdCell('', 'text-left note-preview');
           whNoteTd.colSpan = 8;            // ✅ 18~25
-          whNoteTd.dataset.fullNote = whFull;
-          whNoteTd.dataset.which = 'WAREHOUSE NOTE';
-          whNoteTd.dataset.quote = String(quote || '').trim();  // 当前行 quote（主行/子行都能存）
-          whNoteTd.dataset.field = 'Warehouse Note';
+          whNoteTd.dataset.fullNote = truckInquiryNote;
+          whNoteTd.dataset.which = 'TRUCK INQUIRY NOTE';
+          whNoteTd.dataset.quote = String(mainKey || quote || '').trim();  // ✅ always the main inquiry
+          whNoteTd.dataset.field = 'Truck Inquiry Note';
 
           const line2 = document.createElement('div');
           line2.className = 'note-line';
-          line2.textContent = whPreview;
+          line2.textContent = tinPreview;
           whNoteTd.appendChild(line2);
 
           r6.appendChild(whNoteTd);

@@ -1090,9 +1090,9 @@ app.post('/inquiries', async (req, res) => {
       'To ZIP': raw['To ZIP'] || raw.toZip || '',
       'To': raw['To'] || raw.to || '',
       'QTY': raw['QTY'] || raw.qty || '',
-      'Quotation #': raw['Quotation #'],
+      'Quotation #': String(raw['Quotation #'] || '').trim(),
 
-      'Parent Quotation #': raw['Parent Quotation #'] || raw.parentQuotation || '',
+      'Parent Quotation #': String(raw['Parent Quotation #'] || raw.parentQuotation || '').trim(),
       'Type': raw['Type'] || raw.type || '',
       'Commodity': raw['Commodity'] || raw.commodity || '',
       'Package Type': raw['Package Type'] || raw.packageType || '',
@@ -1254,6 +1254,11 @@ app.post('/inquiries', async (req, res) => {
     return res.json({ success: true, data: saved });
 
   } catch (err) {
+    // ✅ Duplicate-key race guard: with the unique index on 'Quotation #', a double-click
+    // second insert fails at DB level with E11000 — return a friendly 400 instead of 500.
+    if (err && (err.code === 11000 || String(err.message || '').indexOf('E11000') >= 0)) {
+      return res.status(400).json({ success: false, message: 'Quotation # already exists' });
+    }
     console.error('[ERROR] Create inquiry failed:', err);
     return res.status(500).json({ success: false, message: err.message || 'Server error' });
   }
@@ -1638,7 +1643,7 @@ app.post('/inquiries/update', async (req, res) => {
       {
         const whLockedBy = String(existing['WH Locked By'] || '').toLowerCase().trim();
         if (whLockedBy && (
-              / Price$/.test(k) ||
+              (/ Price$/.test(k) && fieldScope(k) === 'WH') ||
               / Cost S\d+$/.test(k) ||
               /^Supplier \d+ Name$/.test(k) ||
               k === 'Selected Supplier'

@@ -1978,6 +1978,7 @@
           alert('❌ Save failed: ' + (typeof j === 'string' ? j : (j.message || res.status)));
           return { ok: false, data: j };
         }
+        window._dirtyEditing = false;   // ✅ FIX: edits persisted — allow socket reloads again
         return { ok: true, data: j };
       }
 
@@ -1990,6 +1991,16 @@
         const map = new Map();
         inputs.forEach(el => map.set(el.getAttribute('data-field'), el.value));
         fields.forEach(f => { if (map.has(f)) payload[f] = map.get(f); });
+
+        // ✅ FIX: refuse flag-only saves. If every collected field is empty (inputs may
+        // have been wiped by a table reload or a duplicated row), do NOT save — this used
+        // to persist truckingPriceSaved/warehousePriceSaved with no price data.
+        const hasValue = fields.some(f => map.has(f) && String(map.get(f)).trim() !== '');
+        if (!hasValue) {
+          alert('⚠️ Nothing to save — all price fields are empty. Please enter the price and try again.');
+          return { ok: false, data: null };
+        }
+
         return await postUpdate(payload);
       }
 
@@ -2009,6 +2020,14 @@
         const map = new Map();
         inputs.forEach(el => { const f = el.getAttribute('data-field'); if (f) map.set(f, el.value); });
         fields.forEach(f => { if (map.has(f)) payload[f] = map.get(f); });
+
+        // ✅ FIX: refuse flag-only confirm-saves (same guard as saveFields)
+        const hasValue = fields.some(f => map.has(f) && String(map.get(f)).trim() !== '');
+        if (!hasValue) {
+          alert('⚠️ Nothing to save — all price fields are empty. Please enter the price and try again.');
+          return { ok: false, data: null };
+        }
+
         return await postUpdate(payload);
       }
 
@@ -2734,12 +2753,27 @@
         if (!ok) return;
         await loadInquiries();
 
+        // ✅ FIX: Track unsaved edits in the price inputs. While dirty, socket-triggered
+        // full reloads are skipped so other users' saves can't wipe in-progress typing.
+        // Cleared on successful save (postUpdate) or manual page refresh.
+        window._dirtyEditing = false;
+        document.addEventListener('input', (e) => {
+          const t = e.target;
+          if (t && t.tagName === 'INPUT' && t.hasAttribute('data-quote')) window._dirtyEditing = true;
+        });
+
         // ✅ Socket.io real-time updates (match Sales behavior)
         try {
           const socket = io();
           socket.on('inquiryUpdated', async () => {
             if (window._selfUpdateUntil && Date.now() < window._selfUpdateUntil) {
               console.log('[socket] skipping reload (self-update window)');
+              return;
+            }
+            // ✅ FIX: Skip reload while the user has unsaved edits (prevents other users'
+            // saves from wiping in-progress typing — root cause of the lost-rates issue)
+            if (window._dirtyEditing) {
+              console.log('[socket] skipping reload (unsaved edits in progress)');
               return;
             }
             await loadInquiries();

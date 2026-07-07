@@ -2053,6 +2053,25 @@
 
       <script>
 
+        // ✅ AUTH: session-expiry detection — returns true if handled (caller should abort).
+        //    Covers both server behaviors: 401/403 status, or a 302 redirect to the
+        //    login page (fetch follows redirects, so res.ok would be true but
+        //    res.redirected is set). _authRedirecting prevents multiple alerts when
+        //    concurrent requests fail together (e.g. /user + /inquiries on page load).
+        window._authRedirecting = false;
+        window.handleAuthError = function (res) {
+          const expired =
+            res.status === 401 || res.status === 403 ||
+            (res.redirected && /index\.html|login/i.test(res.url || ''));
+          if (!expired) return false;
+          if (!window._authRedirecting) {
+            window._authRedirecting = true;
+            alert('⚠️ 登录已过期，请重新登录。\nSession expired. Please log in again.');
+            window.location.href = '/index.html';
+          }
+          return true;
+        };
+
         // ✅ 保证全局可用（给 onchange 调用）
         window.refreshWarehouseBlock = function () {
           const chk = document.getElementById('needWarehouseService');
@@ -2394,6 +2413,7 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
             });
+            if (window.handleAuthError(res)) return { ok: false, text: 'auth-expired' };   // ✅ AUTH
             if (!res.ok) {
               const t = await res.text();
               console.error('Update failed:', t);
@@ -3875,6 +3895,7 @@
         window.loadInquiries = async function () {
           try {
             const res = await fetch('/inquiries', { credentials: 'same-origin' });
+            if (window.handleAuthError(res)) return;   // ✅ AUTH
 
             const raw = await res.text(); // ✅ 先读 text，避免 json() 直接炸
             let data = null;
@@ -4227,6 +4248,7 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(newInquiry)
             });
+            if (window.handleAuthError(res)) return;   // ✅ AUTH
 
             const result = await res.json();
             if (result.success) {
@@ -4293,7 +4315,7 @@
             try {
               const r = (typeof postUpdate === 'function')
                 ? await postUpdate(payload)
-                : await fetch('/inquiries/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'same-origin' }).then(res => ({ ok: res.ok }));
+                : await fetch('/inquiries/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'same-origin' }).then(res => window.handleAuthError(res) ? { ok: false } : { ok: res.ok });   // ✅ AUTH
               if (r && r.ok !== false) {
                 closeModal();
                 if (typeof window.loadInquiries === 'function') window.loadInquiries();
@@ -4372,6 +4394,7 @@
                 body: JSON.stringify(payload)
               });
 
+              if (window.handleAuthError(res)) return;   // ✅ AUTH
               const text = await res.text();
               if (!res.ok) {
                 alert('❌ Submit to Sourcing failed: ' + text);
@@ -4423,6 +4446,7 @@
                 body: JSON.stringify(payload)
               });
 
+              if (window.handleAuthError(res)) return;   // ✅ AUTH
               const text = await res.text();
               if (!res.ok) {
                 alert('❌ Save failed: ' + text);

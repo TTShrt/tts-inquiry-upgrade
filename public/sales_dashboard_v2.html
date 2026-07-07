@@ -2439,6 +2439,25 @@
               if (map.has(f)) payload[f] = map.get(f);
             });
 
+            // ✅ FIX (intentional clear): list fields the user explicitly emptied —
+            //    cached original value was non-empty AND the input is now empty.
+            //    The server lets ONLY these write '' through its empty-string guard,
+            //    so a value like Adjusted Price can be deliberately cleared, while the
+            //    accidental-wipe protection stays intact for every other empty value.
+            try {
+              const cached = (window.filteredData || []).find(
+                x => String(x['Quotation #'] || '').trim() === String(quote || '').trim()
+              );
+              if (cached) {
+                const clears = fields.filter(f =>
+                  map.has(f) &&
+                  String(map.get(f) ?? '').trim() === '' &&
+                  String(cached[f] ?? '').trim() !== ''
+                );
+                if (clears.length) payload.__clearFields = clears;
+              }
+            } catch (e) { }
+
             // ✅ FIX: refuse flag-only saves. If every collected field is empty (inputs may
             // have been wiped by a table reload or a duplicated row), do NOT save — this used
             // to persist truckingPriceSaved/warehousePriceSaved with no price data, silently

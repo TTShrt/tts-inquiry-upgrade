@@ -1592,8 +1592,24 @@ app.post('/inquiries/update', async (req, res) => {
     const blocked = [];
     const filtered = {};
 
+    // ✅ FIX (intentional clear): fields the user EXPLICITLY emptied this edit session.
+    //    Front-ends compare each input against the cached original value and list ONLY
+    //    fields that went non-empty -> empty. Only these may write '' through the
+    //    empty-string guard below; all other empty strings are still dropped
+    //    (the accidental-wipe protection stays fully intact for every other path).
+    //    Note: role permission + scope-lock checks still run BEFORE the guard, so this
+    //    cannot clear any field the role couldn't write in the first place.
+    const clearSet = new Set(
+      Array.isArray(incoming.__clearFields)
+        ? incoming.__clearFields.map(x => String(x || '').trim()).filter(Boolean)
+        : []
+    );
+
     for (const [k, v] of Object.entries(incoming)) {
       if (META_DENY_ALWAYS.has(k)) continue;
+
+      // ✅ FIX (intentional clear): transport-only key, never persisted as a field
+      if (k === '__clearFields') continue;
 
       // ✅ Ignore display/meta fields that front-ends may send back accidentally
       if (k === 'Requested By' || k === 'username') {
@@ -1677,7 +1693,10 @@ app.post('/inquiries/update', async (req, res) => {
       }
 
       // ✅ 防止前端空字串把已有值覆盖成空（特别是 autosave / checkbox）
-      if (v === '' && k !== 'Note' && k !== 'Truck Inquiry Note' && k !== 'Vendor Note' && k !== 'WH Vendor Note' && k !== 'Warehouse Note') {
+      // ✅ FIX (intentional clear): fields explicitly listed in __clearFields are allowed
+      //    to write '' — the user deliberately emptied them (verified against the cached
+      //    original by the front-end). Everything else keeps the original protection.
+      if (v === '' && !clearSet.has(k) && k !== 'Note' && k !== 'Truck Inquiry Note' && k !== 'Vendor Note' && k !== 'WH Vendor Note' && k !== 'Warehouse Note') {
         continue;
       }
       filtered[k] = v;

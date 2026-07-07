@@ -1719,6 +1719,21 @@
             console.error('Update failed:', text);
             return { ok: false, text };
           }
+          // ✅ FIX (Phase B integrity): merge the server's authoritative updated doc into
+          //    the local caches, so a later LOCAL re-render (add/delete row) shows what
+          //    was just saved (flushed drafts, sent-cost flags, computed prices). Under
+          //    the old full-reload flow the refetch did this implicitly. filteredData
+          //    holds the SAME object references as allInquiriesCache (applySearchFilter
+          //    filters without cloning), so mutating the found item updates both views.
+          //    Any parse problem just leaves the cache as stale as it was pre-fix.
+          try {
+            const doc = (JSON.parse(text || '{}') || {}).data;
+            const q = String((doc && doc['Quotation #']) || '').trim();
+            if (q && Array.isArray(allInquiriesCache)) {
+              const it = allInquiriesCache.find(x => String(x['Quotation #'] || '').trim() === q);
+              if (it) Object.assign(it, doc);
+            }
+          } catch (e) { /* cache merely stays stale — same as pre-fix behavior */ }
           return { ok: true, text };
         }
 
@@ -2147,7 +2162,23 @@
               return;
             }
 
-            await loadInquiries(); // ADD 后需要刷新列表
+            // ✅ FIX (Phase B, local refresh): insert the server's saved doc into both
+            //    local caches and re-render — no full network reload. renderPage()
+            //    re-sorts (naturalQuotationSort) and re-groups from the cache, so the
+            //    array position doesn't matter; applySearchFilter keeps whole groups of
+            //    matched mains, so the new sub-line always belongs in the current view.
+            //    Any problem reading the response falls back to the old full reload.
+            try {
+              const j = JSON.parse(await resp.text());
+              const savedDoc = j && j.data;
+              if (!savedDoc || !String(savedDoc['Quotation #'] || '').trim()) throw new Error('no doc in response');
+              allInquiriesCache.push(savedDoc);
+              filteredData.push(savedDoc);
+              renderPage();
+            } catch (e) {
+              console.warn('[ADD] local insert fallback to full reload:', e);
+              await loadInquiries();
+            }
           };
           wrap.appendChild(addBtn);
 
@@ -2196,7 +2227,18 @@ ${qDel}`)) return;
               return;
             }
 
-            await loadInquiries();
+            // ✅ FIX (Phase B, local refresh): drop the deleted row from both local
+            //    caches and re-render — no full network reload. Falls back to the old
+            //    full reload on any unexpected error.
+            try {
+              const keep = x => String(x['Quotation #'] || '').trim() !== qDel;
+              allInquiriesCache = allInquiriesCache.filter(keep);
+              filteredData = filteredData.filter(keep);
+              renderPage();
+            } catch (e) {
+              console.warn('[DELETE][TRUCK] local removal fallback to full reload:', e);
+              await loadInquiries();
+            }
           };
           wrap.appendChild(delBtn);
 
@@ -2330,7 +2372,21 @@ ${qDel}`)) return;
               alert('❌ Failed to add Warehouse option:\n' + raw);
               return;
             }
-            await loadInquiries();
+            // ✅ FIX (Phase B, local refresh): insert the server's saved doc into both
+            //    local caches and re-render — no full network reload. Response body was
+            //    already consumed into `raw` above, so parse that. Any problem reading
+            //    the doc falls back to the old full reload.
+            try {
+              const j = JSON.parse(raw);
+              const savedDoc = j && j.data;
+              if (!savedDoc || !String(savedDoc['Quotation #'] || '').trim()) throw new Error('no doc in response');
+              allInquiriesCache.push(savedDoc);
+              filteredData.push(savedDoc);
+              renderPage();
+            } catch (e) {
+              console.warn('[ADD][WH] local insert fallback to full reload:', e);
+              await loadInquiries();
+            }
 
           };
           wrap.appendChild(addBtn);
@@ -2380,7 +2436,18 @@ ${qDel}`)) return;
               return;
             }
 
-            await loadInquiries();
+            // ✅ FIX (Phase B, local refresh): drop the deleted row from both local
+            //    caches and re-render — no full network reload. Falls back to the old
+            //    full reload on any unexpected error.
+            try {
+              const keep = x => String(x['Quotation #'] || '').trim() !== qDel;
+              allInquiriesCache = allInquiriesCache.filter(keep);
+              filteredData = filteredData.filter(keep);
+              renderPage();
+            } catch (e) {
+              console.warn('[DELETE][WH] local removal fallback to full reload:', e);
+              await loadInquiries();
+            }
           };
 
           wrap.appendChild(delBtn);

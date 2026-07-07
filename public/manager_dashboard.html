@@ -1978,6 +1978,11 @@
           alert('❌ Save failed: ' + (typeof j === 'string' ? j : (j.message || res.status)));
           return { ok: false, data: j };
         }
+        // ✅ FIX (Method C): refresh the suppress window AFTER the response too.
+        //    The pre-request window above only covers 2s from fetch start; if the server
+        //    takes longer, our own inquiryUpdated echo lands outside it and triggers a
+        //    full reload right after the save. Re-arming here keeps the echo suppressed.
+        window._selfUpdateUntil = Date.now() + 2000;
         window._dirtyEditing = false;   // ✅ FIX: edits persisted — allow socket reloads again
         return { ok: true, data: j };
       }
@@ -2108,6 +2113,13 @@
             alert('Row is confirmed. Please UNCHECK first.');
             return;
           }
+
+          // ✅ FIX: enter "dirty" mode IMMEDIATELY on EDIT click (not on first keystroke).
+          //    Closes the unprotected gap where a socket-triggered full reload could wipe
+          //    the editing-row highlight and re-lock inputs before the user starts typing.
+          //    Covers both TRUCK and WH (shared handler). Cleared by postUpdate() on the
+          //    next successful save (existing behavior).
+          window._dirtyEditing = true;
 
           lockRow(quote, scope, false);
 

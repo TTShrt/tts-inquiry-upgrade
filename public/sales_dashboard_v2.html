@@ -2399,6 +2399,11 @@
               console.error('Update failed:', t);
               return { ok: false, text: t };
             }
+            // ✅ FIX (Method C): refresh the suppress window AFTER the response too.
+            //    The pre-request window above only covers 2s from fetch start; if the server
+            //    takes longer, our own inquiryUpdated echo lands outside it and triggers a
+            //    full reload right after the save. Re-arming here keeps the echo suppressed.
+            window._selfUpdateUntil = Date.now() + 2000;
             window._dirtyEditing = false;   // ✅ FIX: edits persisted — allow socket reloads again
             return { ok: true };
           }
@@ -2531,6 +2536,12 @@
                 return;
               }
 
+              // ✅ FIX: enter "dirty" mode IMMEDIATELY on EDIT click (not on first keystroke).
+              //    Closes the unprotected gap where a socket-triggered full reload could wipe
+              //    the editing-row highlight and re-lock inputs before the user starts typing.
+              //    Cleared by postUpdate() on the next successful save (existing behavior).
+              window._dirtyEditing = true;
+
               // ✅ 点击 EDIT：整行变成杏色（editing-row）
               document.querySelectorAll(`tr.row-truck-val[data-quote="${quote}"]`).forEach(tr => {
                 tr.classList.remove('saved-price', 'row-confirmed', 'cost-received');
@@ -2641,6 +2652,10 @@
                 alert("Row is confirmed. Please UNCHECK first.");
                 return;
               }
+
+              // ✅ FIX: enter "dirty" mode IMMEDIATELY on EDIT click (not on first keystroke).
+              //    Same rationale as the TRUCK edit handler above.
+              window._dirtyEditing = true;
 
               // ✅ 点击 EDIT：整行变成杏色（editing-row）
               document.querySelectorAll(`tr.row-wh-val[data-quote="${quote}"]`).forEach(tr => {

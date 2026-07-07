@@ -2238,8 +2238,9 @@
               chk.disabled = false;   // ✅ FIX (in-flight guard): re-enable on failure
               return;
             }
-            // reload to reflect new state
-            await loadInquiries();
+            // ✅ FIX (local refresh): ok2's response doc reflects BOTH writes — refresh
+            //    just this row from it instead of a full reload
+            await refreshRowFromDoc(ok2 && ok2.data && ok2.data.data);
             return;
           }
 
@@ -2263,16 +2264,10 @@
               chk.disabled = false;   // ✅ FIX (in-flight guard): re-enable on failure
               return;
             }
-            // ✅ FIX (instant feedback): paint the confirmed state locally the moment the
-            //    server accepts — same classes applyRowState() assigns on re-render
-            //    (row-confirmed wins over saved-price/cost-received), so the reload below
-            //    lands on identical visuals. Cuts perceived confirm time from ~3s to ~1s.
-            document.querySelectorAll(`tr.${scope === 'WH' ? 'row-wh-val' : 'row-truck-val'}[data-quote="${quote}"]`).forEach(tr => {
-              tr.classList.remove('cost-received', 'saved-price', 'editing-row');
-              tr.classList.add('row-confirmed');
-            });
-            lockRow(quote, scope, true);
-            await loadInquiries();
+            // ✅ FIX (local refresh): re-render this row from the server's response doc —
+            //    color, checkmark, locks and fresh closures all land together ~1s after
+            //    the click. Replaces the previous "instant paint + full reload" approach.
+            await refreshRowFromDoc(r.data && r.data.data);
             return;
           }
 
@@ -2297,7 +2292,9 @@
               chk.disabled = false;   // ✅ FIX (in-flight guard): re-enable on failure
               return;
             }
-            await loadInquiries();
+            // ✅ FIX (local refresh): re-render this row from the response doc — the
+            //    unchecked/unlocked state appears ~1s after the click, no full reload
+            await refreshRowFromDoc(r.data && r.data.data);
             return;
           }
 
@@ -2816,6 +2813,27 @@
         }
       }
       window.loadInquiries = loadInquiries;
+
+      // ✅ FIX (local refresh): replace ONE row's cached item with the authoritative
+      //    document returned by the server, then re-render from cache — no network.
+      //    The row and its checkbox are rebuilt with FRESH closures immediately, so
+      //    the confirmed state (color + checkmark) appears together ~1s after the
+      //    click instead of waiting ~3s for a full reload, and the disabled-grey
+      //    period vanishes. Falls back to a full reload if the doc is missing or
+      //    the row isn't in the cache — worst case equals the old behavior.
+      async function refreshRowFromDoc(doc) {
+        try {
+          const q = String((doc && doc['Quotation #']) || '').trim();
+          const list = window.filteredData || [];
+          const idx = q ? list.findIndex(x => String(x['Quotation #'] || '').trim() === q) : -1;
+          if (idx < 0) { await loadInquiries(); return; }
+          list[idx] = doc;
+          renderPage();
+        } catch (e) {
+          console.warn('refreshRowFromDoc fallback to full reload:', e);
+          await loadInquiries();
+        }
+      }
 
       document.addEventListener('DOMContentLoaded', async () => {
         setupNoteModal();

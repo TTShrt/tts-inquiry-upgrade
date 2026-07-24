@@ -1950,7 +1950,7 @@
                   <div class="wh-cf"><label>Total pkgs / container<span class="req-star">*</span></label><input name="whTotalPkgs" placeholder="e.g. 480" /></div>
                   <div class="wh-cf wh-cf-note"><label>Note</label><textarea name="warehouseNote" placeholder="Any additional warehouse requirements..."></textarea></div>
                 <!-- ✅ SUBTYPE (Plan A): cargo details shown only when a sub-option is chosen (checklist collapsed) -->
-                <div class="wh-cargo-details" style="display:none;margin-top:10px;">
+                <div class="wh-cargo-details" style="display:none;margin-top:10px;grid-column:1/-1;flex:1 1 100%;width:100%;">
                   <div style="font-size:.78rem;font-weight:700;color:#166534;margin-bottom:6px;">Cargo details (for warehouse quoting)</div>
                   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px 24px;width:100%;">
                     <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;"># of SKUs / container</label><input name="whSkuCount" placeholder="e.g. 25" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
@@ -3561,6 +3561,15 @@
                   badge.textContent = '🏬 NEEDS WAREHOUSE QUOTE';
                   box.appendChild(badge);
                 }
+            // ✅ SUBTYPE: show the requested service sub-option at a glance (Sourcing picks the right template without opening the modal)
+            var _subLbl = String(item['Service Subtypes'] || '').split(/[;,]/)[0].trim();
+            if (_subLbl) {
+              var _sb = document.createElement('span');
+              _sb.className = 'wh-needed-badge';
+              _sb.style.background = '#eef2ff'; _sb.style.color = '#4361ee'; _sb.style.borderColor = '#c7d2fe';
+              _sb.textContent = '\ud83d\udccb ' + _subLbl;
+              box.appendChild(_sb);
+            }
                 const mk = (label, val, cls) => {
                   const s = document.createElement('span');
                   s.className = 'wh-sum-item ' + (cls || '');
@@ -3582,6 +3591,18 @@
                   WHModal.open({ item, role: window.userRole, onSaved: () => loadInquiries() });
                 };
                 box.appendChild(btn);
+                // ✅ EXPORT: warehouse child quotes get their own list-level export (same target as the modal's Export PDF)
+                if (!roleIsViewOnly(window.userRole)) {
+                  const exq = String(item['Quotation #'] || '').trim();
+                  const exBtn = document.createElement('button');
+                  exBtn.type = 'button';
+                  exBtn.className = 'btn-export-quote action-button';
+                  exBtn.innerHTML = iconSVG('print');
+                  exBtn.title = 'Export Quotation (Print / PDF)';
+                  exBtn.style.marginLeft = '6px';
+                  exBtn.onclick = () => window.open('/quotation_print.html?q=' + encodeURIComponent(exq), '_blank');
+                  box.appendChild(exBtn);
+                }
 
                 tdSum.appendChild(box);
                 r6.appendChild(tdSum);

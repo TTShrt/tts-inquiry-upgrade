@@ -418,6 +418,7 @@ async function reprintSnap() {
     CUR = (res.ok && data.page) ? data.page : { pageKey: r.pageKey, title: r.pageTitle, category: r.category, layout: 'price', pageNote: '', sections: [] };
     const p = { pageKey: r.pageKey, customer: r.customer || {}, validThrough: r.validThrough || '', gfQuoteNo: r.gfQuoteNo || '', sections: r.sections || [] };
     window.__printBack = 'snap';
+    window.__printEditable = false;   // ✅ EDIT: archived reprint is read-only, exactly as recorded
     renderPrint(p, r.quoteNo);
   } catch (e) { showBanner('Reprint failed: ' + e.message); }
 }
@@ -520,6 +521,7 @@ async function downloadPDF() {
     if (!res.ok) { showBanner('\u26D4 ' + (data.error || 'Download failed.')); window.scrollTo(0, 0); return; }
     LAST_QUOTE_NO = data.quoteNo;
     document.getElementById('cQuoteNo').value = data.quoteNo;
+    window.__printEditable = true;   // ✅ EDIT: fresh download — Sales may fine-tune anything before printing
     renderPrint(payload, data.quoteNo);
   } catch (e) { showBanner('Download failed: ' + e.message); }
 }
@@ -538,10 +540,11 @@ const termsSigHTML = '<div class="terms">\u203BALL RATES ARE BASED ON AVAILABILI
   + '<div class="sig"><div class="line">TOTAL SOLUTION</div></div>';
 
 function remarkPageHTML(pageIdx, pageTotal) {
+  const CE2 = (window.__printEditable === false) ? '' : ' contenteditable="true"';   // ✅ EDIT
   return '<div class="page">'
     + '<div style="display:flex;border:1px solid #333;">'
     + '<div style="flex:none;width:1.5in;background:#E9F0F8;color:#2E5FA3;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:10px;border-right:1px solid #333;">QUOTATION REMARK</div>'
-    + '<div style="flex:1;padding:8px 10px;font-size:9px;font-weight:bold;line-height:1.5;">'
+    + '<div style="flex:1;padding:8px 10px;font-size:9px;font-weight:bold;line-height:1.5;"' + CE2 + '>'
     + '<p style="margin-bottom:8px;">LOS ANGELES PORT: 40\' CONTAINER: $98 / TMF\uFF0C$25.00 / CLEAN TRUCK FEE\uFF1B20\' CONTAINER: $55 / TMF\uFF0C$15.00 / CLEAN TRUCK FEE\u3002OAKLAND GATE FEE $60/CONTAINER.</p>'
     + '<p style="margin-bottom:8px;">PLEASE KINDLY NOTE THAT LAYOVER FEE MIGHT OCCUR IF APPLICABLE TO BUT NOT LIMITED TO LANES OVER 250 MILES, EXTENDED LOADING/UNLOADING TIME OF WAREHOUSE, ETC. LAYOVER FEE $400 MINIMUM DEPENDING ON SITUATIONS.<br>'
     + 'OVERWEIGHT SURCHARGES MAY BE APPLICABLE IF THE CONTAINER IS OVERWEIGHT. OVERWEIGHT FEE ALSO APPLIES TO CONTAINERS THAT ARE OVERWEIGHT ON AXLES OF TRUCK.<br>'
@@ -557,6 +560,7 @@ function remarkPageHTML(pageIdx, pageTotal) {
 function renderPrint(p, quoteNo) {
   const isWh = ['Transload (Cross Dock)', 'Distribution (B2B)', 'Fulfillment (B2C)'].indexOf(CUR.category) >= 0;
   const isDrayage = CUR.category === 'Container Drayage';
+  const CE = (window.__printEditable === false) ? '' : ' contenteditable="true"';   // ✅ EDIT: full last-mile editing (TTSQT-style); archived reprint stays read-only
   const pageTotal = isWh ? 5 : 2;   // ✅ STYLE: warehouse quotes drop the trucking remark page (Excel notes + T&C only)
   const today = fmtD(new Date());
   const two = CUR.layout === 'twocol';
@@ -571,14 +575,14 @@ function renderPrint(p, quoteNo) {
       zi = 0;   // ✅ POLISH: zebra restarts per section
       const hm = String(s.heading).match(/^([^(（]*)([(（].*)$/);   // ✅ POLISH: demote parenthetical detail
       const headHtml = hm ? esc(hm[1].trim()) + ' <span class="grp-sub">' + esc(hm[2]) + '</span>' : esc(s.heading);
-      rows += '<tr class="grp"><td colspan="' + (two ? 2 : (hasMin ? 6 : 5)) + '">' + headHtml + '</td></tr>';
+      rows += '<tr class="grp"><td' + CE + ' colspan="' + (two ? 2 : (hasMin ? 6 : 5)) + '">' + headHtml + '</td></tr>';
     }
     s.rows.forEach(r => {
       const tier = /^\s*(\d[\d.]*\s*<\s*X|>\s*\d)/.test(String(r.description));   // ✅ POLISH: weight-tier sub-rows indent
-      rows += '<tr' + ((zi++ % 2) ? ' class="zeb"' : '') + '><td' + (tier ? ' class="tier"' : '') + '>' + esc(r.description) + '</td>'
-        + (two ? '' : '<td>USD</td>')
-        + '<td class="' + (two ? '' : 'r') + '">' + esc(r.price || '\u2014') + '</td>'
-        + (two ? '' : ('<td>' + esc(r.unit) + '</td>' + (hasMin ? '<td class="r" style="font-weight:normal;">' + esc(r.minChg) + '</td>' : '') + '<td>' + esc(r.notes) + '</td>'))
+      rows += '<tr' + ((zi++ % 2) ? ' class="zeb"' : '') + '><td' + CE + (tier ? ' class="tier"' : '') + '>' + esc(r.description) + '</td>'
+        + (two ? '' : '<td' + CE + '>USD</td>')
+        + '<td' + CE + ' class="' + (two ? '' : 'r') + '">' + esc(r.price || '\u2014') + '</td>'
+        + (two ? '' : ('<td' + CE + '>' + esc(r.unit) + '</td>' + (hasMin ? '<td' + CE + ' class="r" style="font-weight:normal;">' + esc(r.minChg) + '</td>' : '') + '<td' + CE + '>' + esc(r.notes) + '</td>'))
         + '</tr>';
     });
     tables += rows;
@@ -593,20 +597,20 @@ function renderPrint(p, quoteNo) {
     + '<div class="hdr"><img class="logo" src="images/TTS-LOGO.png" alt="TTS Logo">'
     + '<div class="co"><h1>TOTAL SOLUTION</h1><p>10820 WESTPARK DR, HOUSTON, TX, 77042<br>FMC-Licensed NVOCC OTI#032560NF<br>' + (window.__lpEmail ? 'EMAIL: ' + esc(window.__lpEmail) + '<br>' : '') + '<span class="prep">Prepared by ' + esc(window.__lpUser || '') + ' ' + today + '</span></p></div>'
     + '<div><div class="qbox"><span>QUOTATION</span></div><div class="qno">QUOTE NO&nbsp;:&nbsp;&nbsp;' + esc(quoteNo) + '</div></div></div>'
-    + '<div class="meta"><div class="to">TO&nbsp;&nbsp;:&nbsp;&nbsp;<b>' + esc(p.customer.company) + '</b>'
+    + '<div class="meta"><div class="to"' + CE + '>TO&nbsp;&nbsp;:&nbsp;&nbsp;<b>' + esc(p.customer.company) + '</b>'
     + (p.customer.address ? '<br><span style="padding-left:24px;">' + esc(p.customer.address) + '</span>' : '')
     + ((p.customer.contact || p.customer.phone) ? '<br><span style="padding-left:24px;">' + (p.customer.contact ? 'ATTN: ' + esc(p.customer.contact) : '') + (p.customer.phone ? ' &nbsp;TEL: ' + esc(p.customer.phone) : '') + '</span>' : '')
     + '</div><div class="kv">'
-    + '<div><span>CREATE DATE</span><span>' + today + '</span></div>'
+    + '<div><span>CREATE DATE</span><span' + CE + '>' + today + '</span></div>'
     + '<div><span>PREPARED BY</span><span>' + esc(window.__lpUser || '') + '</span></div>'
     + (p.gfQuoteNo ? '<div><span>GF QUOTE NO</span><span>' + esc(p.gfQuoteNo) + '</span></div>' : '')
     + '<div><span>SERVICE</span><span>' + esc(CUR.category.toUpperCase()) + '</span></div>'
     + (p.customer.paymentTerm ? '<div><span>PAYMENT TERM</span><span>' + esc(p.customer.paymentTerm) + '</span></div>' : '')
     + '<div><span>VALID THROUGH</span><span>' + esc(p.validThrough || '') + '</span></div>'
     + '</div></div>'
-    + '<h3 class="lane">' + ic(CAT_ICON[CUR.category] || 'wh') + esc(CUR.category) + ' : ' + esc(CUR.title) + '</h3>'
+    + '<h3 class="lane"' + CE + '>' + ic(CAT_ICON[CUR.category] || 'wh') + esc(CUR.category) + ' : ' + esc(CUR.title) + '</h3>'
     + '<table class="rt' + denseCls + '">' + thead + tables + '</table>'
-    + (CUR.pageNote ? '<div class="pnote">' + esc(CUR.pageNote) + '</div>' : '')
+    + (CUR.pageNote ? '<div class="pnote"' + CE + '>' + esc(CUR.pageNote) + '</div>' : '')
     + (isDrayage ? '<div style="margin-top:12px;font-size:10px;font-weight:bold;line-height:1.5;">NON-HAZARDOUS, FSC INCLU<br>INSURANCE POLICY:<br>THE TRUCKING INSURANCE COVERAGE LIMIT IS $100,000 PER CONTAINER. IF THE CARGO VALUE EXCEEDS $100,000 PER CONTAINER AND FULL COVERAGE IS REQUIRED, AN INSURANCE FEE OF 0.25% WILL BE CHARGED ON THE AMOUNT EXCEEDING $100,000.<br>\u5361\u8F66\u8FD0\u8F93\u4FDD\u9669\u91D1\u989D\u4E0A\u9650\u4E3A10\u4E07\u7F8E\u91D1/\u67DC\uFF0C\u5982\u679C\u8D27\u7269\u4EF7\u503C\u8D85\u8FC710\u4E07\u7F8E\u91D1/\u67DC\u4E14\u9700\u8981\u5168\u989D\u4FDD\u9669\uFF0C\u8D85\u8FC710\u4E07\u7F8E\u91D1\u7684\u90E8\u5206\u9700\u8981\u652F\u4ED80.25%\u7684\u4FDD\u9669\u8D39\u3002</div>' : '')
     + (isWh ? termsSigHTML : '')
     + '<div class="foot"><span class="pg">page 1 of ' + pageTotal + '</span></div>'

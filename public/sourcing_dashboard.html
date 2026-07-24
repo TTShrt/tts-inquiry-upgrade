@@ -3223,6 +3223,34 @@ ${qDel}`)) return;
   box-shadow: none !important;
 }
 </style>
+<script>
+// ✅ QLIST: reminder banner for Sourcing — costs saved but not yet sent to Sales (additive).
+// Data source: existing GET /api/kpi (sourcing role already returns savedNotSent). Zero backend change.
+// Shows nothing when the count is 0. Refreshes every 10 minutes. Touches no table/save/reload logic.
+(function () {
+  var el = null;
+  function render(n) {
+    if (!n || n < 1) { if (el) { el.remove(); el = null; } return; }
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'qlistDraftBanner';
+      el.style.cssText = 'background:#fffbeb;color:#92400e;border-bottom:1px solid #fde68a;padding:8px 16px;font-size:13px;font-weight:600;text-align:center;';
+      document.body.insertBefore(el, document.body.firstChild);
+    }
+    el.textContent = '\u26a0 ' + n + ' \u7b14\u6210\u672c\u5df2\u4fdd\u5b58\u4f46\u5c1a\u672a\u53d1\u9001\u7ed9 Sales\uff0c\u8bf7\u52fe\u9009 Send to Sales / ' + n + ' cost(s) saved but not yet sent to Sales';
+  }
+  function poll() {
+    fetch('/api/kpi', { credentials: 'same-origin' }).then(function (r) {
+      if (r.status === 401 || r.status === 403) return null;
+      return r.json();
+    }).then(function (d) {
+      if (d && typeof d.savedNotSent !== 'undefined') render(parseInt(d.savedNotSent, 10) || 0);
+    }).catch(function () { /* banner is best-effort; never disturb the page */ });
+  }
+  window.addEventListener('load', poll);
+  setInterval(poll, 600000);
+})();
+</script>
 </body>
 
 </html>

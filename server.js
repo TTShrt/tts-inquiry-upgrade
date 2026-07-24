@@ -1657,11 +1657,24 @@ app.post('/api/lp-quote-init', async (req, res) => {
     const doc = await Inquiry.findOne({ 'Quotation #': q }).lean();
     if (!doc) return res.status(404).json({ error: 'Quotation not found.' });
 
-    // Already snapshotted -> return as-is
+    // Already snapshotted -> return as-is, unless the caller forces a rebuild (sub-option switched)
+    const force = !!((req.body || {}).force);
     if (String(doc['LP Rows'] || '').trim()) {
-      try {
-        return res.json({ rows: JSON.parse(doc['LP Rows']), pageKey: doc['LP Page Key'] || '', existing: true });
-      } catch (e) { /* corrupted snapshot: fall through and rebuild */ }
+      if (!force) {
+        try {
+          return res.json({ rows: JSON.parse(doc['LP Rows']), pageKey: doc['LP Page Key'] || '', existing: true });
+        } catch (e) { /* corrupted snapshot: fall through and rebuild */ }
+      } else {
+        // wipe the old dynamic rows completely before rebuilding
+        let oldRows = [];
+        try { oldRows = JSON.parse(doc['LP Rows']); } catch (e2) { oldRows = []; }
+        const unset = { 'LP Rows': 1, 'LP Page Key': 1 };
+        (Array.isArray(oldRows) ? oldRows : []).forEach(r => {
+          ['Cost', 'Price', 'Qty', 'Desc'].forEach(sfx => { unset['LP ' + r.i + ' ' + sfx] = 1; });
+          for (let s2 = 1; s2 <= WH_SUPPLIER_COUNT; s2++) unset['LP ' + r.i + ' Cost S' + s2] = 1;
+        });
+        await Inquiry.updateOne({ 'Quotation #': q }, { $unset: unset });
+      }
     }
 
     const sub = String(doc['Service Subtypes'] || '').split(/[;,]/)[0].trim();
@@ -1692,7 +1705,7 @@ app.post('/api/lp-quote-init', async (req, res) => {
     // Persist snapshot + prefill Sales price with the numeric master price (empty stays empty)
     const set = { 'LP Rows': JSON.stringify(rows), 'LP Page Key': pageKey };
     rows.forEach(r => {
-      if (!r.custom && /^\d+(\.\d+)?$/.test(String(r.listPrice)) && String(doc['LP ' + r.i + ' Price'] || '').trim() === '') {
+      if (!r.custom && /^\d+(\.\d+)?$/.test(String(r.listPrice)) && (force || String(doc['LP ' + r.i + ' Price'] || '').trim() === '')) {
         set['LP ' + r.i + ' Price'] = String(r.listPrice);
       }
     });

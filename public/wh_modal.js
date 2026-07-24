@@ -241,9 +241,14 @@
                 return '<label class="whm-chk"><input type="checkbox" data-svc="' + t + '" ' + (svcChecked(t) ? 'checked' : '') + (canEditCommon ? '' : ' disabled') + '> ' + t + '</label>';
               }).join('') +
             '</div></div>' +
-            '<div class="whm-f whm-svc"><label>Sub-option</label><div class="whm-checks">' +   // ✅ SUBTYPE
-              [['Transload','FCL-Pallet to Pallet'],['Transload','FCL-Floor to Pallet'],['Transload','FCL-Floor to Floor'],['Transload','LTL-Pallet to Pallet'],['Distribution','FCL-Palletized IB + LTL out'],['Distribution','FCL-Floorload IB + LTL out'],['Fulfillment','FCL-Palletized IB + SP out'],['Fulfillment','FCL-Floorload IB + SP out']].map(function (st) {
-                return '<label class="whm-chk" title="' + st[0] + '"><input type="checkbox" data-svcsub="' + st[1] + '" ' + (svcSubChecked(st[1]) ? 'checked' : '') + (canEditCommon ? '' : ' disabled') + '> ' + st[1] + '</label>';
+            '<div class="whm-f whm-svc"><label>Sub-option</label><div class="whm-checks">' +   // ✅ SUBTYPE: grouped under their parent service type; a group shows only when its parent is checked
+              ['Transload', 'Distribution', 'Fulfillment'].map(function (pt) {
+                var subs = { 'Transload': ['FCL-Pallet to Pallet', 'FCL-Floor to Pallet', 'FCL-Floor to Floor', 'LTL-Pallet to Pallet'], 'Distribution': ['FCL-Palletized IB + LTL out', 'FCL-Floorload IB + LTL out'], 'Fulfillment': ['FCL-Palletized IB + SP out', 'FCL-Floorload IB + SP out'] }[pt];
+                return '<span data-svcsubgrp="' + pt + '" style="' + (svcChecked(pt) ? '' : 'display:none;') + '">' +
+                  '<span class="whm-subgrp-lbl">' + pt + ':</span>' +
+                  subs.map(function (sb) {
+                    return '<label class="whm-chk"><input type="checkbox" data-svcsub="' + sb + '" data-parent="' + pt + '" ' + (svcSubChecked(sb) ? 'checked' : '') + (canEditCommon ? '' : ' disabled') + '> ' + sb + '</label>';
+                  }).join('') + '</span>';
               }).join('') +
             '</div></div>' +
             field('Container size', selectHTML('Container Size', get('Container Size'), ["20'", "40'", "40' HQ", "45'", "53'", 'LCL / other'], canEditCommon)) +
@@ -303,7 +308,7 @@
     // ✅ LPQUOTE: tiny extra styles (once)
     if (!document.getElementById('whm-lp-css')) {
       var stLp = document.createElement('style'); stLp.id = 'whm-lp-css';
-      stLp.textContent = '.whm-lpref{font-size:10px;color:#94a3b8;text-align:right;margin-top:1px;}.whm-in-desc{background:#fefce8;border-style:dashed;}.whm-lpnote{cursor:help;color:#94a3b8;}';
+      stLp.textContent = '.whm-lpref{font-size:10px;color:#94a3b8;text-align:right;margin-top:1px;}.whm-in-desc{background:#fefce8;border-style:dashed;}.whm-lpnote{cursor:help;color:#94a3b8;}.whm-subgrp-lbl{font-size:11px;color:#64748b;font-weight:600;margin:0 4px 0 10px;}';
       document.head.appendChild(stLp);
     }
     // ✅ LPQUOTE: first open of a sub-typed inquiry — build the snapshot server-side, then re-render
@@ -588,9 +593,53 @@
     ov.addEventListener('change', function (e) {
       var r = e.target.closest('input[name="whm-selwh"]');
       if (r) { sel = +r.value; set('Selected Supplier', String(sel)); applySel(); recalc(); autosave(['Selected Supplier']); return; }
-      if (e.target.matches('[data-svc]')) { rebuildServiceTypes(); autosave(['Service Types']); return; }
+      if (e.target.matches('[data-svc]')) {
+        rebuildServiceTypes();
+        // ✅ SUBTYPE: sub-option groups follow their parent; unchecking a parent clears its sub
+        var changed = ['Service Types'];
+        ov.querySelectorAll('[data-svcsubgrp]').forEach(function (grp) {
+          var pOn = false;
+          ov.querySelectorAll('[data-svc]').forEach(function (pc) { if (pc.getAttribute('data-svc') === grp.getAttribute('data-svcsubgrp') && pc.checked) pOn = true; });
+          grp.style.display = pOn ? '' : 'none';
+          if (!pOn) grp.querySelectorAll('[data-svcsub]').forEach(function (sc) {
+            if (sc.checked) { sc.checked = false; rebuildServiceSubtypes(); if (changed.indexOf('Service Subtypes') < 0) changed.push('Service Subtypes'); }
+          });
+        });
+        autosave(changed); return;
+      }
       if (e.target.matches('[data-svcsub]')) {   // ✅ SUBTYPE: single-select (one sub-option drives the quote template)
-        if (e.target.checked) ov.querySelectorAll('[data-svcsub]').forEach(function (cb) { if (cb !== e.target) cb.checked = false; });
+        var LP_PAGES = { 'FCL-Pallet to Pallet': 'tl_fcl_p2p', 'FCL-Floor to Pallet': 'tl_fcl_f2p', 'FCL-Floor to Floor': 'tl_fcl_f2f', 'LTL-Pallet to Pallet': 'tl_ltl_p2p', 'FCL-Palletized IB + LTL out': 'db_fcl_pal', 'FCL-Floorload IB + LTL out': 'db_fcl_floor', 'FCL-Palletized IB + SP out': 'ff_fcl_pal', 'FCL-Floorload IB + SP out': 'ff_fcl_floor' };
+        var prevChecked = [];
+        ov.querySelectorAll('[data-svcsub]').forEach(function (cb) { if (cb !== e.target && cb.checked) prevChecked.push(cb); });
+        if (e.target.checked) prevChecked.forEach(function (cb) { cb.checked = false; });
+        var newSub = e.target.checked ? e.target.getAttribute('data-svcsub') : '';
+        var newKey = newSub ? (LP_PAGES[newSub] || '') : '';
+        var curKey = String(get('LP Page Key') || '');
+        // ✅ LPQUOTE: quote table follows the sub-option — rebuild the snapshot when it changes
+        if (newKey && curKey && newKey !== curKey) {
+          if (!window.confirm('Switching the sub-option rebuilds the quote table from the new List Price template.\nCosts and prices entered for the current rows will be CLEARED. Continue?')) {
+            e.target.checked = false;
+            prevChecked.forEach(function (cb) { cb.checked = true; });
+            return;
+          }
+          rebuildServiceSubtypes(); autosave(['Service Subtypes']);
+          fetch('/api/lp-quote-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ q: quote, force: true }) })
+            .then(function (rr) { return rr.json().then(function (dd) { return { ok: rr.ok, d: dd }; }); })
+            .then(function (x) {
+              if (!x.ok) { window.alert((x.d && x.d.error) || 'Failed to rebuild the quote template.'); return; }
+              for (var kk in item) { if (kk.indexOf('LP ') === 0) delete item[kk]; }
+              item['Service Subtypes'] = newSub;
+              item['LP Rows'] = JSON.stringify(x.d.rows);
+              item['LP Page Key'] = x.d.pageKey || '';
+              x.d.rows.forEach(function (r4) {
+                if (!r4.custom && /^\d+(\.\d+)?$/.test(String(r4.listPrice))) item['LP ' + r4.i + ' Price'] = String(r4.listPrice);
+              });
+              if (document.body.contains(ov)) { ov.remove(); WHModal.open(opts); }
+              onSaved();
+            })
+            .catch(function (e4) { console.error('lp rebuild error:', e4); });
+          return;
+        }
         rebuildServiceSubtypes(); autosave(['Service Subtypes']); return;
       }
       if (e.target.matches('[data-onquote]')) {

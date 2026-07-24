@@ -102,6 +102,23 @@
     .page{width:auto;min-height:auto;margin:0;box-shadow:none;padding:.45in .5in .4in;page-break-after:always;}
     .page:last-child{page-break-after:auto;}
   }
+  /* ✅ STYLE: TTS brand refinements */
+  :root{--tts-blue:#2E5FA3;--tts-green:#22A05C;}
+  html{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .lic{width:13px;height:13px;vertical-align:-2px;margin-right:5px;}
+  .rt td{font-weight:bold;}   /* ✅ STYLE: bold table body, same as the original GoFreight quote */
+  .rt th{background:#E9F0F8 !important;color:var(--tts-blue) !important;border-top:1.5px solid var(--tts-blue) !important;border-bottom:1px solid var(--tts-blue) !important;}
+  .rt tr:last-child td{border-bottom:1.5px solid var(--tts-blue) !important;}
+  .rt tr.grp td{background:#F0F4F9 !important;color:#2E5FA3 !important;font-weight:bold;}
+  h3.lane{color:var(--tts-blue) !important;border-bottom:2px solid var(--tts-green);padding-bottom:3px;}
+  .qbox{border:2px solid var(--tts-blue) !important;}
+  .qbox span{color:var(--tts-blue) !important;}
+  .qno{color:var(--tts-blue);}
+  .meta{border-top:1.5px solid var(--tts-blue) !important;border-bottom:1.5px solid var(--tts-blue) !important;}
+  .co h1{color:var(--tts-blue);letter-spacing:1px;}
+  .foot{border-top:2px solid var(--tts-green);padding-top:6px !important;}
+  .tc .tc-title{color:var(--tts-blue);border-bottom:2px solid var(--tts-green);padding-bottom:4px;}
+  .tc h4{color:var(--tts-blue);}
   @page{size:letter;margin:0;}
 </style>
 </head>
@@ -427,10 +444,19 @@ async function downloadPDF() {
   } catch (e) { showBanner('Download failed: ' + e.message); }
 }
 
+// ✅ STYLE: TTS brand inline icons (print-safe SVG, stroke = currentColor)
+const TTS_IC = {
+  truck: 'M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12',
+  wh: 'M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .414.336.75.75.75z',
+  pkg: 'M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9',
+  customs: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+};
+function ic(n) { return TTS_IC[n] ? '<svg class="lic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="' + TTS_IC[n] + '"/></svg>' : ''; }
+
 function remarkPageHTML(pageIdx, pageTotal) {
   return '<div class="page">'
     + '<div style="display:flex;border:1px solid #333;">'
-    + '<div style="flex:none;width:1.5in;background:#efefef;display:flex;align-items:center;justify-content:center;font-size:10px;border-right:1px solid #333;">QUOTATION REMARK</div>'
+    + '<div style="flex:none;width:1.5in;background:#E9F0F8;color:#2E5FA3;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:10px;border-right:1px solid #333;">QUOTATION REMARK</div>'
     + '<div style="flex:1;padding:8px 10px;font-size:9px;font-weight:bold;line-height:1.5;">'
     + '<p style="margin-bottom:8px;">LOS ANGELES PORT: 40\' CONTAINER: $98 / TMF\uFF0C$25.00 / CLEAN TRUCK FEE\uFF1B20\' CONTAINER: $55 / TMF\uFF0C$15.00 / CLEAN TRUCK FEE\u3002OAKLAND GATE FEE $60/CONTAINER.</p>'
     + '<p style="margin-bottom:8px;">PLEASE KINDLY NOTE THAT LAYOVER FEE MIGHT OCCUR IF APPLICABLE TO BUT NOT LIMITED TO LANES OVER 250 MILES, EXTENDED LOADING/UNLOADING TIME OF WAREHOUSE, ETC. LAYOVER FEE $400 MINIMUM DEPENDING ON SITUATIONS.<br>'
@@ -451,23 +477,25 @@ function renderPrint(p, quoteNo) {
   const pageTotal = isWh ? 6 : 2;
   const today = fmtD(new Date());
   const two = CUR.layout === 'twocol';
+  const hasMin = !two && p.sections.some(s => s.rows.some(r => String(r.minChg || '').trim() !== ''));   // ✅ STYLE
   let tables = '';
   p.sections.forEach(s => {
     let rows = '';
-    if (s.heading) rows += '<tr class="grp"><td colspan="' + (two ? 2 : 6) + '">' + esc(s.heading) + '</td></tr>';
+    if (s.heading) rows += '<tr class="grp"><td colspan="' + (two ? 2 : (hasMin ? 6 : 5)) + '">' + esc(s.heading) + '</td></tr>';
     s.rows.forEach(r => {
       rows += '<tr><td>' + esc(r.description) + '</td>'
         + (two ? '' : '<td>USD</td>')
         + '<td class="' + (two ? '' : 'r') + '">' + esc(r.price || '\u2014') + '</td>'
-        + (two ? '' : ('<td>' + esc(r.unit) + '</td><td class="r" style="font-weight:normal;">' + esc(r.minChg) + '</td><td>' + esc(r.notes) + '</td>'))
+        + (two ? '' : ('<td>' + esc(r.unit) + '</td>' + (hasMin ? '<td class="r" style="font-weight:normal;">' + esc(r.minChg) + '</td>' : '') + '<td>' + esc(r.notes) + '</td>'))
         + '</tr>';
     });
     tables += rows;
   });
   const thead = two
     ? '<tr><th style="width:48%">SERVICE DESCRIPTION</th><th>PRICE AND NOTES (USD)</th></tr>'
-    : '<tr><th style="width:34%">SERVICE DESCRIPTION</th><th style="width:7%">CUR.</th><th style="width:10%">PRICE</th><th style="width:12%">UNIT</th><th style="width:9%">MIN. CHG</th><th>PRICING NOTES</th></tr>';
+    : '<tr><th style="width:42%">SERVICE DESCRIPTION</th><th style="width:6%">CUR.</th><th style="width:10%">PRICE</th><th style="width:12%">UNIT</th>' + (hasMin ? '<th style="width:8%">MIN. CHG</th>' : '') + '<th>PRICING NOTES</th></tr>';
 
+  const CAT_ICON = { 'Container Drayage': 'truck', 'Import Service': 'customs', 'Transload (Cross Dock)': 'wh', 'Distribution (B2B)': 'wh', 'Fulfillment (B2C)': 'pkg' };   // ✅ STYLE
   const page1 =
     '<div class="page">'
     + '<div class="hdr"><img class="logo" src="images/TTS-LOGO.png" alt="TTS Logo">'
@@ -483,7 +511,7 @@ function renderPrint(p, quoteNo) {
     + (p.customer.paymentTerm ? '<div><span>PAYMENT TERM</span><span>' + esc(p.customer.paymentTerm) + '</span></div>' : '')
     + '<div><span>VALID THROUGH</span><span>' + esc(p.validThrough || '') + '</span></div>'
     + '</div></div>'
-    + '<h3 class="lane">' + esc(CUR.category) + ' : ' + esc(CUR.title) + '</h3>'
+    + '<h3 class="lane">' + ic(CAT_ICON[CUR.category] || 'wh') + esc(CUR.category) + ' : ' + esc(CUR.title) + '</h3>'
     + '<table class="rt">' + thead + tables + '</table>'
     + (CUR.pageNote ? '<div class="pnote">' + esc(CUR.pageNote) + '</div>' : '')
     + (isDrayage ? '<div style="margin-top:12px;font-size:10px;font-weight:bold;line-height:1.5;">NON-HAZARDOUS, FSC INCLU<br>INSURANCE POLICY:<br>THE TRUCKING INSURANCE COVERAGE LIMIT IS $100,000 PER CONTAINER. IF THE CARGO VALUE EXCEEDS $100,000 PER CONTAINER AND FULL COVERAGE IS REQUIRED, AN INSURANCE FEE OF 0.25% WILL BE CHARGED ON THE AMOUNT EXCEEDING $100,000.<br>\u5361\u8F66\u8FD0\u8F93\u4FDD\u9669\u91D1\u989D\u4E0A\u9650\u4E3A10\u4E07\u7F8E\u91D1/\u67DC\uFF0C\u5982\u679C\u8D27\u7269\u4EF7\u503C\u8D85\u8FC710\u4E07\u7F8E\u91D1/\u67DC\u4E14\u9700\u8981\u5168\u989D\u4FDD\u9669\uFF0C\u8D85\u8FC710\u4E07\u7F8E\u91D1\u7684\u90E8\u5206\u9700\u8981\u652F\u4ED80.25%\u7684\u4FDD\u9669\u8D39\u3002</div>' : '')

@@ -3039,10 +3039,11 @@
           if (needWH === 'true') {
             const missing = [];
             if (!whServiceTypes) missing.push('Service Type');
-            ['Transload', 'Distribution', 'Fulfillment'].forEach(pt => {   // ✅ SUBTYPE: each checked type needs a sub-option
-              const on = form.querySelector('input[name="whServiceType"][value="' + pt + '"]');
-              if (on && on.checked && !form.querySelector('input[name="whServiceSubtype"][data-parent="' + pt + '"]:checked')) missing.push(pt + ' sub-option');
-            });
+            // ✅ SUBTYPE: exactly ONE sub-option per inquiry (it selects the quote template)
+            if (whServiceTypes) {
+              const subCount = form.querySelectorAll('input[name="whServiceSubtype"]:checked').length;
+              if (subCount !== 1) missing.push('Service sub-option (select exactly one)');
+            }
             if (!g('whContainerSize')) missing.push('Container Size');
             if (!g('whContainerWeight')) missing.push('Container Weight');
             if (!g('whNumContainers')) missing.push('# of Containers');
@@ -3230,6 +3231,12 @@ document.addEventListener('change', function (e) {
     b.style.display = show ? '' : 'none';
     if (!show) b.querySelectorAll('input[name="whServiceSubtype"]').forEach(function (c) { c.checked = false; });
   });
+});
+// ✅ SUBTYPE: single-select — one sub-option per inquiry (drives the quote template)
+document.addEventListener('change', function (e) {
+  if (!e.target.matches('input[name="whServiceSubtype"]') || !e.target.checked) return;
+  var scope = e.target.closest('form') || document;
+  scope.querySelectorAll('input[name="whServiceSubtype"]').forEach(function (c) { if (c !== e.target) c.checked = false; });
 });
 </script>
 </body>

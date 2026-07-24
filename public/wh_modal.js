@@ -215,6 +215,11 @@
     function svcChecked(t) { return svcTypes.split(/[;,]/).map(function (x) { return x.trim().toLowerCase(); }).indexOf(t.toLowerCase()) !== -1; }
     var svcSubs = String(get('Service Subtypes') || '');   // ✅ SUBTYPE
     function svcSubChecked(t) { return svcSubs.split(/[;,]/).map(function (x) { return x.trim().toLowerCase(); }).indexOf(t.toLowerCase()) !== -1; }
+    // ✅ LPQUOTE: List-Price snapshot state — when present, the quote table renders from it
+    var lpRows = [];
+    try { lpRows = JSON.parse(String(get('LP Rows') || '[]')); if (!Array.isArray(lpRows)) lpRows = []; } catch (eLp) { lpRows = []; }
+    var lpMode = lpRows.length > 0;
+    var lpPending = !lpMode && svcSubs.trim() !== '';
 
     var headCols = '';
     for (var w = 1; w <= SUP; w++) {
@@ -295,6 +300,35 @@
       '</div>';
 
     document.body.appendChild(ov);
+    // ✅ LPQUOTE: tiny extra styles (once)
+    if (!document.getElementById('whm-lp-css')) {
+      var stLp = document.createElement('style'); stLp.id = 'whm-lp-css';
+      stLp.textContent = '.whm-lpref{font-size:10px;color:#94a3b8;text-align:right;margin-top:1px;}.whm-in-desc{background:#fefce8;border-style:dashed;}.whm-lpnote{cursor:help;color:#94a3b8;}';
+      document.head.appendChild(stLp);
+    }
+    // ✅ LPQUOTE: first open of a sub-typed inquiry — build the snapshot server-side, then re-render
+    if (lpPending) {
+      fetch('/api/lp-quote-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ q: quote }) })
+        .then(function (rr) { return rr.json().then(function (dd) { return { ok: rr.ok, d: dd }; }); })
+        .then(function (x) {
+          if (!document.body.contains(ov)) return;   // modal was closed meanwhile
+          if (!x.ok) {
+            var tdErr = ov.querySelector('tr td[colspan="20"]');
+            if (tdErr) tdErr.textContent = (x.d && x.d.error) || 'Failed to prepare the quote template.';
+            return;
+          }
+          item['LP Rows'] = JSON.stringify(x.d.rows);
+          item['LP Page Key'] = x.d.pageKey || '';
+          x.d.rows.forEach(function (r3) {
+            if (!r3.custom && /^\d+(\.\d+)?$/.test(String(r3.listPrice)) && String(item['LP ' + r3.i + ' Price'] || '').trim() === '') {
+              item['LP ' + r3.i + ' Price'] = String(r3.listPrice);
+            }
+          });
+          ov.remove();
+          WHModal.open(opts);   // re-render with the fresh snapshot
+        })
+        .catch(function (e3) { console.error('lp-quote-init error:', e3); });
+    }
 
     /* small HTML builders used above */
     function field(label, inner) { return '<div class="whm-f"><label>' + label + '</label>' + inner + '</div>'; }
@@ -359,6 +393,40 @@
         rowsHTML += '</tr>';
       });
     });
+    // ✅ LPQUOTE: with a snapshot, the fixed-bucket rows above are replaced by the List-Price rows
+    function buildLpRowsHTML() {
+      var h = '', lastSec = null, gi = -1;
+      lpRows.forEach(function (r) {
+        var sec = String(r.section || '');
+        if (sec !== lastSec) {
+          gi++; lastSec = sec;
+          h += '<tr class="whm-grp" data-g="lp' + gi + '"><td colspan="4" class="l">\uD83D\uDCCB ' + esc(sec || 'Services') + '</td>' +
+            '<td colspan="' + SUP + '"></td>' +
+            (showPrice ? '<td class="r" data-gsub="lp' + gi + '"></td><td></td>' : '') + '</tr>';
+        }
+        var fld = 'LP ' + r.i;
+        h += '<tr data-row data-g="lp' + gi + '" data-field="' + esc(fld) + '" data-kind="lp">';
+        h += '<td class="whm-oqcol"></td>';
+        h += '<td class="l">' + (r.custom
+          ? '<input class="whm-cell whm-in-desc" style="text-align:left" data-lpdesc="' + r.i + '" value="' + esc(get(fld + ' Desc')) + '" placeholder="Custom line item description" ' + ((canEditCommon || canEditCost) ? '' : 'disabled') + '>'
+          : esc(r.description) + (r.notes ? ' <span class="whm-lpnote" title="' + esc(r.notes) + '">\u24D8</span>' : '')) + '</td>';
+        h += '<td class="l whm-qcol"><input class="whm-cell" style="text-align:left" data-field="' + esc(fld) + ' Qty" value="' + esc(get(fld + ' Qty')) + '" placeholder="qty / detail" ' + (canEditCommon ? '' : 'disabled') + '></td>';
+        h += '<td>' + (r.unit ? '<span class="whm-unit">' + esc(r.unit) + '</span>' : '') + '</td>';
+        for (var w2 = 1; w2 <= SUP; w2++) {
+          h += '<td class="whm-col cost ' + (w2 === sel ? 'sel' : 'dim') + '" data-w="' + w2 + '">' +
+            '<input class="whm-cell" data-cost="' + esc(fld) + '" data-w="' + w2 + '" value="' + esc(get(fld + ' Cost S' + w2)) + '" placeholder="\u00b7" ' + (canEditCost ? '' : 'disabled') + '></td>';
+        }
+        if (showPrice) {
+          h += '<td class="whm-pcol"><input class="whm-cell" data-price="' + esc(fld) + '" value="' + esc(get(fld + ' Price')) + '" placeholder="0" ' + (canEditPrice ? '' : 'disabled') + '>' +
+            ((!r.custom && String(r.listPrice).trim() !== '') ? '<div class="whm-lpref">LP ' + esc(r.listPrice) + '</div>' : '') + '</td>';
+          h += '<td class="r"><span class="whm-gp" data-gp="' + esc(fld) + '">\u2014</span></td>';
+        }
+        h += '</tr>';
+      });
+      return h;
+    }
+    if (lpMode) rowsHTML = buildLpRowsHTML();
+    if (lpPending) rowsHTML = '<tr><td colspan="20" class="l" style="padding:14px;color:#64748b;">Preparing quote template from TTS List Price\u2026</td></tr>';
     tbody.innerHTML = rowsHTML;
 
     function periodSelect(fld, v, unit, editable) {
@@ -408,6 +476,14 @@
         });
         var cell = ov.querySelector('[data-gsub="' + gi + '"]'); if (cell) cell.textContent = sub ? money(sub) : '';
       });
+      // ✅ LPQUOTE: subtotals for List-Price sections (data-gsub="lpN" — no collision with numeric gi above)
+      ov.querySelectorAll('[data-gsub^="lp"]').forEach(function (cell2) {
+        var gi2 = cell2.getAttribute('data-gsub'), sub2 = 0;
+        ov.querySelectorAll('tr[data-row][data-g="' + gi2 + '"]').forEach(function (tr2) {
+          var pEl2 = tr2.querySelector('.whm-cell[data-price]'); if (pEl2) sub2 += num(pEl2.value);
+        });
+        cell2.textContent = sub2 ? money(sub2) : '';
+      });
       var gp = tp > 0 ? Math.round((tp - tc) / tp * 100) + '%' : '\u2014';
       ov.querySelector('[data-tcost]').textContent = money(tc);
       var tpEl = ov.querySelector('[data-tprice]'); if (tpEl) tpEl.textContent = money(tp);
@@ -452,6 +528,7 @@
     function trackField(el) {
       var f = el.getAttribute('data-field');
       if (f) { set(f, el.value); return [f]; }
+      if (el.hasAttribute('data-lpdesc')) { set('LP ' + el.getAttribute('data-lpdesc') + ' Desc', el.value); return ['LP ' + el.getAttribute('data-lpdesc') + ' Desc']; }   // ✅ LPQUOTE
       if (el.hasAttribute('data-cost')) { set(el.getAttribute('data-cost') + ' Cost S' + el.getAttribute('data-w'), el.value); return [el.getAttribute('data-cost') + ' Cost S' + el.getAttribute('data-w')]; }
       if (el.hasAttribute('data-costbare')) { set(el.getAttribute('data-costbare'), el.value); return [el.getAttribute('data-costbare')]; }
       if (el.hasAttribute('data-price')) { set(el.getAttribute('data-price') + ' Price', el.value); return [el.getAttribute('data-price') + ' Price']; }
@@ -512,7 +589,10 @@
       var r = e.target.closest('input[name="whm-selwh"]');
       if (r) { sel = +r.value; set('Selected Supplier', String(sel)); applySel(); recalc(); autosave(['Selected Supplier']); return; }
       if (e.target.matches('[data-svc]')) { rebuildServiceTypes(); autosave(['Service Types']); return; }
-      if (e.target.matches('[data-svcsub]')) { rebuildServiceSubtypes(); autosave(['Service Subtypes']); return; }   // ✅ SUBTYPE
+      if (e.target.matches('[data-svcsub]')) {   // ✅ SUBTYPE: single-select (one sub-option drives the quote template)
+        if (e.target.checked) ov.querySelectorAll('[data-svcsub]').forEach(function (cb) { if (cb !== e.target) cb.checked = false; });
+        rebuildServiceSubtypes(); autosave(['Service Subtypes']); return;
+      }
       if (e.target.matches('[data-onquote]')) {
         var oqKey = e.target.getAttribute('data-onquote') + ' OnQuote';
         set(oqKey, e.target.checked ? 'true' : 'false');

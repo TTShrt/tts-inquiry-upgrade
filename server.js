@@ -537,6 +537,24 @@ const WH_TEMPLATE_BUCKETS = WH_NEW_BUCKETS.map(b => b[1]).concat(WH_REUSED_BUCKE
 const WH_LEGACY_BUCKETS = ['Inbound', 'Outbound', 'Pallet Fee', 'Storage', 'Cross Dock'];
 // all bare cost field names that contribute to WH totals (template + legacy)
 const WH_ALL_BUCKETS = WH_TEMPLATE_BUCKETS.concat(WH_LEGACY_BUCKETS);
+
+// ✅ LPQUOTE: dynamic List-Price quote rows. The row set is snapshotted per inquiry into the
+// 'LP Rows' field (JSON) the first time the WH modal opens; costs/prices live in
+// 'LP <i> Cost S1..S5' / 'LP <i> Cost' (selected) / 'LP <i> Price' / 'LP <i> Qty' / 'LP <i> Desc'.
+const LP_SUBTYPE_PAGES = {
+  'FCL-Pallet to Pallet': 'tl_fcl_p2p',
+  'FCL-Floor to Pallet': 'tl_fcl_f2p',
+  'FCL-Floor to Floor': 'tl_fcl_f2f',
+  'LTL-Pallet to Pallet': 'tl_ltl_p2p',
+  'FCL-Palletized IB + LTL out': 'db_fcl_pal',
+  'FCL-Floorload IB + LTL out': 'db_fcl_floor',
+  'FCL-Palletized IB + SP out': 'ff_fcl_pal',
+  'FCL-Floorload IB + SP out': 'ff_fcl_floor'
+};
+function lpRowCount(doc) {
+  try { const a = JSON.parse(String(doc['LP Rows'] || '[]')); return Array.isArray(a) ? a.length : 0; }
+  catch (e) { return 0; }
+}
 const WH_SUPPLIER_COUNT = 5;
 
 // Ensure new WH fields exist with sane defaults (idempotent; safe on old docs).
@@ -575,6 +593,15 @@ function syncSelectedSupplierCost(doc) {
       if (isMongoDoc) doc.set(name, v);
     }
   }
+  // ✅ LPQUOTE: same mirroring for dynamic List-Price rows
+  const lpN = lpRowCount(doc);
+  for (let i = 1; i <= lpN; i++) {
+    const lv = doc['LP ' + i + ' Cost S' + sel];
+    if (lv !== undefined && lv !== null && String(lv).trim() !== '') {
+      doc['LP ' + i + ' Cost'] = lv;
+      if (isMongoDoc) doc.set('LP ' + i + ' Cost', lv);
+    }
+  }
 }
 
 // Compute WH cost/price totals across all buckets (template selected-cost + legacy single-cost).
@@ -585,6 +612,9 @@ function computeWarehouseTotals(doc) {
   };
   let cost = 0, price = 0;
   for (const name of WH_ALL_BUCKETS) { cost += num(doc[name]); price += num(doc[name + ' Price']); }
+  // ✅ LPQUOTE: dynamic List-Price rows count into the WH totals
+  const lpN = lpRowCount(doc);
+  for (let i = 1; i <= lpN; i++) { cost += num(doc['LP ' + i + ' Cost']); price += num(doc['LP ' + i + ' Price']); }
   const c = cost ? String(Math.round(cost * 100) / 100) : '';
   const p = price ? String(Math.round(price * 100) / 100) : '';
   const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
@@ -1363,6 +1393,15 @@ app.get('/inquiries', async (req, res) => {
           whCostFields.forEach(f => { doc[f] = ''; });
           whPriceFields.forEach(f => { doc[f] = ''; });
         }
+        // ✅ LPQUOTE: dynamic List-Price row costs/prices obey the same draft mask
+        if (String(doc['warehouseCostDraft'] || '').toLowerCase().trim() === 'true') {
+          const lpN2 = lpRowCount(doc);
+          for (let i = 1; i <= lpN2; i++) {
+            doc['LP ' + i + ' Cost'] = '';
+            doc['LP ' + i + ' Price'] = '';
+            for (let s2 = 1; s2 <= WH_SUPPLIER_COUNT; s2++) doc['LP ' + i + ' Cost S' + s2] = '';
+          }
+        }
         return doc;
       });
 
@@ -1440,6 +1479,15 @@ app.get('/api/quotation-print', async (req, res) => {
 
     // Warehouse price/unit/qty fields — stripped entirely while warehouse draft is unsent
     if (!whDraft) {
+      // ✅ LPQUOTE: dynamic List-Price rows go on the export too
+      if (doc['LP Rows'] != null) out['LP Rows'] = doc['LP Rows'];
+      if (doc['LP Page Key'] != null) out['LP Page Key'] = doc['LP Page Key'];
+      const lpN = lpRowCount(doc);
+      for (let i = 1; i <= lpN; i++) {
+        if (doc['LP ' + i + ' Price'] != null) out['LP ' + i + ' Price'] = doc['LP ' + i + ' Price'];
+        if (doc['LP ' + i + ' Qty'] != null) out['LP ' + i + ' Qty'] = doc['LP ' + i + ' Qty'];
+        if (doc['LP ' + i + ' Desc'] != null) out['LP ' + i + ' Desc'] = doc['LP ' + i + ' Desc'];
+      }
       WH_ALL_BUCKETS.forEach(b => {
         if (doc[b + ' Price'] != null) out[b + ' Price'] = doc[b + ' Price'];
         if (doc[b + ' Unit'] != null) out[b + ' Unit'] = doc[b + ' Unit'];
@@ -1451,7 +1499,8 @@ app.get('/api/quotation-print', async (req, res) => {
     // Nothing exportable at all → tell the user why instead of printing an empty sheet
     const hasMain = String(out['Adjusted Price'] || out['Price'] || '').trim() !== '';
     const hasWh = WH_ALL_BUCKETS.some(b => String(out[b + ' Price'] || '').trim() !== '');
-    if (!hasMain && !hasWh) {
+    const hasLp = Object.keys(out).some(k => /^LP \d+ Price$/.test(k) && String(out[k]).trim() !== '');   // ✅ LPQUOTE
+    if (!hasMain && !hasWh && !hasLp) {
       return res.status(409).json({ error: 'No prices have been sent to Sales for this quotation yet. Please complete pricing in the system first. \u4EF7\u683C\u5C1A\u672A\u53D1\u9001\u7ED9 Sales\uFF0C\u6682\u65E0\u6CD5\u5BFC\u51FA\u62A5\u4EF7\u5355\u3002' });
     }
 
@@ -1592,6 +1641,69 @@ app.get('/api/list-price-quotes', async (req, res) => {
   }
 });
 
+// ✅ LPQUOTE: create (or return) the per-inquiry List-Price row snapshot.
+// Called by the WH modal when it opens an inquiry that has a Service Subtype.
+// Idempotent: an existing snapshot is returned untouched, so GM edits to the
+// list_prices master NEVER shift rows of already-quoted inquiries.
+app.post('/api/lp-quote-init', async (req, res) => {
+  try {
+    const role = String(req.cookies?.role || '').toLowerCase();
+    if (!role) return res.status(401).json({ error: 'Session expired. Please log in again.' });
+    if (!['sales', 'sourcing', 'manager'].includes(role)) return res.status(403).json({ error: 'Not authorized.' });
+    if (!conn || conn.readyState !== 1 || !Inquiry) return res.status(503).json({ error: 'Database not ready.' });
+
+    const q = String((req.body || {}).q || '').trim();
+    if (!q) return res.status(400).json({ error: 'Missing quotation number.' });
+    const doc = await Inquiry.findOne({ 'Quotation #': q }).lean();
+    if (!doc) return res.status(404).json({ error: 'Quotation not found.' });
+
+    // Already snapshotted -> return as-is
+    if (String(doc['LP Rows'] || '').trim()) {
+      try {
+        return res.json({ rows: JSON.parse(doc['LP Rows']), pageKey: doc['LP Page Key'] || '', existing: true });
+      } catch (e) { /* corrupted snapshot: fall through and rebuild */ }
+    }
+
+    const sub = String(doc['Service Subtypes'] || '').split(/[;,]/)[0].trim();
+    const pageKey = LP_SUBTYPE_PAGES[sub] || '';
+    if (!pageKey) return res.status(400).json({ error: 'This inquiry has no recognized service sub-option.' });
+    const page = await conn.collection('list_prices').findOne({ pageKey });
+    if (!page) return res.status(404).json({ error: 'List price page not found. Run seed_list_prices.js first.' });
+
+    const rows = [];
+    (page.sections || []).forEach(sec => {
+      (sec.rows || []).forEach(r => {
+        rows.push({
+          i: rows.length + 1,
+          section: sec.heading || '',
+          description: r.description || '',
+          unit: r.unit || '',
+          listPrice: r.price || '',
+          minChg: r.minChg || '',
+          notes: r.notes || '',
+          custom: false
+        });
+      });
+    });
+    // Two blank custom lines for competitor-matching items
+    rows.push({ i: rows.length + 1, section: 'Others', description: '', unit: '', listPrice: '', minChg: '', notes: '', custom: true });
+    rows.push({ i: rows.length + 1, section: 'Others', description: '', unit: '', listPrice: '', minChg: '', notes: '', custom: true });
+
+    // Persist snapshot + prefill Sales price with the numeric master price (empty stays empty)
+    const set = { 'LP Rows': JSON.stringify(rows), 'LP Page Key': pageKey };
+    rows.forEach(r => {
+      if (!r.custom && /^\d+(\.\d+)?$/.test(String(r.listPrice)) && String(doc['LP ' + r.i + ' Price'] || '').trim() === '') {
+        set['LP ' + r.i + ' Price'] = String(r.listPrice);
+      }
+    });
+    await Inquiry.updateOne({ 'Quotation #': q }, { $set: set });
+    return res.json({ rows, pageKey, existing: false });
+  } catch (err) {
+    console.error('❌ /api/lp-quote-init error:', err);
+    return res.status(500).json({ error: 'Server error while preparing the quote template.' });
+  }
+});
+
 app.post('/inquiries/update', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();
   if (!['sales', 'sourcing', 'manager'].includes(role)) {
@@ -1704,6 +1816,7 @@ app.post('/inquiries/update', async (req, res) => {
     function inList(v, arr) { return arr.includes(v); }
 
     function fieldScope(field) {
+      if (field.startsWith('LP ')) return 'WH';   // ✅ LPQUOTE
       if (inList(field, TRUCK_COST_FIELDS) || inList(field, TRUCK_PRICE_FIELDS) || field.startsWith('trucking')) return 'TRUCK';
       if (inList(field, WH_COST_FIELDS) || inList(field, WH_PRICE_FIELDS) || field.startsWith('warehouse')) return 'WH';
       return 'BASIC';
@@ -1757,6 +1870,7 @@ app.post('/inquiries/update', async (req, res) => {
         // but cannot pick which supplier is selected.
         if (field === 'Selected Supplier') return false;
         return (
+          /^LP \d+ (Cost S[1-5]|Desc)$/.test(field) ||   // ✅ LPQUOTE: sourcing fills dynamic-row costs / custom descriptions
           inList(field, TRUCK_COST_FIELDS) ||
           inList(field, WH_COST_FIELDS) ||
           inList(field, TRUCK_COST_FLAGS) ||
@@ -1767,6 +1881,7 @@ app.post('/inquiries/update', async (req, res) => {
       if (role === 'sales') {
         // Sales updates PRICE + saved flags + sales-confirm flags, and limited inquiry edits (before cost)
         return (
+          /^LP \d+ (Price|Desc)$/.test(field) ||   // ✅ LPQUOTE: sales sets dynamic-row prices / custom descriptions ('LP n Qty' already matches the Qty rule)
           inList(field, TRUCK_PRICE_FIELDS) ||
           inList(field, WH_PRICE_FIELDS) ||
           inList(field, PRICE_SAVED_FLAGS) ||
@@ -1781,6 +1896,7 @@ app.post('/inquiries/update', async (req, res) => {
 
       if (role === 'manager') {
         return (
+          /^LP \d+ (Price|Desc)$/.test(field) ||   // ✅ LPQUOTE
           inList(field, TRUCK_PRICE_FIELDS) ||
           inList(field, WH_PRICE_FIELDS) ||
           inList(field, PRICE_SAVED_FLAGS) ||

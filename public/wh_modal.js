@@ -636,7 +636,7 @@
             return;
           }
           rebuildServiceSubtypes(); autosave(['Service Subtypes']);
-          fetch('/api/lp-quote-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ q: quote, force: true }) })
+          fetch('/api/lp-quote-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ q: quote, force: true, sub: newSub }) })
             .then(function (rr) { return rr.json().then(function (dd) { return { ok: rr.ok, d: dd }; }); })
             .then(function (x) {
               if (!x.ok) { window.alert((x.d && x.d.error) || 'Failed to rebuild the quote template.'); return; }
@@ -656,7 +656,7 @@
         // ✅ LPQUOTE: first-time sub selection on an inquiry with no snapshot — build it now and re-render
         if (newKey && !curKey) {
           rebuildServiceSubtypes(); autosave(['Service Subtypes']);
-          fetch('/api/lp-quote-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ q: quote }) })
+          fetch('/api/lp-quote-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ q: quote, sub: newSub }) })
             .then(function (rr) { return rr.json().then(function (dd) { return { ok: rr.ok, d: dd }; }); })
             .then(function (x) {
               if (!x.ok) { window.alert((x.d && x.d.error) || 'Failed to prepare the quote template.'); return; }

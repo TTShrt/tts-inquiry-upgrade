@@ -1683,7 +1683,9 @@ app.post('/api/lp-quote-init', async (req, res) => {
       }
     }
 
-    const sub = String(doc['Service Subtypes'] || '').split(/[;,]/)[0].trim();
+    // ✅ LPQUOTE: the modal passes the just-selected sub-option directly — it wins over the
+    // (possibly not-yet-autosaved) DB value, eliminating the debounce race.
+    const sub = String((req.body || {}).sub || doc['Service Subtypes'] || '').split(/[;,]/)[0].trim();
     const pageKey = LP_SUBTYPE_PAGES[sub] || '';
     if (!pageKey) return res.status(400).json({ error: 'This inquiry has no recognized service sub-option.' });
     const page = await conn.collection('list_prices').findOne({ pageKey });

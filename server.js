@@ -1610,6 +1610,7 @@ app.post('/api/list-price-quotes', async (req, res) => {
         paymentTerm: clip(b.customer && b.customer.paymentTerm, 60)
       },
       validThrough: clip(b.validThrough, 40),
+      gfQuoteNo: clip(b.gfQuoteNo, 60),   // ✅ LISTPRICE: cross-reference to the GoFreight quotation
       sections,
       adjustedCount,
       username: auth.username,

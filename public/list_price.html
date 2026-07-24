@@ -158,6 +158,7 @@
         <div class="fg" style="grid-column:span 2;"><label>Address</label><input id="cAddress"></div>
         <div class="fg"><label>Payment Term</label><input id="cPayment"></div>
         <div class="fg"><label>Quotation # </label><input id="cQuoteNo" readonly value="Assigned on download"></div>
+        <div class="fg"><label>GF Quotation #</label><input id="cGfQuote" placeholder="GoFreight quote # (optional)"></div>
         <div class="fg"><label>Valid Through</label><input id="cValid"></div>
       </div>
       <div id="pgTableWrap"></div>
@@ -428,6 +429,7 @@ async function downloadPDF() {
       paymentTerm: document.getElementById('cPayment').value.trim()
     },
     validThrough: document.getElementById('cValid').value.trim(),
+    gfQuoteNo: document.getElementById('cGfQuote').value.trim(),
     sections: snapshot()
   };
   try {
@@ -507,6 +509,7 @@ function renderPrint(p, quoteNo) {
     + '</div><div class="kv">'
     + '<div><span>CREATE DATE</span><span>' + today + '</span></div>'
     + '<div><span>PREPARED BY</span><span>' + esc(window.__lpUser || '') + '</span></div>'
+    + (p.gfQuoteNo ? '<div><span>GF QUOTE NO</span><span>' + esc(p.gfQuoteNo) + '</span></div>' : '')
     + '<div><span>SERVICE</span><span>' + esc(CUR.category.toUpperCase()) + '</span></div>'
     + (p.customer.paymentTerm ? '<div><span>PAYMENT TERM</span><span>' + esc(p.customer.paymentTerm) + '</span></div>' : '')
     + '<div><span>VALID THROUGH</span><span>' + esc(p.validThrough || '') + '</span></div>'

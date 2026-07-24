@@ -1949,6 +1949,17 @@
                   <div class="wh-cf"><label>Commodity<span class="req-star">*</span></label><input name="whCommodity" placeholder="e.g. furniture" /></div>
                   <div class="wh-cf"><label>Total pkgs / container<span class="req-star">*</span></label><input name="whTotalPkgs" placeholder="e.g. 480" /></div>
                   <div class="wh-cf wh-cf-note"><label>Note</label><textarea name="warehouseNote" placeholder="Any additional warehouse requirements..."></textarea></div>
+                <!-- ✅ SUBTYPE (Plan A): cargo details shown only when a sub-option is chosen (checklist collapsed) -->
+                <div class="wh-cargo-details" style="display:none;margin-top:10px;">
+                  <div style="font-size:.78rem;font-weight:700;color:#166534;margin-bottom:6px;">Cargo details (for warehouse quoting)</div>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;"># of SKUs / container</label><input name="whSkuCount" placeholder="e.g. 25" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
+                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;">Carton weight (lbs)</label><input name="whCartonWeight" placeholder="e.g. 30" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
+                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;">Carton dimensions (L×W×H in)</label><input name="whCartonDims" placeholder="e.g. 24×16×12" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
+                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;">Pallet weight (lbs)</label><input name="whPalletWeight" placeholder="e.g. 1,200" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
+                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;">Pallet dimensions (L×W×H in)</label><input name="whPalletDims" placeholder="e.g. 48×40×60" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
+                  </div>
+                </div>
                 </div>
               </div>
               <div style="font-size:0.78rem;color:#64748b;font-weight:600;margin-bottom:10px;">Select the warehouse services you need (fill qty / detail where you can)</div>
@@ -1998,17 +2009,6 @@
             <textarea class="border p-2 mt-3 w-full" name="note" placeholder="General Note"></textarea>
 
           </div>
-                <!-- ✅ SUBTYPE (Plan A): cargo details shown only when a sub-option is chosen (checklist collapsed) -->
-                <div class="wh-cargo-details" style="display:none;margin-top:10px;">
-                  <div style="font-size:.78rem;font-weight:700;color:#166534;margin-bottom:6px;">Cargo details (for warehouse quoting)</div>
-                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
-                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;"># of SKUs / container</label><input name="whSkuCount" placeholder="e.g. 25" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
-                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;">Carton weight (lbs)</label><input name="whCartonWeight" placeholder="e.g. 30" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
-                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;">Carton dimensions (L×W×H in)</label><input name="whCartonDims" placeholder="e.g. 24×16×12" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
-                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;">Pallet weight (lbs)</label><input name="whPalletWeight" placeholder="e.g. 1,200" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
-                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;">Pallet dimensions (L×W×H in)</label><input name="whPalletDims" placeholder="e.g. 48×40×60" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
-                  </div>
-                </div>
 
           <!-- Truck Inquiry Note: always visible (independent of Need Warehouse Service) -->
           <div class="col-span-2 mt-3">
@@ -4186,8 +4186,8 @@
           // Outbound shipping mode (FTL/LTL/SP) → packed into the detail text (no server change)
           const obMode = form.querySelector('input[name="outboundMode"]:checked')?.value || '';
           if (obMode) serviceDetail += (serviceDetail ? ' | ' : '') + 'Outbound mode: ' + obMode;
-          // ✅ SUBTYPE (Plan A): cargo details captured into Warehouse Service Detail (only when a sub-option is chosen)
-          if (form.querySelectorAll('input[name="whServiceSubtype"]:checked').length === 1) [['whSkuCount', 'SKUs/Container'], ['whCartonWeight', 'Carton weight (lbs)'], ['whCartonDims', 'Carton dims (LxWxH in)'], ['whPalletWeight', 'Pallet weight (lbs)'], ['whPalletDims', 'Pallet dims (LxWxH in)']].forEach(pair => {
+          // ✅ SUBTYPE (Plan A): cargo details captured into Warehouse Service Detail (only when a service type is chosen)
+          if (form.querySelector('input[name="whServiceType"]:checked')) [['whSkuCount', 'SKUs/Container'], ['whCartonWeight', 'Carton weight (lbs)'], ['whCartonDims', 'Carton dims (LxWxH in)'], ['whPalletWeight', 'Pallet weight (lbs)'], ['whPalletDims', 'Pallet dims (LxWxH in)']].forEach(pair => {
             const cv = (form.querySelector('input[name="' + pair[0] + '"]')?.value || '').trim();
             if (cv) serviceDetail += (serviceDetail ? ' | ' : '') + pair[1] + ': ' + cv;
           });
@@ -4229,7 +4229,7 @@
             }
             if (!form.querySelector('input[name="outboundMode"]:checked')) missing.push('Outbound mode (FTL / LTL / SP)');
             // ✅ SUBTYPE (Plan A): checklist hidden when a sub-option is chosen — drop its requirements
-            if (form.querySelectorAll('input[name="whServiceSubtype"]:checked').length === 1) {
+            if (true) {   // checklist retired — always exempt
               ['Inbound type (floor load or palletized)', 'Sorting: # of SKUs', 'Outbound mode (FTL / LTL / SP)'].forEach(x => {
                 const ix = missing.indexOf(x); if (ix >= 0) missing.splice(ix, 1);
               });
@@ -4575,13 +4575,15 @@ document.addEventListener('change', function (e) {
 // ✅ SUBTYPE (Plan A): with a sub-option chosen, the service checklist collapses —
 // the sub-option itself defines the service scope (TTS List Price template).
 function whChecklistSync(scope) {
-  var chosen = scope.querySelectorAll('input[name="whServiceSubtype"]:checked').length === 1;
+  // ✅ SUBTYPE (Plan A): the legacy checklist is retired — permanently hidden (markup kept for
+  // zero-risk rollback; physical removal is a backlog cleanup item). Cargo details follow the service type.
+  var chosen = scope.querySelectorAll('input[name="whServiceType"]:checked').length > 0;
   var blk = scope.querySelector('#warehouseBlock') || scope;
-  blk.querySelectorAll('.wh-group').forEach(function (g) { g.style.display = chosen ? 'none' : ''; });
+  blk.querySelectorAll('.wh-group').forEach(function (g) { g.style.display = 'none'; });
   blk.querySelectorAll('.wh-cargo-details').forEach(function (cd) { cd.style.display = chosen ? '' : 'none'; });
   var all = blk.querySelectorAll('div');
   for (var i = 0; i < all.length; i++) {
-    if (all[i].children.length === 0 && all[i].textContent.indexOf('Select the warehouse services you need') >= 0) all[i].style.display = chosen ? 'none' : '';
+    if (all[i].children.length === 0 && all[i].textContent.indexOf('Select the warehouse services you need') >= 0) all[i].style.display = 'none';
   }
   if (chosen) {
     blk.querySelectorAll('input[name="whService"]').forEach(function (c) { c.checked = false; });
@@ -4603,6 +4605,7 @@ document.addEventListener('change', function (e) {
     whChecklistSync(e.target.closest('form') || document);
   }
 });
+whChecklistSync(document);   // ✅ SUBTYPE: hide the retired checklist on load
 </script>
 </body>
 

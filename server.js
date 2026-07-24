@@ -2958,6 +2958,260 @@ app.use((req, res, next) => {
   next();
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ✅ QLIST: Quotation List page — read-only aggregate + GF-push flag (additive)
+// Design doc: quotation_list_design.md (2026-07-24, approved by Lina)
+// - GET  /api/quotation-list   read-only grouped overview (base → lines)
+// - POST /api/mark-pushed-gf   writes ONLY: 'Pushed To GF' / 'Pushed To GF At' / 'Pushed To GF By'
+// Rules locked in design review:
+//   * GP source = 'Adjusted GP' (stored as "20.66%" string) → strip '%';
+//     fallback = 'GP' (stored as 0.3078 decimal) → ×100; both normalized to percent number
+//   * TRUCK supplier pick = candidates with truckingSalesConfirmed==='true'; take LOWEST Adj GP
+//   * No confirmed supplier → gp null (price not quoted yet; never estimated)
+//   * Route fields (From/To/etc.) read from the LINE MAIN doc only (options have empty From/To)
+//   * Legacy 'Selected' flag participates in STATUS derivation only (mirrors /api/kpi),
+//     NEVER in supplier picking
+//   * Date window = _id timestamp (createdAt missing on 100% of docs, verified V3)
+//   * sourcing role: 403 (per Lina). ops_view: read list, cannot write flag.
+// ═══════════════════════════════════════════════════════════════════════════
+(function registerQlistRoutes() {
+  const QLIST_MAX_DOCS = 3000;
+
+  const qlistTrue = v => String(v || '').toLowerCase().trim() === 'true';
+  const qlistEsc = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Same shape as parseQuoteId in the push handler (kept private to avoid scope coupling)
+  function qlistParse(raw) {
+    const s = String(raw || '').trim().toUpperCase().replace(/^TTSQT-?/, '');
+    const m = s.match(/^(\d{1,6})([A-Z])?(?:-([A-Z]|\d+))?$/);
+    if (!m) return null;
+    const base = String(m[1]).padStart(6, '0').slice(-6);
+    const line = base + (m[2] || '');
+    return { base, line, option: m[3] || '' };
+  }
+
+  // Normalize both GP forms to a percent number (20.66) or null.
+  function qlistGP(doc) {
+    const adj = String(doc['Adjusted GP'] == null ? '' : doc['Adjusted GP']).trim();
+    if (adj !== '') {
+      const n = parseFloat(adj.replace(/%/g, ''));
+      if (isFinite(n)) return { value: Math.round(n * 100) / 100, source: 'adjusted' };
+    }
+    const gp = parseFloat(doc['GP']);
+    if (isFinite(gp) && gp > 0 && gp < 1) return { value: Math.round(gp * 10000) / 100, source: 'gp_fallback' };
+    return null;
+  }
+
+  // Per-doc status rank. Mirrors /api/kpi flag logic (incl. legacy 'Selected' for old docs).
+  function qlistDocRank(d) {
+    if (qlistTrue(d.truckingSalesConfirmed) || qlistTrue(d.truckingManagerConfirmed) ||
+        qlistTrue(d.warehouseSalesConfirmed) || qlistTrue(d.warehouseManagerConfirmed) ||
+        qlistTrue(d['Selected'])) return 3;
+    if (qlistTrue(d.truckingCostSent) || qlistTrue(d.warehouseCostSent)) return 2;
+    if (qlistTrue(d.truckingCostSaved) || qlistTrue(d.warehouseCostSaved)) return 1;
+    return 0;
+  }
+  const QLIST_STATUS = ['New', 'Sourcing Saved', 'Sent to Sales', 'Confirmed'];
+
+  const QLIST_PROJECTION = {
+    'Quotation #': 1, 'Date': 1, 'Customer ID': 1, 'Requested By': 1,
+    'Assigned Sales': 1, 'username': 1, 'salesGroup': 1,
+    'Inquiry Type': 1, 'Container Size': 1, 'From': 1, 'To': 1,
+    'Adjusted Price': 1, 'Adjusted GP': 1, 'GP': 1, 'Carrier': 1,
+    'WH Cost Total': 1, 'WH Price Total': 1,
+    truckingSalesConfirmed: 1, truckingManagerConfirmed: 1,
+    warehouseSalesConfirmed: 1, warehouseManagerConfirmed: 1,
+    truckingCostSent: 1, warehouseCostSent: 1,
+    truckingCostSaved: 1, warehouseCostSaved: 1,
+    'Selected': 1, 'Pushed To GF': 1, 'Pushed To GF At': 1, 'Pushed To GF By': 1
+  };
+
+  app.get('/api/quotation-list', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    try {
+      const role = String(req.cookies?.role || '').toLowerCase();
+      const salesGroup = String(req.cookies?.salesGroup || '').trim();
+      if (!role) return res.status(401).json({ error: 'Session expired. Please log in again.' });
+      if (role !== 'manager' && role !== 'sales' && role !== 'ops_view') {
+        return res.status(403).json({ error: 'Not authorized to view the quotation list.' });
+      }
+      if (!conn || conn.readyState !== 1 || !Inquiry) {
+        return res.status(503).json({ error: 'Database not ready. Please retry.' });
+      }
+
+      const days = Math.min(Math.max(parseInt(req.query.days, 10) || 90, 1), 3650);
+      const boundary = new mongoose.Types.ObjectId(
+        Math.floor((Date.now() - days * 86400000) / 1000).toString(16).padStart(8, '0') + '0000000000000000'
+      );
+
+      const filter = { _id: { $gte: boundary } };
+      if ((role === 'sales' || role === 'ops_view') && salesGroup) filter.salesGroup = salesGroup;
+
+      const qRaw = String(req.query.q || '').trim();
+      if (qRaw) {
+        const parsed = qlistParse(qRaw);
+        if (parsed) {
+          filter['Quotation #'] = { $regex: '^' + qlistEsc(parsed.base) };
+        } else {
+          filter.$or = [
+            { 'To ZIP': { $regex: '^' + qlistEsc(qRaw) } },
+            { 'Customer ID': { $regex: '^' + qlistEsc(qRaw), $options: 'i' } }
+          ];
+        }
+      }
+      const customer = String(req.query.customer || '').trim();
+      if (customer) filter['Customer ID'] = { $regex: '^' + qlistEsc(customer), $options: 'i' };
+      const salesFilter = String(req.query.sales || '').trim();
+
+      const docs = await Inquiry.find(filter, QLIST_PROJECTION)
+        .sort({ _id: -1 }).limit(QLIST_MAX_DOCS + 1).lean();
+      const truncated = docs.length > QLIST_MAX_DOCS;
+      if (truncated) docs.length = QLIST_MAX_DOCS;
+
+      // ── group: base → line → candidate docs ──
+      const bases = new Map();
+      for (const d of docs) {
+        const p = qlistParse(d['Quotation #']);
+        if (!p) continue;
+        if (!bases.has(p.base)) bases.set(p.base, { main: null, lines: new Map(), newestId: String(d._id) });
+        const b = bases.get(p.base);
+        if (!b.lines.has(p.line)) b.lines.set(p.line, { main: null, candidates: [] });
+        const L = b.lines.get(p.line);
+        L.candidates.push(d);
+        if (!p.option) {
+          L.main = d;
+          if (p.line === p.base) b.main = d;
+        }
+      }
+
+      const groups = [];
+      for (const [base, b] of bases) {
+        const anchor = b.main || (b.lines.values().next().value || {}).main || null;
+        if (salesFilter) {
+          const s = anchor ? String(anchor['Assigned Sales'] || anchor.username || '') : '';
+          if (s !== salesFilter) continue;
+        }
+
+        const lines = [];
+        let parentRank = 3;
+        for (const [lineId, L] of b.lines) {
+          const main = L.main || L.candidates[0];
+          let lineRank = 0;
+          for (const c of L.candidates) lineRank = Math.max(lineRank, qlistDocRank(c));
+          parentRank = Math.min(parentRank, lineRank);
+
+          const confirmed = L.candidates.filter(c => qlistTrue(c.truckingSalesConfirmed));
+          let gp = null, gpSource = 'none', adjPrice = null, suppliers = [];
+          for (const c of confirmed) {
+            const g = qlistGP(c);
+            const carrier = String(c['Carrier'] || '').trim();
+            if (carrier) suppliers.push(carrier);
+            if (g && (gp === null || g.value < gp)) {
+              gp = g.value; gpSource = g.source;
+              adjPrice = String(c['Adjusted Price'] || '').trim() || null;
+            }
+          }
+          if (adjPrice === null && main) adjPrice = String(main['Adjusted Price'] || '').trim() || null;
+
+          let whGP = null;
+          if (main) {
+            const wc = parseFloat(main['WH Cost Total']);
+            const wp = parseFloat(main['WH Price Total']);
+            if (isFinite(wc) && isFinite(wp) && wp > 0) whGP = Math.round((wp - wc) / wp * 10000) / 100;
+          }
+
+          lines.push({
+            line: lineId,
+            from: main ? String(main['From'] || '') : '',
+            to: main ? String(main['To'] || '') : '',
+            inquiryType: main ? String(main['Inquiry Type'] || '') : '',
+            containerSize: main ? String(main['Container Size'] || '') : '',
+            status: QLIST_STATUS[lineRank],
+            adjPrice, truckGP: gp, truckGPSource: gpSource,
+            suppliers,
+            confirmedSupplierCount: confirmed.length,
+            candidateSupplierCount: L.candidates.length,
+            whGP
+          });
+        }
+        if (b.lines.size === 0) continue;
+
+        const statusFilter = String(req.query.status || '').trim();
+        const pushed = anchor ? qlistTrue(anchor['Pushed To GF']) : false;
+        const parentStatus = QLIST_STATUS[parentRank];
+        if (statusFilter === 'unpushed') {
+          if (parentStatus !== 'Confirmed' || pushed) continue;
+        } else if (statusFilter && statusFilter !== parentStatus) continue;
+
+        groups.push({
+          base,
+          newestId: b.newestId,
+          date: anchor ? String(anchor['Date'] || '') : '',
+          customer: anchor ? String(anchor['Customer ID'] || '') : '',
+          requestedBy: anchor ? String(anchor['Requested By'] || '') : '',
+          assignedSales: anchor ? String(anchor['Assigned Sales'] || anchor.username || '') : '',
+          status: parentStatus,
+          pushedToGF: pushed,
+          pushedToGFAt: anchor ? (anchor['Pushed To GF At'] || null) : null,
+          pushedToGFBy: anchor ? (anchor['Pushed To GF By'] || null) : null,
+          lineCount: b.lines.size,
+          lines
+        });
+      }
+
+      groups.sort((a, b2) => (a.newestId < b2.newestId ? 1 : -1));
+      groups.forEach(g => { delete g.newestId; });
+
+      return res.json({ groups, total: groups.length, truncated, role });
+    } catch (err) {
+      console.error('❌ QLIST list error:', err);
+      return res.status(500).json({ error: 'Server error building quotation list.' });
+    }
+  });
+
+  app.post('/api/mark-pushed-gf', async (req, res) => {
+    try {
+      const role = String(req.cookies?.role || '').toLowerCase();
+      const username = String(req.cookies?.username || '').trim();
+      const salesGroup = String(req.cookies?.salesGroup || '').trim();
+      if (!role) return res.status(401).json({ error: 'Session expired. Please log in again.' });
+      if (role !== 'manager' && role !== 'sales') {
+        return res.status(403).json({ error: role === 'ops_view' ? 'OPS view-only cannot modify data.' : 'Not authorized.' });
+      }
+      if (!conn || conn.readyState !== 1 || !Inquiry) {
+        return res.status(503).json({ error: 'Database not ready. Please retry.' });
+      }
+
+      const p = qlistParse(String((req.body || {}).base || ''));
+      if (!p || p.line !== p.base || p.option) {
+        return res.status(400).json({ error: 'Invalid base quotation number.' });
+      }
+      const value = (req.body || {}).value === true || String((req.body || {}).value) === 'true';
+
+      const doc = await Inquiry.findOne({ 'Quotation #': p.base }, { salesGroup: 1 }).lean();
+      if (!doc) return res.status(404).json({ error: 'Quotation ' + p.base + ' not found.' });
+      if (role === 'sales' && String(doc.salesGroup || '').trim() !== salesGroup) {
+        return res.status(403).json({ error: 'This quotation belongs to another sales group.' });
+      }
+
+      await Inquiry.updateOne(
+        { 'Quotation #': p.base },
+        { $set: {
+            'Pushed To GF': value ? 'true' : 'false',
+            'Pushed To GF At': new Date().toISOString(),
+            'Pushed To GF By': username
+        } }
+      );
+      return res.json({ success: true, base: p.base, value });
+    } catch (err) {
+      console.error('❌ QLIST mark error:', err);
+      return res.status(500).json({ error: 'Server error updating GF flag.' });
+    }
+  });
+})();
+// ═══════════════════════════════ ✅ QLIST end ═══════════════════════════════
+
 server.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);
 });

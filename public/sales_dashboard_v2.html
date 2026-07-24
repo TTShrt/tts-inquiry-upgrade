@@ -4645,6 +4645,30 @@ document.addEventListener('change', function (e) {
 });
 whChecklistSync(document);   // ✅ SUBTYPE: hide the retired checklist on load
 </script>
+<script>
+// ✅ QLIST: deep-link support — /sales_dashboard_v2.html?q=005263 (or manager_dashboard.html?q=...)
+// auto-fills the existing search box and triggers the existing Search button once the page is ready.
+// Additive only: reuses #searchBox + #searchBtn, touches no save/confirm/lock logic.
+(function () {
+  var q = new URLSearchParams(window.location.search).get('q');
+  if (!q) return;
+  window.addEventListener('load', function () {
+    var tries = 0;
+    var timer = setInterval(function () {
+      var box = document.getElementById('searchBox');
+      var btn = document.getElementById('searchBtn');
+      tries++;
+      if (box && btn && typeof window.loadInquiries === 'function') {
+        clearInterval(timer);
+        box.value = q;
+        btn.click();
+      } else if (tries > 40) {   // give up after ~10s; page still works normally
+        clearInterval(timer);
+      }
+    }, 250);
+  });
+})();
+</script>
 </body>
 
 </html>

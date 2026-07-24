@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TTS — Quotation List</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#f1f5f9; --card:#fff; --primary:#4361ee; --primary-light:#eef2ff;
+    --text:#1e293b; --text-secondary:#64748b; --text-muted:#94a3b8;
+    --border:#e2e8f0; --success:#10b981; --success-bg:#ecfdf5;
+    --warning:#f59e0b; --warning-bg:#fffbeb; --info:#3b82f6; --info-bg:#eff6ff;
+    --danger:#ef4444;
+  }
+  body { font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+  .topbar { background:var(--card); border-bottom:1px solid var(--border); box-shadow:0 1px 3px rgba(0,0,0,.04); padding:14px 28px; display:flex; align-items:center; justify-content:space-between; }
+  .topbar h1 { font-size:1.05rem; font-weight:600; }
+  .btn-nav { background:var(--card); color:var(--text-secondary); border:1px solid var(--border); border-radius:8px; padding:7px 14px; font-size:.8rem; font-weight:500; cursor:pointer; font-family:inherit; }
+  .btn-nav:hover { background:#f8fafc; }
+  .content { max-width:1080px; margin:0 auto; padding:20px; }
+  .panel { background:var(--card); border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.03); overflow:hidden; }
+  .filters { display:flex; gap:8px; padding:12px 14px; border-bottom:1px solid var(--border); flex-wrap:wrap; align-items:center; }
+  .filters input[type=text], .filters select { font-family:inherit; font-size:.8rem; border:1px solid var(--border); border-radius:8px; padding:7px 10px; background:#f8fafc; color:var(--text); }
+  .filters input[type=text] { flex:1; min-width:160px; }
+  .filters input[type=text]:focus, .filters select:focus { outline:none; border-color:var(--primary); background:#fff; }
+  .chipbar { display:flex; gap:8px; padding:8px 14px; border-bottom:1px solid var(--border); align-items:center; font-size:.75rem; }
+  .chip { border:1px solid var(--border); border-radius:20px; padding:3px 12px; cursor:pointer; color:var(--text-secondary); background:#fff; font-family:inherit; font-size:.75rem; }
+  .chip.warn { background:var(--warning-bg); color:#92400e; border-color:#fde68a; font-weight:600; }
+  .chip.active { border-color:var(--primary); color:var(--primary); background:var(--primary-light); font-weight:600; }
+  .meta { margin-left:auto; color:var(--text-muted); }
+  .grow { padding:12px 14px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--border); cursor:pointer; }
+  .grow:hover { background:#f8fafc; }
+  .grow.open { background:#f8fafc; }
+  .chev { flex:0 0 auto; color:var(--text-muted); transition:transform .15s; font-size:.85rem; width:14px; text-align:center; }
+  .open .chev { transform:rotate(90deg); }
+  .gmain { flex:1; min-width:0; }
+  .gtitle { font-size:.85rem; }
+  .gtitle a { font-weight:600; color:var(--primary); text-decoration:none; }
+  .gtitle a:hover { text-decoration:underline; }
+  .gtitle .sub { color:var(--text-muted); font-size:.75rem; }
+  .gsub { font-size:.75rem; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .badge { border-radius:12px; padding:2px 10px; font-size:.68rem; font-weight:600; flex:0 0 auto; white-space:nowrap; }
+  .b-confirmed { background:var(--success-bg); color:#065f46; }
+  .b-sent { background:var(--info-bg); color:#1e40af; }
+  .b-saved { background:var(--warning-bg); color:#92400e; }
+  .b-new { background:#fef2f2; color:#b91c1c; }
+  .gf { display:flex; align-items:center; gap:5px; font-size:.72rem; color:var(--text-secondary); flex:0 0 auto; width:56px; justify-content:center; }
+  .gf input { width:15px; height:15px; cursor:pointer; accent-color:var(--primary); }
+  .gf.na { color:var(--text-muted); }
+  .linewrap { padding:2px 14px 12px 38px; background:#f8fafc; border-bottom:1px solid var(--border); }
+  .linecard { border:1px solid var(--border); border-radius:8px; padding:10px 12px; background:#fff; margin-top:8px; }
+  .lrow1 { display:flex; align-items:center; gap:8px; font-size:.82rem; }
+  .lroute { font-weight:600; }
+  .ltype { color:var(--text-muted); font-size:.72rem; }
+  .lbtn { margin-left:auto; flex:0 0 auto; background:#fff; border:1px solid var(--border); border-radius:8px; padding:3px 10px; font-size:.72rem; font-family:inherit; cursor:pointer; color:var(--text-secondary); }
+  .lbtn:hover { border-color:var(--primary); color:var(--primary); }
+  .lrow2 { display:flex; align-items:baseline; gap:18px; margin-top:7px; font-size:.8rem; flex-wrap:wrap; }
+  .lbl { color:var(--text-muted); font-size:.68rem; }
+  .gpv { font-weight:600; color:#065f46; }
+  .gpv.fb { color:#92400e; }
+  .lstat { font-size:.68rem; margin-left:auto; }
+  .empty { padding:40px; text-align:center; color:var(--text-muted); font-size:.85rem; }
+  .truncnote { padding:10px 14px; background:var(--warning-bg); color:#92400e; font-size:.75rem; }
+  @media (max-width:640px){ .gsub{white-space:normal;} .filters input[type=text]{min-width:120px;} }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Quotation List</h1>
+  <div style="display:flex;gap:8px;">
+    <button class="btn-nav" onclick="location.href=qlHomeHref()">Home</button>
+    <button class="btn-nav" onclick="qlExportCSV()">Export CSV</button>
+  </div>
+</div>
+
+<div class="content">
+  <div class="panel">
+    <div class="filters">
+      <input type="text" id="qBox" placeholder="Search Quotation # / ZIP / Customer" />
+      <select id="daysSel">
+        <option value="30">Last 30 days</option>
+        <option value="90" selected>Last 90 days</option>
+        <option value="180">Last 180 days</option>
+        <option value="365">Last 365 days</option>
+      </select>
+      <select id="statusSel">
+        <option value="">All status</option>
+        <option value="New">New</option>
+        <option value="Sourcing Saved">Sourcing Saved</option>
+        <option value="Sent to Sales">Sent to Sales</option>
+        <option value="Confirmed">Confirmed</option>
+      </select>
+      <select id="salesSel" style="display:none;"><option value="">All sales</option></select>
+      <button class="btn-nav" id="goBtn">Search</button>
+    </div>
+    <div class="chipbar">
+      <button class="chip warn" id="unpushedChip">Not pushed to GF · <span id="unpushedCount">0</span></button>
+      <span class="meta" id="metaTxt">Loading…</span>
+    </div>
+    <div id="listBody"><div class="empty">Loading…</div></div>
+  </div>
+</div>
+
+<script>
+// ✅ QLIST page — standalone; shares no script with the dashboards.
+var qlRole = '';
+var qlGroups = [];
+var qlUnpushedMode = false;
+var _authRedirecting = false;   // same guard name/pattern as the dashboards' handleAuthError
+
+var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+
+function qlHandleAuthError(status) {
+  if (status !== 401 && status !== 403) return false;
+  if (_authRedirecting) return true;
+  _authRedirecting = true;
+  alert('登录已过期或没有权限，请重新登录。\nSession expired or not authorized. Please log in again.');
+  window.location.href = '/';
+  return true;
+}
+
+function qlHomeHref() {
+  if (qlRole === 'manager') return '/manager_home.html';
+  return '/sales_home.html';
+}
+function qlDashHref(base) {
+  var page = (qlRole === 'manager') ? '/manager_dashboard.html' : '/sales_dashboard_v2.html';
+  return page + '?q=' + encodeURIComponent(base);
+}
+
+function qlBadgeClass(s) {
+  if (s === 'Confirmed') return 'b-confirmed';
+  if (s === 'Sent to Sales') return 'b-sent';
+  if (s === 'Sourcing Saved') return 'b-saved';
+  return 'b-new';
+}
+
+function qlGPHtml(line) {
+  if (line.truckGP == null) return '<span class="lbl">—</span>';
+  var fb = line.truckGPSource === 'gp_fallback';
+  return '<span class="gpv' + (fb ? ' fb' : '') + '">' + line.truckGP.toFixed(2) + '%' + (fb ? '*' : '') + '</span>';
+}
+
+function qlRenderLine(g, line) {
+  var route = esc(line.from || '') + ' → ' + esc(line.to || '');
+  if (!line.from && !line.to) route = esc(line.line);
+  var sup = line.suppliers && line.suppliers.length
+    ? esc(line.suppliers.join(', ')) + ' <span class="lbl">(' + line.confirmedSupplierCount + '/' + line.candidateSupplierCount + ')</span>'
+    : '<span class="lbl">' + line.confirmedSupplierCount + '/' + line.candidateSupplierCount + '</span>';
+  var wh = (line.whGP != null) ? '<span><span class="lbl">WH GP </span><span class="gpv">' + line.whGP.toFixed(2) + '%</span></span>' : '';
+  return '<div class="linecard">' +
+    '<div class="lrow1"><span class="lroute">' + route + '</span>' +
+    '<span class="ltype">' + esc(line.inquiryType || '') + (line.containerSize ? ' · ' + esc(line.containerSize) : '') + '</span>' +
+    '<button class="lbtn" onclick="event.stopPropagation();window.open(\'/quotation_print.html?q=' + encodeURIComponent(line.line) + '\',\'_blank\')">PDF</button></div>' +
+    '<div class="lrow2">' +
+    '<span><span class="lbl">Adj. price </span><span style="font-weight:600;">' + (line.adjPrice ? '$' + esc(line.adjPrice) : '—') + '</span></span>' +
+    '<span><span class="lbl">GP </span>' + qlGPHtml(line) + '</span>' +
+    '<span style="color:var(--text-secondary);"><span class="lbl">Supplier </span>' + sup + '</span>' +
+    wh +
+    '<span class="lstat badge ' + qlBadgeClass(line.status) + '">' + esc(line.status) + '</span>' +
+    '</div></div>';
+}
+
+function qlRender() {
+  var body = document.getElementById('listBody');
+  var groups = qlGroups;
+  if (qlUnpushedMode) groups = groups.filter(function (g) { return g.status === 'Confirmed' && !g.pushedToGF; });
+
+  var un = qlGroups.filter(function (g) { return g.status === 'Confirmed' && !g.pushedToGF; }).length;
+  document.getElementById('unpushedCount').textContent = un;
+
+  if (!groups.length) { body.innerHTML = '<div class="empty">No quotations match. 没有符合条件的报价。</div>'; return; }
+
+  var html = '';
+  groups.forEach(function (g, i) {
+    var gfCell;
+    if (g.status === 'Confirmed') {
+      var tt = g.pushedToGF && g.pushedToGFAt ? ' title="' + esc((g.pushedToGFBy || '') + ' · ' + g.pushedToGFAt) + '"' : '';
+      var dis = (qlRole === 'ops_view') ? ' disabled' : '';
+      gfCell = '<label class="gf"' + tt + ' onclick="event.stopPropagation();"><input type="checkbox" data-base="' + esc(g.base) + '"' + (g.pushedToGF ? ' checked' : '') + dis + ' onchange="qlToggleGF(this)"> GF</label>';
+    } else {
+      gfCell = '<span class="gf na">—</span>';
+    }
+    html += '<div class="grow" data-i="' + i + '" onclick="qlToggle(this)">' +
+      '<span class="chev">▸</span>' +
+      '<div class="gmain"><div class="gtitle"><a href="' + qlDashHref(g.base) + '" onclick="event.stopPropagation();">' + esc(g.base) + '</a>' +
+      ' <span class="sub">· ' + esc(g.date || '') + ' · ' + g.lineCount + (g.lineCount > 1 ? ' lines' : ' line') + '</span></div>' +
+      '<div class="gsub">' + esc(g.customer || '') + ' · ' + esc(g.requestedBy || '') + ' → ' + esc(g.assignedSales || '') + '</div></div>' +
+      '<span class="badge ' + qlBadgeClass(g.status) + '">' + esc(g.status) + '</span>' + gfCell + '</div>' +
+      '<div class="linewrap" style="display:none;" data-lines="' + i + '">' +
+      g.lines.map(function (l) { return qlRenderLine(g, l); }).join('') + '</div>';
+  });
+  body.innerHTML = html;
+}
+
+function qlToggle(rowEl) {
+  var i = rowEl.getAttribute('data-i');
+  var wrap = document.querySelector('.linewrap[data-lines="' + i + '"]');
+  if (!wrap) return;
+  var open = wrap.style.display !== 'none';
+  wrap.style.display = open ? 'none' : 'block';
+  rowEl.classList.toggle('open', !open);
+}
+
+async function qlToggleGF(cb) {
+  var base = cb.getAttribute('data-base');
+  var want = cb.checked;
+  cb.disabled = true;
+  try {
+    var r = await fetch('/api/mark-pushed-gf', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base: base, value: want })
+    });
+    if (qlHandleAuthError(r.status)) return;
+    var d = await r.json();
+    if (!r.ok || !d.success) throw new Error(d.error || ('HTTP ' + r.status));
+    var g = qlGroups.find(function (x) { return x.base === base; });
+    if (g) { g.pushedToGF = want; g.pushedToGFAt = new Date().toISOString(); }
+    qlRender();
+  } catch (e) {
+    cb.checked = !want;
+    alert('更新失败 / Update failed: ' + e.message);
+  } finally { cb.disabled = false; }
+}
+
+async function qlLoad() {
+  document.getElementById('metaTxt').textContent = 'Loading…';
+  var p = new URLSearchParams();
+  p.set('days', document.getElementById('daysSel').value);
+  var q = document.getElementById('qBox').value.trim(); if (q) p.set('q', q);
+  var st = document.getElementById('statusSel').value; if (st) p.set('status', st);
+  var sl = document.getElementById('salesSel').value; if (sl) p.set('sales', sl);
+  try {
+    var r = await fetch('/api/quotation-list?' + p.toString(), { credentials: 'same-origin' });
+    if (qlHandleAuthError(r.status)) return;
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    qlRole = d.role || '';
+    qlGroups = d.groups || [];
+
+    if (qlRole === 'manager') {
+      var sel = document.getElementById('salesSel');
+      var cur = sel.value;
+      var names = {};
+      qlGroups.forEach(function (g) { if (g.assignedSales) names[g.assignedSales] = 1; });
+      sel.innerHTML = '<option value="">All sales</option>' + Object.keys(names).sort().map(function (n) {
+        return '<option' + (n === cur ? ' selected' : '') + '>' + esc(n) + '</option>';
+      }).join('');
+      sel.style.display = '';
+    }
+
+    document.getElementById('metaTxt').textContent = d.total + ' quotations' + (d.truncated ? ' · window truncated, narrow the date range' : '');
+    qlRender();
+  } catch (e) {
+    document.getElementById('listBody').innerHTML = '<div class="empty">Load failed 载入失败：' + esc(e.message) + '</div>';
+    document.getElementById('metaTxt').textContent = '';
+  }
+}
+
+function qlExportCSV() {
+  var rows = [['Quotation #', 'Line', 'Date', 'Customer', 'Requested By', 'Sales', 'From', 'To', 'Type', 'Adj Price', 'GP %', 'GP Source', 'Suppliers', 'Confirmed', 'Candidates', 'WH GP %', 'Line Status', 'Group Status', 'Pushed To GF']];
+  var groups = qlUnpushedMode ? qlGroups.filter(function (g) { return g.status === 'Confirmed' && !g.pushedToGF; }) : qlGroups;
+  groups.forEach(function (g) {
+    g.lines.forEach(function (l) {
+      rows.push([g.base, l.line, g.date, g.customer, g.requestedBy, g.assignedSales, l.from, l.to,
+        l.inquiryType + (l.containerSize ? ' ' + l.containerSize : ''),
+        l.adjPrice || '', l.truckGP == null ? '' : l.truckGP.toFixed(2), l.truckGPSource,
+        (l.suppliers || []).join('; '), l.confirmedSupplierCount, l.candidateSupplierCount,
+        l.whGP == null ? '' : l.whGP.toFixed(2), l.status, g.status, g.pushedToGF ? 'yes' : 'no']);
+    });
+  });
+  var csv = rows.map(function (r) {
+    return r.map(function (c) { c = String(c == null ? '' : c); return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(',');
+  }).join('\r\n');
+  var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'quotation_list_' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.getElementById('goBtn').addEventListener('click', qlLoad);
+document.getElementById('qBox').addEventListener('keydown', function (e) { if (e.key === 'Enter') qlLoad(); });
+document.getElementById('daysSel').addEventListener('change', qlLoad);
+document.getElementById('statusSel').addEventListener('change', qlLoad);
+document.getElementById('salesSel').addEventListener('change', qlLoad);
+document.getElementById('unpushedChip').addEventListener('click', function () {
+  qlUnpushedMode = !qlUnpushedMode;
+  this.classList.toggle('active', qlUnpushedMode);
+  qlRender();
+});
+
+qlLoad();
+</script>
+</body>
+</html>

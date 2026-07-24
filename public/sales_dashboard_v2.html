@@ -1998,6 +1998,17 @@
             <textarea class="border p-2 mt-3 w-full" name="note" placeholder="General Note"></textarea>
 
           </div>
+                <!-- ✅ SUBTYPE (Plan A): cargo details shown only when a sub-option is chosen (checklist collapsed) -->
+                <div class="wh-cargo-details" style="display:none;margin-top:10px;">
+                  <div style="font-size:.78rem;font-weight:700;color:#166534;margin-bottom:6px;">Cargo details (for warehouse quoting)</div>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;"># of SKUs / container</label><input name="whSkuCount" placeholder="e.g. 25" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
+                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;">Carton weight (lbs)</label><input name="whCartonWeight" placeholder="e.g. 30" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
+                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;">Carton dimensions (L×W×H in)</label><input name="whCartonDims" placeholder="e.g. 24×16×12" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
+                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;">Pallet weight (lbs)</label><input name="whPalletWeight" placeholder="e.g. 1,200" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
+                    <div><label style="display:block;font-size:.72rem;color:#475569;margin-bottom:3px;">Pallet dimensions (L×W×H in)</label><input name="whPalletDims" placeholder="e.g. 48×40×60" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;"></div>
+                  </div>
+                </div>
 
           <!-- Truck Inquiry Note: always visible (independent of Need Warehouse Service) -->
           <div class="col-span-2 mt-3">
@@ -4175,6 +4186,11 @@
           // Outbound shipping mode (FTL/LTL/SP) → packed into the detail text (no server change)
           const obMode = form.querySelector('input[name="outboundMode"]:checked')?.value || '';
           if (obMode) serviceDetail += (serviceDetail ? ' | ' : '') + 'Outbound mode: ' + obMode;
+          // ✅ SUBTYPE (Plan A): cargo details captured into Warehouse Service Detail (only when a sub-option is chosen)
+          if (form.querySelectorAll('input[name="whServiceSubtype"]:checked').length === 1) [['whSkuCount', 'SKUs/Container'], ['whCartonWeight', 'Carton weight (lbs)'], ['whCartonDims', 'Carton dims (LxWxH in)'], ['whPalletWeight', 'Pallet weight (lbs)'], ['whPalletDims', 'Pallet dims (LxWxH in)']].forEach(pair => {
+            const cv = (form.querySelector('input[name="' + pair[0] + '"]')?.value || '').trim();
+            if (cv) serviceDetail += (serviceDetail ? ' | ' : '') + pair[1] + ': ' + cv;
+          });
 
           // WH green common-info → canonical fields
           const whServiceTypes = Array.from(form.querySelectorAll('input[name="whServiceType"]:checked')).map(x => x.value).join('; ');
@@ -4212,6 +4228,12 @@
               if (!sq) missing.push('Sorting: # of SKUs');
             }
             if (!form.querySelector('input[name="outboundMode"]:checked')) missing.push('Outbound mode (FTL / LTL / SP)');
+            // ✅ SUBTYPE (Plan A): checklist hidden when a sub-option is chosen — drop its requirements
+            if (form.querySelectorAll('input[name="whServiceSubtype"]:checked').length === 1) {
+              ['Inbound type (floor load or palletized)', 'Sorting: # of SKUs', 'Outbound mode (FTL / LTL / SP)'].forEach(x => {
+                const ix = missing.indexOf(x); if (ix >= 0) missing.splice(ix, 1);
+              });
+            }
             if (missing.length) {
               alert('⚠️ Warehouse service requires these fields:\n\n• ' + missing.join('\n• '));
               return;
@@ -4535,6 +4557,8 @@
 document.addEventListener('change', function (e) {
   if (!e.target.matches('input[name="whServiceType"]')) return;
   var scope = e.target.closest('form') || document;
+  // ✅ SUBTYPE: service type is single-select too — one service defines the inquiry
+  if (e.target.checked) scope.querySelectorAll('input[name="whServiceType"]').forEach(function (c) { if (c !== e.target) c.checked = false; });
   scope.querySelectorAll('.wh-sub-block').forEach(function (b) {
     var p = scope.querySelector('input[name="whServiceType"][value="' + b.getAttribute('data-subparent') + '"]');
     var show = !!(p && p.checked);
@@ -4547,6 +4571,37 @@ document.addEventListener('change', function (e) {
   if (!e.target.matches('input[name="whServiceSubtype"]') || !e.target.checked) return;
   var scope = e.target.closest('form') || document;
   scope.querySelectorAll('input[name="whServiceSubtype"]').forEach(function (c) { if (c !== e.target) c.checked = false; });
+});
+// ✅ SUBTYPE (Plan A): with a sub-option chosen, the service checklist collapses —
+// the sub-option itself defines the service scope (TTS List Price template).
+function whChecklistSync(scope) {
+  var chosen = scope.querySelectorAll('input[name="whServiceSubtype"]:checked').length === 1;
+  var blk = scope.querySelector('#warehouseBlock') || scope;
+  blk.querySelectorAll('.wh-group').forEach(function (g) { g.style.display = chosen ? 'none' : ''; });
+  blk.querySelectorAll('.wh-cargo-details').forEach(function (cd) { cd.style.display = chosen ? '' : 'none'; });
+  var all = blk.querySelectorAll('div');
+  for (var i = 0; i < all.length; i++) {
+    if (all[i].children.length === 0 && all[i].textContent.indexOf('Select the warehouse services you need') >= 0) all[i].style.display = chosen ? 'none' : '';
+  }
+  if (chosen) {
+    blk.querySelectorAll('input[name="whService"]').forEach(function (c) { c.checked = false; });
+    blk.querySelectorAll('input[name="outboundMode"]').forEach(function (r) { r.checked = false; });
+  }
+  var note = blk.querySelector('.wh-suboption-note');
+  if (chosen && !note) {
+    note = document.createElement('div');
+    note.className = 'wh-suboption-note';
+    note.style.cssText = 'font-size:0.8rem;color:#166534;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:10px 14px;margin-bottom:12px;';
+    note.textContent = 'Service scope follows the selected sub-option (TTS List Price template). Quantities and pricing are handled on the quotation. Use Note above for any special requirements.';
+    var firstGrp = blk.querySelector('.wh-group');
+    if (firstGrp) firstGrp.parentNode.insertBefore(note, firstGrp);
+  }
+  if (note) note.style.display = chosen ? '' : 'none';
+}
+document.addEventListener('change', function (e) {
+  if (e.target.matches('input[name="whServiceSubtype"]') || e.target.matches('input[name="whServiceType"]')) {
+    whChecklistSync(e.target.closest('form') || document);
+  }
 });
 </script>
 </body>

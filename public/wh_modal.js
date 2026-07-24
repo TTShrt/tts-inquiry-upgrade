@@ -251,6 +251,7 @@
                   }).join('') + '</span>';
               }).join('') +
             '</div></div>' +
+            '<div class="whm-f" style="grid-column:1/-1;"><label>Service detail</label><div class="whm-ro">' + (esc(get('Warehouse Service Detail')) || '\u2014') + '</div></div>' +   // ✅ SUBTYPE: read-only, set at inquiry creation (cargo details live here)
             field('Container size', selectHTML('Container Size', get('Container Size'), ["20'", "40'", "40' HQ", "45'", "53'", 'LCL / other'], canEditCommon)) +
             field('Container weight', inputHTML('Gross Weight', get('Gross Weight'), 'e.g. 18,000 lbs', canEditCommon)) +
             field('# of containers', inputHTML('# of Containers', get('# of Containers'), 'e.g. 3', canEditCommon)) +
@@ -308,7 +309,7 @@
     // ✅ LPQUOTE: tiny extra styles (once)
     if (!document.getElementById('whm-lp-css')) {
       var stLp = document.createElement('style'); stLp.id = 'whm-lp-css';
-      stLp.textContent = '.whm-lpref{font-size:10px;color:#94a3b8;text-align:right;margin-top:1px;}.whm-in-desc{background:#fefce8;border-style:dashed;}.whm-lpnote{cursor:help;color:#94a3b8;}.whm-subgrp-lbl{font-size:11px;color:#64748b;font-weight:600;margin:0 4px 0 10px;}';
+      stLp.textContent = '.whm-lpref{font-size:10px;color:#94a3b8;text-align:right;margin-top:1px;}.whm-in-desc{background:#fefce8;border-style:dashed;}.whm-lpnote{cursor:help;color:#94a3b8;}.whm-subgrp-lbl{font-size:11px;color:#64748b;font-weight:600;margin:0 4px 0 10px;}.whm-ro{font-size:12px;color:#334155;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;min-height:18px;white-space:pre-wrap;}';
       document.head.appendChild(stLp);
     }
     // ✅ LPQUOTE: first open of a sub-typed inquiry — build the snapshot server-side, then re-render
@@ -594,6 +595,8 @@
       var r = e.target.closest('input[name="whm-selwh"]');
       if (r) { sel = +r.value; set('Selected Supplier', String(sel)); applySel(); recalc(); autosave(['Selected Supplier']); return; }
       if (e.target.matches('[data-svc]')) {
+        // ✅ SUBTYPE: service type single-select (mirrors the inquiry form)
+        if (e.target.checked) ov.querySelectorAll('[data-svc]').forEach(function (pc) { if (pc !== e.target) pc.checked = false; });
         rebuildServiceTypes();
         // ✅ SUBTYPE: sub-option groups follow their parent; unchecking a parent clears its sub
         var changed = ['Service Types'];
@@ -638,6 +641,27 @@
               onSaved();
             })
             .catch(function (e4) { console.error('lp rebuild error:', e4); });
+          return;
+        }
+        // ✅ LPQUOTE: first-time sub selection on an inquiry with no snapshot — build it now and re-render
+        if (newKey && !curKey) {
+          rebuildServiceSubtypes(); autosave(['Service Subtypes']);
+          fetch('/api/lp-quote-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ q: quote }) })
+            .then(function (rr) { return rr.json().then(function (dd) { return { ok: rr.ok, d: dd }; }); })
+            .then(function (x) {
+              if (!x.ok) { window.alert((x.d && x.d.error) || 'Failed to prepare the quote template.'); return; }
+              item['Service Subtypes'] = newSub;
+              item['LP Rows'] = JSON.stringify(x.d.rows);
+              item['LP Page Key'] = x.d.pageKey || '';
+              x.d.rows.forEach(function (r5) {
+                if (!r5.custom && /^\d+(\.\d+)?$/.test(String(r5.listPrice)) && String(item['LP ' + r5.i + ' Price'] || '').trim() === '') {
+                  item['LP ' + r5.i + ' Price'] = String(r5.listPrice);
+                }
+              });
+              if (document.body.contains(ov)) { ov.remove(); WHModal.open(opts); }
+              onSaved();
+            })
+            .catch(function (e5) { console.error('lp first-init error:', e5); });
           return;
         }
         rebuildServiceSubtypes(); autosave(['Service Subtypes']); return;

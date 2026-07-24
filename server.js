@@ -3033,7 +3033,8 @@ app.use((req, res, next) => {
     warehouseSalesConfirmed: 1, warehouseManagerConfirmed: 1,
     truckingCostSent: 1, warehouseCostSent: 1,
     truckingCostSaved: 1, warehouseCostSaved: 1,
-    'Selected': 1, 'Pushed To GF': 1, 'Pushed To GF At': 1, 'Pushed To GF By': 1
+    'Selected': 1, 'Pushed To GF': 1, 'Pushed To GF At': 1, 'Pushed To GF By': 1,
+    truckingCostDraft: 1, warehouseCostDraft: 1
   };
 
   app.get('/api/quotation-list', async (req, res) => {
@@ -3105,10 +3106,15 @@ app.use((req, res, next) => {
 
         const lines = [];
         let parentRank = 3;
+        let draftSaved = false;   // ✅ QLIST: cost saved by Sourcing but not yet sent (reminder tag)
         for (const [lineId, L] of b.lines) {
           const main = L.main || L.candidates[0];
           let lineRank = 0;
-          for (const c of L.candidates) lineRank = Math.max(lineRank, qlistDocRank(c));
+          for (const c of L.candidates) {
+            lineRank = Math.max(lineRank, qlistDocRank(c));
+            if ((qlistTrue(c.truckingCostDraft) || qlistTrue(c.warehouseCostDraft)) &&
+                !qlistTrue(c.truckingCostSent) && !qlistTrue(c.warehouseCostSent)) draftSaved = true;
+          }
           parentRank = Math.min(parentRank, lineRank);
 
           // GP picks only VALID confirmations (flag + non-empty Adjusted Price) — this also
@@ -3169,6 +3175,7 @@ app.use((req, res, next) => {
           pushedToGFAt: anchor ? (anchor['Pushed To GF At'] || null) : null,
           pushedToGFBy: anchor ? (anchor['Pushed To GF By'] || null) : null,
           lineCount: b.lines.size,
+          draftSaved: draftSaved && QLIST_STATUS[parentRank] === 'Await Sourcing',
           lines
         });
       }

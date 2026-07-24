@@ -46,6 +46,7 @@
   .b-sent { background:#f3e8ff; color:#6b21a8; }
   .b-reviewing { background:var(--info-bg); color:#1e40af; }
   .b-await { background:#fef2f2; color:#b91c1c; }
+  .tag-draft { background:var(--warning-bg); color:#92400e; border-radius:10px; padding:1px 8px; font-size:.64rem; font-weight:600; margin-left:6px; }
   .gf { display:flex; align-items:center; gap:5px; font-size:.72rem; color:var(--text-secondary); flex:0 0 auto; width:56px; justify-content:center; }
   .gf input { width:15px; height:15px; cursor:pointer; accent-color:var(--primary); }
   .gf.na { color:var(--text-muted); }
@@ -189,7 +190,7 @@ function qlRender() {
       '<div class="gmain"><div class="gtitle"><a href="' + qlDashHref(g.base) + '" onclick="event.stopPropagation();">' + esc(g.base) + '</a>' +
       ' <span class="sub">· ' + esc(g.date || '') + ' · ' + g.lineCount + (g.lineCount > 1 ? ' lines' : ' line') + '</span></div>' +
       '<div class="gsub">' + esc(g.customer || '') + ' · ' + esc(g.requestedBy || '') + ' → ' + esc(g.assignedSales || '') + '</div></div>' +
-      '<span class="badge ' + qlBadgeClass(g.status) + '">' + esc(g.status) + '</span>' + gfCell + '</div>' +
+      '<span class="badge ' + qlBadgeClass(g.status) + '">' + esc(g.status) + (g.draftSaved ? '<span class="tag-draft" title="Cost saved but not sent to Sales / 成本已保存未发送">draft saved</span>' : '') + '</span>' + gfCell + '</div>' +
       '<div class="linewrap" style="display:none;" data-lines="' + i + '">' +
       g.lines.map(function (l) { return qlRenderLine(g, l); }).join('') + '</div>';
   });

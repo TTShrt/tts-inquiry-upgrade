@@ -322,8 +322,29 @@
                     <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Transload"> Transload</label>
                     <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Distribution"> Distribution</label>
                     <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Fulfillment"> Fulfillment</label>
-                    <label class="wh-svc-chk"><input type="checkbox" name="whServiceType" value="Storage"> Storage</label>
+                    <label class="wh-svc-chk" style="display:none;"><input type="checkbox" name="whServiceType" value="Storage"> Storage</label><!-- ✅ SUBTYPE: Storage hidden on new form; legacy data still renders elsewhere -->
                   </div>
+                  <!-- ✅ SUBTYPE: sub-options revealed when the parent service type is checked -->
+                  <div class="wh-sub-wrap" style="width:100%;">
+                    <div class="wh-sub-block" data-subparent="Transload" style="display:none;margin-top:6px;padding-left:14px;">
+                      <span style="font-size:.78em;color:#64748b;font-weight:600;margin-right:6px;">Transload:</span>
+                      <label class="wh-svc-chk" style="font-size:.92em;"><input type="checkbox" name="whServiceSubtype" data-parent="Transload" value="FCL-Pallet to Pallet"> FCL-Pallet to Pallet</label>
+                      <label class="wh-svc-chk" style="font-size:.92em;"><input type="checkbox" name="whServiceSubtype" data-parent="Transload" value="FCL-Floor to Pallet"> FCL-Floor to Pallet</label>
+                      <label class="wh-svc-chk" style="font-size:.92em;"><input type="checkbox" name="whServiceSubtype" data-parent="Transload" value="FCL-Floor to Floor"> FCL-Floor to Floor</label>
+                      <label class="wh-svc-chk" style="font-size:.92em;"><input type="checkbox" name="whServiceSubtype" data-parent="Transload" value="LTL-Pallet to Pallet"> LTL-Pallet to Pallet</label>
+                    </div>
+                    <div class="wh-sub-block" data-subparent="Distribution" style="display:none;margin-top:6px;padding-left:14px;">
+                      <span style="font-size:.78em;color:#64748b;font-weight:600;margin-right:6px;">Distribution:</span>
+                      <label class="wh-svc-chk" style="font-size:.92em;"><input type="checkbox" name="whServiceSubtype" data-parent="Distribution" value="FCL-Palletized IB + LTL out"> FCL-Palletized IB + LTL out</label>
+                      <label class="wh-svc-chk" style="font-size:.92em;"><input type="checkbox" name="whServiceSubtype" data-parent="Distribution" value="FCL-Floorload IB + LTL out"> FCL-Floorload IB + LTL out</label>
+                    </div>
+                    <div class="wh-sub-block" data-subparent="Fulfillment" style="display:none;margin-top:6px;padding-left:14px;">
+                      <span style="font-size:.78em;color:#64748b;font-weight:600;margin-right:6px;">Fulfillment:</span>
+                      <label class="wh-svc-chk" style="font-size:.92em;"><input type="checkbox" name="whServiceSubtype" data-parent="Fulfillment" value="FCL-Palletized IB + SP out"> FCL-Palletized IB + SP out</label>
+                      <label class="wh-svc-chk" style="font-size:.92em;"><input type="checkbox" name="whServiceSubtype" data-parent="Fulfillment" value="FCL-Floorload IB + SP out"> FCL-Floorload IB + SP out</label>
+                    </div>
+                  </div>
+
                 </div>
                 <div class="wh-cf"><label class="field-label">Container size<span class="req-star">*</span></label><select name="whContainerSize"><option value="">Select size</option><option>20'</option><option>40'</option><option>40HQ</option><option>53'</option></select></div>
                 <div class="wh-cf"><label class="field-label">Container weight<span class="req-star">*</span></label><input name="whContainerWeight" placeholder="e.g. 18,000 lbs" /></div>
@@ -470,6 +491,10 @@
         const v = n => (form.querySelector('[name="' + n + '"]')?.value || '').trim();
         const missing = [];
         if (!form.querySelector('input[name="whServiceType"]:checked')) missing.push('Service Type');
+        ['Transload', 'Distribution', 'Fulfillment'].forEach(function (pt) {   // ✅ SUBTYPE
+          var on = form.querySelector('input[name="whServiceType"][value="' + pt + '"]');
+          if (on && on.checked && !form.querySelector('input[name="whServiceSubtype"][data-parent="' + pt + '"]:checked')) missing.push(pt + ' sub-option');
+        });
         if (!v('whContainerSize')) missing.push('Container Size');
         if (!v('whContainerWeight')) missing.push('Container Weight');
         if (!v('whNumContainers')) missing.push('# of Containers');
@@ -524,6 +549,7 @@
       // WH green common-info (mirrors modal green zone) → canonical server fields
       const whServiceTypes = Array.from(form.querySelectorAll('input[name="whServiceType"]:checked')).map(x => x.value);
       data.serviceTypes = whServiceTypes.join('; ');
+      data.serviceSubtypes = Array.from(form.querySelectorAll('input[name="whServiceSubtype"]:checked')).map(x => x.value).join('; ');   // ✅ SUBTYPE
       data.eta = (form.querySelector('[name="whEta"]')?.value || '').trim();
       data.numContainers = (form.querySelector('[name="whNumContainers"]')?.value || '').trim();
       const whCom = (form.querySelector('[name="whCommodity"]')?.value || '').trim();
@@ -566,5 +592,18 @@
       }
     });
   </script>
+<script>
+// ✅ SUBTYPE: show/hide warehouse sub-options with their parent service type (additive; new file section)
+document.addEventListener('change', function (e) {
+  if (!e.target.matches('input[name="whServiceType"]')) return;
+  var scope = e.target.closest('form') || document;
+  scope.querySelectorAll('.wh-sub-block').forEach(function (b) {
+    var p = scope.querySelector('input[name="whServiceType"][value="' + b.getAttribute('data-subparent') + '"]');
+    var show = !!(p && p.checked);
+    b.style.display = show ? '' : 'none';
+    if (!show) b.querySelectorAll('input[name="whServiceSubtype"]').forEach(function (c) { c.checked = false; });
+  });
+});
+</script>
 </body>
 </html>

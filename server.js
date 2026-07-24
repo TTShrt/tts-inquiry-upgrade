@@ -533,6 +533,7 @@ function applyWarehouseDefaults(doc) {
   setIfEmpty(doc, 'ETA', '');
   setIfEmpty(doc, '# of Containers', '');
   setIfEmpty(doc, 'Service Types', '');
+  setIfEmpty(doc, 'Service Subtypes', '');   // ✅ SUBTYPE
   for (const [, name, unit, storage] of WH_NEW_BUCKETS) {
     setIfEmpty(doc, name, '');
     setIfEmpty(doc, name + ' Unit', unit);
@@ -1103,6 +1104,7 @@ app.post('/inquiries', async (req, res) => {
 
       // Common info filled in the WH green block (mirrors public endpoint + quote modal)
       'Service Types': raw['Service Types'] || raw.serviceTypes || '',
+      'Service Subtypes': raw['Service Subtypes'] || raw.serviceSubtypes || '',   // ✅ SUBTYPE
       'ETA': raw['ETA'] || raw.eta || '',
       '# of Containers': raw['# of Containers'] || raw.numContainers || '',
 
@@ -1410,6 +1412,7 @@ app.get('/api/quotation-print', async (req, res) => {
       'Service Types', 'Warehouse Services', 'Warehouse Service Detail'
     ];
     idFields.forEach(f => { if (doc[f] != null) out[f] = doc[f]; });
+    if (doc['Service Subtypes'] != null) out['Service Subtypes'] = doc['Service Subtypes'];   // ✅ SUBTYPE (export whitelist)
 
     // Trucking price/unit fields — stripped entirely while sourcing draft is unsent
     if (!truckDraft) {
@@ -1678,6 +1681,10 @@ app.post('/inquiries/update', async (req, res) => {
     WH_COST_FIELDS.push('Selected Supplier', 'Label', 'Cross Dock', 'ETA', '# of Containers', 'Service Types');
     WH_PRICE_FIELDS.push('Label Price', 'Cross Dock Price');
     INQUIRY_EDIT_FIELDS.push('ETA', '# of Containers', 'Service Types');
+    // ✅ SUBTYPE: warehouse service sub-option field (additive; mirrors 'Service Types' registration
+    //    so Sales/Manager can save it from the form and the WH modal autosave path also works)
+    WH_COST_FIELDS.push('Service Subtypes');
+    INQUIRY_EDIT_FIELDS.push('Service Subtypes');
 
     const META_DENY_ALWAYS = new Set(['_id', 'Quotation #']); // cannot change primary key in update
 
@@ -2670,6 +2677,7 @@ app.post('/public/inquiries', async (req, res) => {
 
       // Common info filled by the customer (mirrors the quote modal green zone)
       'Service Types': String(raw.serviceTypes || raw['Service Types'] || ''),
+      'Service Subtypes': String(raw.serviceSubtypes || raw['Service Subtypes'] || ''),   // ✅ SUBTYPE
       'ETA': String(raw.eta || raw['ETA'] || ''),
       '# of Containers': String(raw.numContainers || raw['# of Containers'] || ''),
 

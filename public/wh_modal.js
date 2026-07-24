@@ -213,6 +213,8 @@
     for (var s = 1; s <= SUP; s++) supNames.push(get('Supplier ' + s + ' Name'));
     var svcTypes = String(get('Service Types') || '');
     function svcChecked(t) { return svcTypes.split(/[;,]/).map(function (x) { return x.trim().toLowerCase(); }).indexOf(t.toLowerCase()) !== -1; }
+    var svcSubs = String(get('Service Subtypes') || '');   // ✅ SUBTYPE
+    function svcSubChecked(t) { return svcSubs.split(/[;,]/).map(function (x) { return x.trim().toLowerCase(); }).indexOf(t.toLowerCase()) !== -1; }
 
     var headCols = '';
     for (var w = 1; w <= SUP; w++) {
@@ -230,8 +232,13 @@
         '<div class="whm-common">' +
           '<div class="whm-cleft">' +
             '<div class="whm-f whm-svc"><label>Service type</label><div class="whm-checks">' +
-              ['Transload', 'Distribution', 'Fulfillment', 'Storage'].map(function (t) {
+              ['Transload', 'Distribution', 'Fulfillment'].concat(svcChecked('Storage') ? ['Storage'] : []).map(function (t) {   // ✅ SUBTYPE: Storage shown only on legacy data
                 return '<label class="whm-chk"><input type="checkbox" data-svc="' + t + '" ' + (svcChecked(t) ? 'checked' : '') + (canEditCommon ? '' : ' disabled') + '> ' + t + '</label>';
+              }).join('') +
+            '</div></div>' +
+            '<div class="whm-f whm-svc"><label>Sub-option</label><div class="whm-checks">' +   // ✅ SUBTYPE
+              [['Transload','FCL-Pallet to Pallet'],['Transload','FCL-Floor to Pallet'],['Transload','FCL-Floor to Floor'],['Transload','LTL-Pallet to Pallet'],['Distribution','FCL-Palletized IB + LTL out'],['Distribution','FCL-Floorload IB + LTL out'],['Fulfillment','FCL-Palletized IB + SP out'],['Fulfillment','FCL-Floorload IB + SP out']].map(function (st) {
+                return '<label class="whm-chk" title="' + st[0] + '"><input type="checkbox" data-svcsub="' + st[1] + '" ' + (svcSubChecked(st[1]) ? 'checked' : '') + (canEditCommon ? '' : ' disabled') + '> ' + st[1] + '</label>';
               }).join('') +
             '</div></div>' +
             field('Container size', selectHTML('Container Size', get('Container Size'), ["20'", "40'", "40' HQ", "45'", "53'", 'LCL / other'], canEditCommon)) +
@@ -456,6 +463,11 @@
       ov.querySelectorAll('[data-svc]').forEach(function (cb) { if (cb.checked) picked.push(cb.getAttribute('data-svc')); });
       set('Service Types', picked.join('; '));
     }
+    function rebuildServiceSubtypes() {   // ✅ SUBTYPE
+      var picked = [];
+      ov.querySelectorAll('[data-svcsub]').forEach(function (cb) { if (cb.checked) picked.push(cb.getAttribute('data-svcsub')); });
+      set('Service Subtypes', picked.join('; '));
+    }
 
     var saveTimer = null;
     function flashSaved(txt) { var el = ov.querySelector('[data-savestate]'); el.textContent = txt; if (txt) setTimeout(function () { if (el.textContent === txt) el.textContent = ''; }, 2500); }
@@ -500,6 +512,7 @@
       var r = e.target.closest('input[name="whm-selwh"]');
       if (r) { sel = +r.value; set('Selected Supplier', String(sel)); applySel(); recalc(); autosave(['Selected Supplier']); return; }
       if (e.target.matches('[data-svc]')) { rebuildServiceTypes(); autosave(['Service Types']); return; }
+      if (e.target.matches('[data-svcsub]')) { rebuildServiceSubtypes(); autosave(['Service Subtypes']); return; }   // ✅ SUBTYPE
       if (e.target.matches('[data-onquote]')) {
         var oqKey = e.target.getAttribute('data-onquote') + ' OnQuote';
         set(oqKey, e.target.checked ? 'true' : 'false');

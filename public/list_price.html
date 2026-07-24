@@ -471,7 +471,7 @@ function renderPrint(p, quoteNo) {
   const page1 =
     '<div class="page">'
     + '<div class="hdr"><img class="logo" src="images/TTS-LOGO.png" alt="TTS Logo">'
-    + '<div class="co"><h1>TOTAL SOLUTION</h1><p>10820 WESTPARK DR, HOUSTON, TX, 77042<br>FMC-Licensed NVOCC OTI#032560NF<br>TEL: 713-706-5742<br>EMAIL: salestw@totalsolutionus.com<br><span class="prep">Prepared by ' + esc(window.__lpUser || '') + ' ' + today + '</span></p></div>'
+    + '<div class="co"><h1>TOTAL SOLUTION</h1><p>10820 WESTPARK DR, HOUSTON, TX, 77042<br>FMC-Licensed NVOCC OTI#032560NF<br>' + (window.__lpEmail ? 'EMAIL: ' + esc(window.__lpEmail) + '<br>' : '') + '<span class="prep">Prepared by ' + esc(window.__lpUser || '') + ' ' + today + '</span></p></div>'
     + '<div><div class="qbox"><span>QUOTATION</span></div><div class="qno">QUOTE NO&nbsp;:&nbsp;&nbsp;' + esc(quoteNo) + '</div></div></div>'
     + '<div class="meta"><div class="to">TO&nbsp;&nbsp;:&nbsp;&nbsp;<b>' + esc(p.customer.company) + '</b>'
     + (p.customer.address ? '<br><span style="padding-left:24px;">' + esc(p.customer.address) + '</span>' : '')
@@ -511,7 +511,7 @@ function backToPage() {
 (async () => {
   try {
     const r = await fetch('/user', { credentials: 'same-origin' });
-    if (r.ok) { const u = await r.json(); window.__lpUser = (u && (u.username || u.name)) || ''; window.__lpRole = (u && u.role) || ''; }
+    if (r.ok) { const u = await r.json(); window.__lpUser = (u && (u.username || u.name)) || ''; window.__lpRole = (u && u.role) || ''; window.__lpEmail = (u && u.email) || ''; }
   } catch (e) { window.__lpUser = ''; }
   init();
 })();

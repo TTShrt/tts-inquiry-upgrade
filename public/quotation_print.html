@@ -333,7 +333,7 @@ function fmtDate(dt) {
   return p(dt.getMonth() + 1) + '-' + p(dt.getDate()) + '-' + dt.getFullYear();
 }
 
-function render(d, user) {
+function render(d, user, email) {
   let created = d['Date'] ? new Date(d['Date']) : new Date();
   if (isNaN(created.getTime())) created = new Date();
   const valid = new Date(created.getTime() + 30 * 24 * 3600 * 1000);
@@ -350,7 +350,7 @@ function render(d, user) {
     + '<div class="hdr">'
     +   '<img class="logo" src="images/TTS-LOGO.png" alt="TTS Logo">'
     +   '<div class="co"><h1>TOTAL SOLUTION</h1><p>10820 WESTPARK DR, HOUSTON, TX, 77042<br>'
-    +   'FMC-Licensed NVOCC OTI#032560NF<br>TEL: 713-706-5742<br>EMAIL: salestw@totalsolutionus.com<br>'
+    +   'FMC-Licensed NVOCC OTI#032560NF<br>' + (email ? 'EMAIL: ' + esc(email) + '<br>' : '')
     +   '<span class="prep">Prepared by ' + esc(user || val(d, 'Assigned Sales') || val(d, 'Requested By')) + ' ' + fmtDate(new Date()) + '</span></p></div>'
     +   '<div><div class="qbox"><span>QUOTATION</span></div>'
     +   '<div class="qno">QUOTE NO&nbsp;:&nbsp;&nbsp;' + esc(val(d, 'Quotation #')) + '</div></div>'
@@ -422,7 +422,7 @@ function render(d, user) {
       document.getElementById('loading').style.display = 'none';
       return;
     }
-    render(data.inquiry, data.username);
+    render(data.inquiry, data.username, data.email);
   } catch (e) {
     document.getElementById('loading').textContent = 'Failed to load: ' + e.message;
   }

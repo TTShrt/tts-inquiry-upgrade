@@ -250,6 +250,19 @@ const users = [
 
 ];
 
+// ✅ EMAIL: per-user sender email for quotation headers (additive; users array untouched).
+// Unmapped users (OPM/OPS etc.) show NO email line on quotations — they don't normally send quotes.
+// (If a company-default email is ever wanted here, use salesus@totalsolutionus.com per Lina.)
+const USER_EMAILS = {
+  'Lina Lee': 'linal@totalsolutionus.com',
+  'Adam Chen': 'salescn@totalsolutionus.com',
+  'Ellen Lin': 'sqcn@totalsolutionus.com',
+  'Niurka Guzman': 'salesus@totalsolutionus.com'
+};
+function emailFor(username, salesGroup) {
+  return USER_EMAILS[String(username || '')] || '';
+}
+
 
 function simulateQuoteFull(baseRate, type) {
   baseRate = parseFloat(baseRate) || 0;
@@ -1442,7 +1455,7 @@ app.get('/api/quotation-print', async (req, res) => {
       return res.status(409).json({ error: 'No prices have been sent to Sales for this quotation yet. Please complete pricing in the system first. \u4EF7\u683C\u5C1A\u672A\u53D1\u9001\u7ED9 Sales\uFF0C\u6682\u65E0\u6CD5\u5BFC\u51FA\u62A5\u4EF7\u5355\u3002' });
     }
 
-    return res.json({ inquiry: out, username });
+    return res.json({ inquiry: out, username, email: emailFor(username, salesGroup) });   // ✅ EMAIL
   } catch (err) {
     console.error('❌ /api/quotation-print error:', err);
     return res.status(500).json({ error: 'Server error while loading quotation.' });
@@ -2489,7 +2502,7 @@ app.get('/exit', async (req, res) => {
 app.get('/user', async (req, res) => {
   const { username, role, salesGroup } = req.cookies;
   if (!username || !role) return res.status(401).json({ error: 'Not logged in' });
-  res.json({ username, role, salesGroup: salesGroup || '' });
+  res.json({ username, role, salesGroup: salesGroup || '', email: emailFor(username, salesGroup) });   // ✅ EMAIL
 });
 
 app.get('/logout', (req, res) => {

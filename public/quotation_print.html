@@ -74,6 +74,7 @@
   :root{--tts-blue:#2E5FA3;--tts-green:#22A05C;}
   html{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .lic{width:13px;height:13px;vertical-align:-2px;margin-right:5px;}
+  .pnote{margin-top:12px;font-size:9.5px;line-height:1.55;white-space:pre-line;font-style:italic;}
   .rt td{font-weight:bold;}   /* ✅ STYLE: bold table body, same as the original GoFreight quote */
   .rt th{background:#E9F0F8 !important;color:var(--tts-blue) !important;border-top:1.5px solid var(--tts-blue) !important;border-bottom:1px solid var(--tts-blue) !important;}
   .rt tr:last-child td{border-bottom:1.5px solid var(--tts-blue) !important;}
@@ -367,7 +368,8 @@ function buildLpQuoteTable(d) {
   if (!printed) return '';
   const sub = String(d['Service Subtypes'] || '').split(/[;,]/)[0].trim();
   return '<h3 class="lane" contenteditable="true">' + ic('wh') + 'WAREHOUSE \u2014 ' + esc(sub || 'Services') + '</h3>'
-    + '<table class="rt"><tr><th style="width:42%">SERVICE DESCRIPTION</th><th style="width:6%">CUR.</th><th style="width:10%">PRICE</th><th style="width:12%">UNIT</th>' + (hasMin ? '<th style="width:8%">MIN. CHG</th>' : '') + '<th>PRICING NOTES</th></tr>' + rows + '</table>';
+    + '<table class="rt"><tr><th style="width:42%">SERVICE DESCRIPTION</th><th style="width:6%">CUR.</th><th style="width:10%">PRICE</th><th style="width:12%">UNIT</th>' + (hasMin ? '<th style="width:8%">MIN. CHG</th>' : '') + '<th>PRICING NOTES</th></tr>' + rows + '</table>'
+    + (d['LP Page Note'] ? '<div class="pnote" contenteditable="true">' + esc(d['LP Page Note']) + '</div>' : '');   // ✅ LPQUOTE: Excel policy notes
 }
 
 function buildWarehouseTable(d) {
@@ -406,6 +408,9 @@ function render(d, user, email) {
   const truckHTML = spec ? buildTruckTable(d, spec, missing) : '';
   const whHTML = buildWarehouseTable(d);
 
+  // ✅ LPQUOTE: pure warehouse quotation — no trucking notes/remark; Excel notes + Warehouse T&C only
+  const whOnly = !truckHTML && !!whHTML;
+  const mainPages = whOnly ? 1 : 2;
   const owFlag = val(d, 'Legal or Over Weight').toLowerCase().indexOf('over') >= 0;
   const weightNote = owFlag ? 'NON-HAZARDOUS, FSC INCLU' : 'NON-HAZARDOUS, FSC INCLU\uFF0CLEGAL WEIGHT';
 
@@ -425,17 +430,21 @@ function render(d, user, email) {
     +   '<div class="kv">'
     +   '<div class="row"><span class="k">CREATE DATE</span><span class="c">:</span><span class="v">' + fmtDate(created) + '</span></div>'
     +   '<div class="row"><span class="k">SALES PERSON</span><span class="c">:</span><span class="v" contenteditable="true">' + esc(val(d, 'Assigned Sales') || val(d, 'Requested By')) + '</span></div>'
-    +   '<div class="row"><span class="k">SHIP MODE</span><span class="c">:</span><span class="v">TRUCK</span></div>'
+    +   '<div class="row"><span class="k">SHIP MODE</span><span class="c">:</span><span class="v">' + (whOnly ? 'WAREHOUSE' : 'TRUCK') + '</span></div>'
     +   '<div class="row"><span class="k">SERVICE TERM</span><span class="c">:</span><span class="v" contenteditable="true">CY/DOOR</span></div>'
     +   '<div class="row"><span class="k">CONTAINER</span><span class="c">:</span><span class="v">' + esc(val(d, 'Container Size')) + (val(d, 'QTY') ? ' × ' + esc(val(d, 'QTY')) : '') + '</span></div>'
     +   '<div class="row"><span class="k">VALID DATE</span><span class="c">:</span><span class="v" contenteditable="true">' + fmtDate(created) + ' ~ ' + fmtDate(valid) + '</span></div>'
     +   '</div></div><div class="meta-end"></div>'
     + truckHTML + whHTML
-    + '<div class="notes" contenteditable="true">' + weightNote + '<br>'
+    + (whOnly ? '' : '<div class="notes" contenteditable="true">' + weightNote + '<br>'
     + 'INSURANCE POLICY:<br>THE TRUCKING INSURANCE COVERAGE LIMIT IS $100,000 PER CONTAINER. IF THE CARGO VALUE EXCEEDS $100,000 PER CONTAINER AND FULL COVERAGE IS REQUIRED, AN INSURANCE FEE OF 0.25% WILL BE CHARGED ON THE AMOUNT EXCEEDING $100,000.<br>'
-    + '\u5361\u8F66\u8FD0\u8F93\u4FDD\u9669\u91D1\u989D\u4E0A\u9650\u4E3A10\u4E07\u7F8E\u91D1/\u67DC\uFF0C\u5982\u679C\u8D27\u7269\u4EF7\u503C\u8D85\u8FC710\u4E07\u7F8E\u91D1/\u67DC\u4E14\u9700\u8981\u5168\u989D\u4FDD\u9669\uFF0C\u8D85\u8FC710\u4E07\u7F8E\u91D1\u7684\u90E8\u5206\u9700\u8981\u652F\u4ED80.25%\u7684\u4FDD\u9669\u8D39\u3002</div>'
-    + '<div class="foot"><span class="pg">page 1 of 2</span></div>'
+    + '\u5361\u8F66\u8FD0\u8F93\u4FDD\u9669\u91D1\u989D\u4E0A\u9650\u4E3A10\u4E07\u7F8E\u91D1/\u67DC\uFF0C\u5982\u679C\u8D27\u7269\u4EF7\u503C\u8D85\u8FC710\u4E07\u7F8E\u91D1/\u67DC\u4E14\u9700\u8981\u5168\u989D\u4FDD\u9669\uFF0C\u8D85\u8FC710\u4E07\u7F8E\u91D1\u7684\u90E8\u5206\u9700\u8981\u652F\u4ED80.25%\u7684\u4FDD\u9669\u8D39\u3002</div>')
+    + (whOnly ? termsSigHTML : '')
+    + '<div class="foot"><span class="pg">page 1 of ' + mainPages + '</span></div>'
     + '</div>';
+
+  const termsSigHTML = '<div class="terms">\u203BALL RATES ARE BASED ON AVAILABILITY AT TIME OF SHIPMENT. \u203B\u50F9\u683C\u6709\u6548\u671F\u70BA30\u5929\uFF0C\u8D85\u904E30\u5929\u8ACB\u91CD\u65B0\u8A62\u50F9\u3002\u767C\u9001\u8A02\u55AE\u6642\u8ACB\u9644\u4E0A\u672C\u5831\u50F9\u3002 \u203BALL RATES ARE VALID FOR 30 DAYS. \u203BPLEASE ATTACH THIS QUOTATION WHEN SENDING US YOUR ORDER. \u203BTHIS QUOTATION, INCLUDING ACCESSORIAL CHARGES THAT MAY BE ATTACHED HERETO, MUST BE ACCEPTED WITHIN 30 DAYS FROM THE PROPOSAL DATE BY SIGNATURE OF THE DEPOSITOR. IN THE ABSENCE OF WRITTEN ACCEPTANCE, THE ACT OF TENDERING GOODS DESCRIBED HEREIN FOR STORAGE OR OTHER SERVICES BY WAREHOUSEMAN WITHIN 30 DAYS FROM THE PROPOSAL DATE SHALL CONSTITUTE ACCEPTANCE BY DEPOSITOR. \u203BWAREHOUSEMAN DOES NOT INSURE THE GOODS WHILE IN STORAGE, AND THE STORAGE RATES OR CHARGES BILLED TO DEPOSITOR DO NOT INCLUDE ANY INSURANCE ON THE GOODS. THE GOODS WILL THEREFORE NOT BE INSURED FOR ANY LOSS OR DAMAGE HOWEVER CAUSED. DEPOSITOR IS RESPONSIBLE FOR INSURING GOODS TENDERED FOR STORAGE. IF NONE IS PROCURED, DEPOSITOR IS DEEMED TO HAVE ELECTED TO SELF-INSURE.</div>'
+    + '<div class="sig"><div class="line">TOTAL SOLUTION</div></div>';
 
   const page2 =
     '<div class="page">'
@@ -447,15 +456,14 @@ function render(d, user, email) {
     + '*MORNING APPOINTMENT OR LONG-DISTANCE DELIVERIES MAY REQUIRE PRE-PULL*</p>'
     + '<p>PLEASE KINDLY NOTE:<br>CARGO INSURANCE IN THE AMOUNT OF $100,000 APPLIES TO ALL SHIPMENTS OF FCL/FTL UNLESS OTHERWISE STATED IN THE LOAD CONFIRMATION OR RATE AGREEMENT. CUSTOMER SHALL ADVISE TOTAL SOLUTION (TTS) OF ANY ADDITIONAL OR OTHER CARGO INSURANCE REQUIREMENTS AT LEAST 24 HOURS BEFORE SUCH SHIPMENT. ADDITIONAL CARGO INSURANCE CAN BE PURCHASED AT A PREMIUM OF 0.25% OF THE VALUE OVER $100,000. UNLESS SUCH ADDITIONAL INSURANCE IS CONFIRMED BY TTS AND ADDITIONAL PREMIUM AGREED TO AND PAID BY CUSTOMER, A MAXIMUM OF $100,000 CARGO INSURANCE WILL APPLY TO ALL SHIPMENTS. ACCORDINGLY, BY THE ACTUAL TENDER OF THE LOAD TO TTS FOR SHIPMENT IT IS AGREED THAT TTS\' LIABILITY FOR CARGO LOSS OR DAMAGE IS STRICTLY LIMITED TO THE AVAILABLE INSURANCE COVERAGE APPLICABLE TO THAT LOAD WHICH SHALL BE LIMITED TO $100,000 OR A HIGHER LIMIT MUTUALLY AGREED AND PAID BY CUSTOMER</p>'
     + '</div></div>'
-    + '<div class="terms">\u203BALL RATES ARE BASED ON AVAILABILITY AT TIME OF SHIPMENT. \u203B\u50F9\u683C\u6709\u6548\u671F\u70BA30\u5929\uFF0C\u8D85\u904E30\u5929\u8ACB\u91CD\u65B0\u8A62\u50F9\u3002\u767C\u9001\u8A02\u55AE\u6642\u8ACB\u9644\u4E0A\u672C\u5831\u50F9\u3002 \u203BALL RATES ARE VALID FOR 30 DAYS. \u203BPLEASE ATTACH THIS QUOTATION WHEN SENDING US YOUR ORDER. \u203BTHIS QUOTATION, INCLUDING ACCESSORIAL CHARGES THAT MAY BE ATTACHED HERETO, MUST BE ACCEPTED WITHIN 30 DAYS FROM THE PROPOSAL DATE BY SIGNATURE OF THE DEPOSITOR. IN THE ABSENCE OF WRITTEN ACCEPTANCE, THE ACT OF TENDERING GOODS DESCRIBED HEREIN FOR STORAGE OR OTHER SERVICES BY WAREHOUSEMAN WITHIN 30 DAYS FROM THE PROPOSAL DATE SHALL CONSTITUTE ACCEPTANCE BY DEPOSITOR. \u203BWAREHOUSEMAN DOES NOT INSURE THE GOODS WHILE IN STORAGE, AND THE STORAGE RATES OR CHARGES BILLED TO DEPOSITOR DO NOT INCLUDE ANY INSURANCE ON THE GOODS. THE GOODS WILL THEREFORE NOT BE INSURED FOR ANY LOSS OR DAMAGE HOWEVER CAUSED. DEPOSITOR IS RESPONSIBLE FOR INSURING GOODS TENDERED FOR STORAGE. IF NONE IS PROCURED, DEPOSITOR IS DEEMED TO HAVE ELECTED TO SELF-INSURE.</div>'
-    + '<div class="sig"><div class="line">TOTAL SOLUTION</div></div>'
+    + termsSigHTML
     + '<div class="foot"><span class="pg">page 2 of 2</span></div>'
     + '</div>';
 
   // ✅ EXPORT: any quotation containing a warehouse section must carry the
   // Warehousing Terms and Conditions as attached pages (verbatim legal text).
   const whTerms = whHTML ? document.getElementById('whTermsTpl').innerHTML : '';
-  document.getElementById('doc').innerHTML = page1 + page2 + whTerms;
+  document.getElementById('doc').innerHTML = page1 + (whOnly ? '' : page2) + whTerms;   // ✅ LPQUOTE: warehouse-only quotes skip the trucking remark page
   document.getElementById('doc').style.display = 'block';
   document.getElementById('loading').style.display = 'none';
   document.getElementById('tbQuote').textContent = 'Quotation ' + val(d, 'Quotation #');

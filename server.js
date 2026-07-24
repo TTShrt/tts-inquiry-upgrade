@@ -1482,6 +1482,11 @@ app.get('/api/quotation-print', async (req, res) => {
       // ✅ LPQUOTE: dynamic List-Price rows go on the export too
       if (doc['LP Rows'] != null) out['LP Rows'] = doc['LP Rows'];
       if (doc['LP Page Key'] != null) out['LP Page Key'] = doc['LP Page Key'];
+      // ✅ LPQUOTE: warehouse quotes print the service page's policy notes from the Excel master
+      if (out['LP Page Key']) {
+        const lpPg = await conn.collection('list_prices').findOne({ pageKey: out['LP Page Key'] }, { projection: { pageNote: 1 } });
+        if (lpPg && lpPg.pageNote) out['LP Page Note'] = lpPg.pageNote;
+      }
       const lpN = lpRowCount(doc);
       for (let i = 1; i <= lpN; i++) {
         if (doc['LP ' + i + ' Price'] != null) out['LP ' + i + ' Price'] = doc['LP ' + i + ' Price'];

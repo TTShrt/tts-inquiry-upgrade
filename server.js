@@ -3173,7 +3173,16 @@ app.use((req, res, next) => {
         });
       }
 
-      groups.sort((a, b2) => (a.newestId < b2.newestId ? 1 : -1));
+      // Sort (Lina, final): section 1 = 'Await Sourcing', section 2 = 'Reviewing' — both by
+      // Quotation # descending (newest number first); section 3 = Confirmed + Sent together,
+      // by latest activity (newest _id anywhere in the group) first.
+      const qlistSection = s => (s === 'Await Sourcing' ? 0 : s === 'Reviewing' ? 1 : 2);
+      groups.sort((a, b2) => {
+        const sa = qlistSection(a.status), sb = qlistSection(b2.status);
+        if (sa !== sb) return sa - sb;
+        if (sa < 2) return a.base < b2.base ? 1 : a.base > b2.base ? -1 : 0;
+        return a.newestId < b2.newestId ? 1 : -1;
+      });
       groups.forEach(g => { delete g.newestId; });
 
       return res.json({ groups, total: groups.length, truncated, role });

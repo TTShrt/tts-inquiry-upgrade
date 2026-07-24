@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TTS List Price</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700&display=swap" rel="stylesheet">
+<style>
+  /* ✅ LISTPRICE app (new file, additive only) */
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{--bg:#f1f5f9;--card:#fff;--primary:#4361ee;--primary-light:#eef2ff;--text:#1e293b;
+    --text2:#64748b;--muted:#94a3b8;--border:#e2e8f0;--warn:#f59e0b;--warnbg:#fef3c7;--danger:#ef4444;}
+  body{font-family:'DM Sans','Microsoft YaHei',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+  .topbar{background:var(--card);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;gap:14px;}
+  .topbar h1{font-size:1.05rem;font-weight:600;}
+  .topbar h1 span{color:var(--primary);}
+  .topbar .sp{flex:1;}
+  .btn{background:var(--card);color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font:inherit;font-size:.82rem;font-weight:500;cursor:pointer;}
+  .btn:hover{background:#f8fafc;}
+  .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .btn-primary:hover{background:#3a56d4;}
+  .content{max-width:1150px;margin:0 auto;padding:24px;}
+  .banner{display:none;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:12px 16px;font-size:.85rem;margin-bottom:16px;}
+  .card{background:var(--card);border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+  /* directory */
+  .dir-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;}
+  .dir-group h3{font-size:.92rem;margin-bottom:10px;}
+  .dir-item{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:.82rem;cursor:pointer;}
+  .dir-item:hover{background:var(--primary-light);border-color:#c7d2fe;color:var(--primary);}
+  .rec-line{font-size:.74rem;color:var(--text2);padding:5px 0;border-bottom:1px solid #f1f5f9;}
+  .valid-pill{font-size:.72rem;background:#ecfdf5;color:#065f46;font-weight:600;padding:3px 10px;border-radius:12px;}
+  /* page view */
+  .svc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+  .svc-head h2{font-size:1rem;}
+  .svc-head .sub{font-size:.74rem;color:var(--muted);margin-top:2px;}
+  .cust-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px;}
+  .fg label{display:block;font-size:.72rem;font-weight:500;color:var(--text2);margin-bottom:3px;}
+  .fg label b{color:var(--danger);}
+  .fg input{width:100%;padding:7px 10px;font:inherit;font-size:.8rem;border:1.5px solid #cbd5e1;border-radius:8px;background:#f8fafc;outline:none;}
+  .fg input:focus{border-color:var(--primary);background:#fff;}
+  .fg input[readonly]{background:#eef2f7;color:var(--text2);}
+  table.pt{width:100%;border-collapse:collapse;font-size:.78rem;}
+  .pt th{background:#f1f5f9;text-align:left;padding:7px 8px;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);border-bottom:2px solid var(--border);}
+  .pt td{padding:5px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;}
+  .pt tr.grp td{background:#f8fafc;font-weight:600;font-size:.74rem;color:var(--text2);}
+  .pt input.pr{width:100%;min-width:80px;padding:5px 8px;font:inherit;font-size:.78rem;border:1.5px solid #cbd5e1;border-radius:6px;text-align:right;background:#fffbeb;outline:none;}
+  .pt input.pr:focus{border-color:var(--primary);background:#fff;}
+  .pt input.pr.changed{border-color:var(--warn);background:var(--warnbg);font-weight:700;}
+  .pt .lp{font-size:.72rem;color:var(--muted);text-align:right;white-space:nowrap;}
+  .pt .lp s{color:var(--danger);}
+  .pt .lk{color:var(--text2);font-size:.74rem;}
+  .legend{display:flex;gap:18px;font-size:.72rem;color:var(--muted);margin-top:10px;flex-wrap:wrap;}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--warnbg);border:1.5px solid var(--warn);}
+  .pagenote{margin-top:14px;font-size:.72rem;color:var(--text2);line-height:1.55;white-space:pre-line;border-top:1px dashed var(--border);padding-top:10px;}
+  #loading{text-align:center;color:var(--text2);padding:40px;font-size:.9rem;}
+  /* ======== PRINT VIEW ======== */
+  #printWrap{display:none;}
+  #printWrap.on{display:block;}
+  .app.on{display:block;} .app{display:none;}
+  .ptoolbar{position:sticky;top:0;z-index:10;background:#1f2937;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:14px;font-size:13px;}
+  .ptoolbar .qn{font-weight:bold;}
+  .ptoolbar button{font:inherit;border:none;border-radius:4px;padding:7px 16px;cursor:pointer;}
+  .ptoolbar .pb{background:var(--primary);color:#fff;margin-left:auto;}
+  .ptoolbar .bb{background:#4b5563;color:#fff;}
+  .sheetbg{background:#9a9a9a;padding:16px 0;min-height:100vh;}
+  .page{width:8.5in;min-height:11in;margin:16px auto;background:#fff;padding:.45in .5in .55in;box-shadow:0 2px 10px rgba(0,0,0,.35);display:flex;flex-direction:column;font-family:Arial,'Microsoft YaHei',sans-serif;font-size:11px;color:#1a1a1a;line-height:1.35;}
+  .hdr{display:flex;align-items:flex-start;gap:14px;}
+  .hdr img.logo{width:74px;height:74px;object-fit:contain;flex:none;}
+  .co{flex:1;}.co h1{font-size:20px;letter-spacing:.5px;}
+  .co p{font-size:9.5px;line-height:1.45;}
+  .co .prep{font-weight:bold;}
+  .qbox{flex:none;width:2.9in;border:1.5px solid #2e5fa3;height:74px;display:flex;align-items:center;justify-content:center;}
+  .qbox span{color:#2e5fa3;font-size:19px;font-weight:bold;letter-spacing:1px;}
+  .qno{text-align:right;font-size:12.5px;font-weight:bold;margin-top:10px;}
+  .meta{display:flex;gap:20px;border-top:1px solid #333;margin-top:6px;padding-top:8px;border-bottom:1px solid #333;padding-bottom:8px;}
+  .meta .to{flex:1;line-height:1.45;}
+  .meta .kv{flex:none;width:2.9in;}
+  .meta .kv div{display:flex;margin-bottom:2px;}
+  .meta .kv span:first-child{width:1.25in;flex:none;}
+  .meta .kv span:last-child{font-weight:bold;}
+  h3.lane{font-size:12.5px;margin:13px 0 5px;font-family:Arial,'Microsoft YaHei',sans-serif;}
+  table.rt{width:100%;border-collapse:collapse;}
+  .rt th{background:#e8e8e8;border-top:1.5px solid #333;border-bottom:1px solid #333;font-size:9px;text-align:left;padding:3px 6px;}
+  .rt td{padding:3.5px 6px;vertical-align:top;font-size:9.5px;}
+  .rt tr.grp td{background:#f5f5f5;font-weight:bold;}
+  .rt tr:last-child td{border-bottom:1.5px solid #333;}
+  .rt .r{text-align:right;font-weight:bold;white-space:nowrap;}
+  .pnote{margin-top:12px;font-size:8.5px;line-height:1.5;white-space:pre-line;}
+  .terms{margin-top:12px;font-size:8.5px;font-weight:bold;line-height:1.55;}
+  .sig{margin-top:34px;text-align:center;}
+  .sig .line{border-top:1px solid #333;width:3.2in;margin:0 auto;padding-top:4px;font-size:10px;font-weight:bold;}
+  .foot{margin-top:auto;padding-top:20px;display:flex;font-size:9.5px;color:#555;}
+  .foot .pg{flex:1;text-align:center;}
+  .tc{font-size:9px;line-height:1.5;}
+  .tc .tc-title{font-size:13px;font-weight:bold;text-align:center;margin-bottom:10px;}
+  .tc h4{font-size:10px;margin:8px 0 3px;}
+  .tc p{margin-bottom:5px;text-align:justify;}
+  @media print{
+    body{background:#fff;}
+    .topbar,.ptoolbar,.app,#loading,.banner{display:none !important;}
+    .sheetbg{background:#fff;padding:0;}
+    .page{width:auto;min-height:auto;margin:0;box-shadow:none;padding:.45in .5in .4in;page-break-after:always;}
+    .page:last-child{page-break-after:auto;}
+  }
+  @page{size:letter;margin:0;}
+</style>
+</head>
+<body>
+
+<div class="topbar" id="appTopbar">
+  <h1>TTS <span>List Price</span></h1>
+  <span class="valid-pill" id="validPill" style="display:none;"></span>
+  <span class="sp"></span>
+  <button class="btn" id="btnHome" onclick="location.href=(window.__lpRole==='manager'?'/manager_home.html':'/sales_home.html')">Home</button>
+</div>
+
+<div class="content">
+  <div class="banner" id="banner"></div>
+  <div id="loading">Loading list prices…</div>
+
+  <!-- Directory view -->
+  <div class="app" id="vDir">
+    <div class="dir-grid" id="dirGrid"></div>
+  </div>
+
+  <!-- Service page view -->
+  <div class="app" id="vPage">
+    <div class="card">
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:10px;cursor:pointer;" onclick="showDir()">&#8592; Back to directory</div>
+      <div class="svc-head">
+        <div>
+          <h2 id="pgTitle"></h2>
+          <div class="sub">Master prices are read-only. Your edits apply to this download only and are archived with the record. Only GM can change master prices.</div>
+        </div>
+        <button class="btn btn-primary" onclick="downloadPDF()">Download PDF &#11015;</button>
+      </div>
+      <div class="cust-grid">
+        <div class="fg"><label>Company Name <b>*</b></label><input id="cCompany" placeholder="Customer company name"></div>
+        <div class="fg"><label>Contact Person</label><input id="cContact"></div>
+        <div class="fg"><label>Phone #</label><input id="cPhone"></div>
+        <div class="fg" style="grid-column:span 2;"><label>Address</label><input id="cAddress"></div>
+        <div class="fg"><label>Payment Term</label><input id="cPayment"></div>
+        <div class="fg"><label>Quotation # </label><input id="cQuoteNo" readonly value="Assigned on download"></div>
+        <div class="fg"><label>Valid Through</label><input id="cValid"></div>
+      </div>
+      <div id="pgTableWrap"></div>
+      <div class="legend">
+        <span><span class="dot"></span>Modified (differs from list price)</span>
+        <span>On download: adjusted prices + original list prices are both saved to the record</span>
+      </div>
+      <div class="pagenote" id="pgNote" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Print view -->
+<div id="printWrap">
+  <div class="ptoolbar">
+    <span class="qn" id="pQn"></span>
+    <span>Recorded &#10003; &nbsp;This download has been archived.</span>
+    <button class="bb" onclick="backToPage()">&#8592; Back</button>
+    <button class="pb" onclick="window.print()">Print / Save as PDF</button>
+  </div>
+  <div class="sheetbg"><div id="printDoc"></div></div>
+</div>
+
+<template id="whTermsTpl">
+<div class="page tc">
+  <div class="tc-title">WAREHOUSING TERMS AND CONDITIONS</div>
+  <h4>Section 1 - DEFINITIONS</h4>
+  <p>Warehouseman, Depositor, Facility and Goods have the same meaning as defined in Warehouse Service Agreement.</p>
+  <h4>Section 2 - SHIPMENTS TO AND FROM WAREHOUSE</h4>
+  <p>1. Depositor agrees that all Goods shipped to Warehouseman shall identify Depositor on the bill of lading or other contract of carriage as the named consignee, in care of Warehouseman, and shall not identify Warehouseman as the consignee. If, in violation of this, Goods are shipped to Warehouseman as named consignee on the bill of lading or other contract of carriage, Depositor agrees to immediately notify carrier in writing, with copy of such notice to Warehouseman, that Warehouseman named as consignee is the &ldquo;in care of party&rdquo; only and has no beneficial title or interest in the Goods. Depositor agrees that regardless of whether Warehouseman is incorrectly identified as named consignee, or Depositor fails to notify carrier of the incorrect identification on the bill of lading or other contract of carriage, under no circumstances shall Warehouseman be considered the consignee for purposes of identifying the &ldquo;importer&rdquo; under 21 U.S.C. &sect; 384a. Furthermore, Warehouseman shall have the right to refuse such Goods and shall not be liable for any loss, mis-consignment, or damage of any nature to, or related to, such Goods. Whether Warehouseman accepts or refuses Goods shipped in violation of this Section 2, Depositor agrees to indemnify and hold Warehouseman, it&rsquo;s owners, officers, employees and agents harmless from all claims for transportation, storage, handling and other charges relating to such Goods, including undercharges, rail demurrage, truck/intermodal detention, and any fines, penalties, costs and expenses (including attorney&rsquo;s fees) and other charges of any nature whatsoever.</p>
+  <p>2. When Goods are ordered shipped out by Depositor on a freight collect basis and Warehouseman (or Warehouseman&rsquo;s agent) provides carriage and delivery services on that shipment, Warehouseman shall have recourse on the Depositor to guarantee payment and reimburse Warehouseman for the freight charge on any invoice that becomes uncollectible plus an additional fee of $ 20.00 per shipment.</p>
+  <h4>Section 3 - TENDER OF GOODS</h4>
+  <p>1. All Goods shall be delivered at the Facility properly marked and packaged for storage and handling. The Depositor shall furnish at or prior to such delivery, a manifest showing marks, brands, and/or sizes to be kept and accounted for separately, and the class of storage and other services desired. Warehouseman may, at its sole discretion, reject any shipment of Goods that it deems to be improperly marked, packaged or contains any hazardous material. Warehouseman is not a guarantor of the condition of Goods under any circumstances, including, but not limited to hidden, concealed, or latent defects in the Goods. Concealed shortages, damage, inherent vice or tampering will not be the responsibility of Warehouseman. Unless otherwise agreed by Warehouseman, Goods returned to Warehouseman shall be deemed to be Goods tendered for storage hereunder by Depositor.</p>
+  <p>Warehouseman shall not be liable for any damaged goods received. Warehouseman will notify Depositor and completes appropriate OS&amp;D documentation within 48 hours of Depositor&rsquo;s request.</p>
+  <h4>Section 4 - STORAGE PERIOD AND CHARGES</h4>
+  <p>Unless otherwise agreed in writing, storage charges become applicable upon the date the Warehouseman accepts the goods.</p>
+  <p>1. The storage month begins on the date that Warehouseman accepts care, custody and control of the Goods, regardless of unloading date or date of issue of warehouse receipt. A full month&rsquo;s storage charge will apply to all Goods in storage on the first day of the next and succeeding calendar months. For Goods that are ordered out of the Facility anytime during a month, a full month&rsquo;s storage charge will apply.</p>
+  <p>2. All storage charges are due and payable on the first day of storage for the initial month and thereafter on the first day of the calendar month.</p>
+  <p>3. Storage rate may be adjusted by the Warehouseman through general rate increases or otherwise, without limitation, provided Warehouseman provides reasonable notice.</p>
+  <p>4. Warehouseman shall have no obligation to store or deliver any Goods except in the packaging in which such Goods were received by warehouseman unless otherwise agreed by Warehouseman.</p>
+  <p>5. Warehouseman may provide additional services to Depositor as requested and as agreed. And whenever additional services are requested that are not explicitly included in the monthly storage charge quoted to Depositor, such additional charges will be provided to Depositor and will be invoiced to Depositor in addition to any storage charges due.</p>
+  <p>6. All rates are subject to review in order to validate assumptions made by both parties and rates may be updated according to the review results.</p>
+  <p>Claims may not be deducted or otherwise offset from Warehouseman invoices. All charges are due and payable prior to final shipment of Goods. Invoices not paid in 7 days will be subject to a 1.5% monthly interest fee or maximum allowed by law, billed on the 8th day from issue.</p>
+  <h4>Section 5 - TRANSFER, TERMINATION OF STORAGE, REMOVAL OF GOODS</h4>
+  <p>1. Instructions to transfer Goods on the books of the Warehouseman are not effective until delivered to and accepted by Warehouseman, and all charges up to the time transfer is made are chargeable to the Depositor. If a transfer involves re-handling the Goods, such will be subject to a charge. When Goods in storage are transferred from one party to another through issuance of a new Warehouseman receipt, a new storage date is established on the date of transfer.</p>
+  <p>2. Warehouseman reserves the right to move, at its expense, 14 days after notice is sent to the Depositor by certified mail, overnight delivery or other regularly used communication methods between Warehouseman and Depositor, any Goods in storage from the Facility in which they may be stored to any other of Warehouseman&rsquo;s Facilities. Warehouseman will store the Goods at, and may without notice move the Goods within and between, any one or more of the Warehouseman buildings which comprise the Facility identified in the Contract.</p>
+  <div class="foot"><span class="pg">Warehousing Terms and Conditions &mdash; Page 1 of 4</span></div>
+</div>
+<div class="page tc">
+  <p>3. Warehouseman reserves the right to require advance payment of all past, present, and future charges prior to removal of the Goods from the Facility.</p>
+  <p>4. Warehouseman may, upon written notice of not less than 30 days to the Depositor and any other person known by the Warehouseman to claim an interest in the Goods, require the removal of any Goods. Such notice shall be given to the last known place of business of the person to be notified. If Goods are not removed before the end of the notice period, Warehouseman may sell them in accordance with applicable law.</p>
+  <p>5. If Warehouseman in good faith believes that the Goods are about to deteriorate or decline in value to less than the amount of Warehouseman&rsquo;s lien before the end of the 30-day notice period referred to in Section 5(3), Warehouseman may specify in the notification any reasonable shorter time for removal of the Goods and if the Goods are not removed, Warehouseman may sell them at public sale held one week after a single advertisement or posting, or otherwise as provided by law.</p>
+  <p>6. If as a result of a quality or condition of the Goods of which the Warehouseman had no notice at the time of deposit, the Goods are a hazard to other property or to the Facility or to persons, Warehouseman may: i) sell the Goods at public or private sale without advertisement on reasonable notification to all persons known to claim an interest in the Goods, ii) return Goods freight collect, or iii) dispose of Goods. Pending such disposition, sale or return of the Goods, Warehouseman may remove the Goods from the Facility and shall incur no liability by reason of such removal. If, after a reasonable effort, Warehouseman is unable to sell the Goods pursuant to this Section 5, Warehouseman may dispose of the Goods in any lawful manner and shall incur no liability by reason of such disposition.</p>
+  <h4>Section 6 - HANDLING</h4>
+  <p>1. The handling charge covers the ordinary labor involved in receiving Goods at warehouse door, placing Goods in storage, and returning Goods to warehouse door. Handling charges are due and payable on receipt of Goods.</p>
+  <p>2. Unless otherwise agreed in writing, labor for unloading and loading Goods will be subject to a charge. Additional expenses incurred by Warehouseman in receiving and handling damaged Goods, and additional expense in unloading from or loading into cars or other vehicles not at warehouse door will be charged to the Depositor.</p>
+  <p>3. Labor and materials used in loading rail cars or other vehicles are chargeable to the Depositor.</p>
+  <p>4. When Goods are ordered out in quantities less than in which received, Warehouseman may make an additional charge for each order or each item of an order.</p>
+  <p>5. Warehouseman shall not be liable for any demurrage or detention, any delays in unloading inbound cars, trailers or other containers, or any delays in obtaining and loading cars, trailers or other containers for outbound shipment unless Warehouseman has failed to exercise reasonable care.</p>
+  <p>6. Depositor shall be responsible for advising warehouseman of all laws, ordinances, rules and regulations of federal, state, municipal and other governmental authorities and the like relating specifically to the safeguarding, receiving, storing and handling of depositor&rsquo;s products.</p>
+  <h4>Section 7 - DELIVERY REQUIREMENTS</h4>
+  <p>1. No Goods shall be delivered or transferred except upon receipt by Warehouseman of Depositor&rsquo;s complete written instructions. Written instructions shall include, but are not limited to, FAX, EDI, E-Mail or similar communication, provided Warehouseman has no liability when relying on the information contained in the communication as received. When no negotiable receipt is outstanding, Goods may be delivered upon instruction by telephone or electronically in accordance with Depositor&rsquo;s prior written authorization, but Warehouseman shall not be responsible for loss or error occasioned thereby. Warehouseman shall not be liable for failure to carry out such instructions and Goods remaining in storage will continue to be subject to regular storage charges.</p>
+  <p>2. When a negotiable receipt has been issued, no goods covered by that receipt shall be delivered, or transferred on the books of warehouseman, unless the receipt, properly endorsed, is surrendered for cancellation, or for endorsement of partial delivery thereon. If a negotiable receipt is lost or destroyed, delivery of goods may be made only upon order of a court of competent jurisdiction, accompanied by the posting of security approved by the court as provided by law.</p>
+  <p>3. When Goods are ordered out, a reasonable time shall be given to Warehouseman to carry out instructions, and if it is unable because of acts of God, war, public enemies, seizure under legal process, strikes, lockouts, riots or civil commotions, or any reason beyond Warehouseman&rsquo;s control, or because of loss of or damage to Goods for which Warehouseman is not liable, or because of any other excuse provided by law, Warehouseman shall not be liable for failure to carry out such instructions and Goods remaining in storage will continue to be subject to regular storage charges.</p>
+  <h4>Section 8 - EXTRA SERVICES (SPECIAL SERVICES)</h4>
+  <p>1. Warehouse labor required for services other than ordinary handling and storage will be charged to the Depositor.</p>
+  <p>2. Special services requested by Depositor including but not limited to compiling of special stock statements; reporting marked weights, serial numbers or other data from packages; physical check or inspection of Goods; packaging, sampling, secondary sorting, repackaging, redistributing and handling transit billing will be subject to a charge.</p>
+  <p>3. Dunnage, bracing, packing materials or other special supplies, may be provided for the Depositor at a charge in addition to Warehouseman&rsquo;s cost.</p>
+  <p>4. By prior arrangement, Goods may be received or delivered during other than usual business hours, subject to a charge.</p>
+  <div class="foot"><span class="pg">Warehousing Terms and Conditions &mdash; Page 2 of 4</span></div>
+</div>
+<div class="page tc">
+  <p>5. Communication expense including postage, overnight delivery, or telephone may be charged to the Depositor if such concern more than normal inventory reporting or if, at the request of the Depositor, communications are made by other than email.</p>
+  <p>6. Depositor, including holder of negotiable receipts, may, subject to insurance regulations and reasonable limitations, have access to Goods in store when accompanied by a Warehouseman&rsquo;s employee whose time is chargeable to the Depositor.</p>
+  <h4>Section 9 - BONDED STORAGE</h4>
+  <p>Warehouse is not a bonded warehouse and shall not cover any merchandise in bond.</p>
+  <h4>Section 10 - MINIMUM CHARGES</h4>
+  <p>1. A minimum handling charge per lot and a minimum storage charge per lot per month will be made. When a warehouse receipt covers more than one lot or when a lot is in assortment, a minimum charge per mark, brand, or variety will be made.</p>
+  <p>2. A minimum monthly charge to one account for storage and/or handling will be made according to rate confirmation sheet. This charge will apply also to each account when one customer has several accounts, each requiring separate records and billing.</p>
+  <h4>Section 11 - LIABILITY AND LIMITATION OF DAMAGES</h4>
+  <p>1. WAREHOUSEMAN DOES NOT INSURE THE GOODS WHILE IN STORAGE, AND THE STORAGE RATES OR CHARGES BILLED TO DEPOSITOR DO NOT INCLUDE ANY INSURANCE ON THE GOODS. THE GOODS WILL THEREFORE NOT BE INSURED FOR ANY LOSS OR DAMAGE HOWEVER CAUSED. DEPOSITOR IS RESPONSIBLE FOR INSURING GOODS TENDERED FOR STORAGE. IF NONE IS PROCURED, DEPOSITOR IS DEEMED TO HAVE ELECTED TO SELF-INSURE.</p>
+  <p>2. WAREHOUSEMAN SHALL NOT BE LIABLE FOR ANY LOSS OR DAMAGE TO GOODS TENDERED, STORED OR HANDLED HOWEVER CAUSED UNLESS SUCH LOSS OR DAMAGE IS RESULTED FROM THE FAILURE BY WAREHOUSEMAN TO EXERCISE SUCH CARE IN REGARD TO THEM AS A REASONABLY CAREFUL PERSON WOULD EXERCISE UNDER LIKE CIRCUMSTANCES AND WAREHOUSEMAN IS NOT LIABLE FOR DAMAGES WHICH COULD NOT HAVE BEEN AVOIDED BY THE EXERCISE OF SUCH CARE.</p>
+  <p>3. LIABILITY OF LOSS OR DAMAGE TO GOODS IN ABOVE (2) SHALL BE FOR ACTUAL LOSS SUBJECT TO DECLARED LIMIT BY DEPOSITOR. THE DEPOSITOR DECLARES THAT DAMAGES ARE LIMITED TO $0.10 PER POUND, OR 100 TIMES OF THE BASE STORAGE RATE PER ACCOUNT, WHICHEVER IS LESS, PROVIDED, HOWEVER, THAT SUCH LIABILITY MAY AT THE TIME OF ACCEPTANCE OF THIS CONTRACT BE INCREASED UPON DEPOSITOR&rsquo;S WRITTEN REQUEST ON PART OR ALL OF THE GOODS HEREUNDER IN WHICH EVENT AN ADDITIONAL MONTHLY CHARGE WILL BE MADE BASED UPON SUCH INCREASED VALUATION.</p>
+  <p>WHERE LOSS OR DAMAGE OCCURS TO TENDERED, STORED OR HANDLED GOODS, THE DEPOSITOR SHALL BE RESPONSIBLE FOR THE COST OF REMOVING AND DISPOSING OF SUCH GOODS AND THE COST OF ANY ENVIRONMENTAL CLEAN UP AND SITE REMEDIATION RESULTING FROM THE LOSS OR DAMAGE TO THE GOODS.</p>
+  <h4>Section 12 - NOTICE OF CLAIM AND FILING OF SUIT</h4>
+  <p>1. Claims for loss or damage to Goods by the Depositor and all other persons must be presented in writing to Warehouseman within a reasonable time, and in no event any later than the earlier of: (i) sixty (60) days after delivery of the Goods by Warehouseman or (ii) sixty (60) days after Depositor is notified by Warehouseman that loss or damage to part or all of the Goods has occurred.</p>
+  <p>2. Claims for an overcharge of handling charges, storage charges and extra services must be filed within seven (7) days of the original billing. Any claim for overcharge not filed within seven (7) days shall be deemed waived.</p>
+  <p>3. In the event of a dispute arising out of this Contract related to claims by or against Warehouseman, a party&rsquo;s recourse shall be exclusively settled through binding and confidential arbitration, no later than the earlier of: (i) nine months after date of delivery by Warehouseman or (ii) nine months after Depositor is notified that loss or damage to part or all of the Goods has occurred. Arbitration shall be subject to the Federal Arbitration Act and venue is subject to Section 22.</p>
+  <p>When Goods have not been delivered, notice may be given of known loss or damage to the Goods by email, fax, certified mail or any other verifiable delivery to the Depositor. Time limitations for presentation of claim in writing and maintaining of action after notice begin on the date of sending such notice by Warehouseman.</p>
+  <h4>Section 13 - LIABILITY FOR CONSEQUENTIAL DAMAGES</h4>
+  <p>Warehouseman shall not be liable for any loss of profit, attorney&rsquo;s fees or special, incidental, indirect, or consequential damages of any kind.</p>
+  <h4>Section 14 - LIABILITY FOR MISSHIPMENT</h4>
+  <p>If Warehouseman negligently mis-ships Goods, Warehouseman shall pay the reasonable transportation charges incurred to return the mis-shipped Goods to the Facility. If the consignee fails to return the Goods, Warehouseman&rsquo;s maximum liability shall be for the lost or damaged Goods as specified in Section 11 above, and Warehouseman shall have no liability for damages due to the consignee&rsquo;s acceptance or use of the Goods whether such Goods be those of the Depositor or another.</p>
+  <h4>Section 15 - MYSTERIOUS DISAPPEARANCE</h4>
+  <p>Warehouseman shall be liable for loss of Goods due to inventory shortage or unexplained or mysterious disappearance of Goods only if Depositor establishes such loss occurred because of Warehouseman&rsquo;s failure to exercise the care required of Warehouseman under Section 11 above. Any presumption of conversion imposed by law shall not apply to such loss and a claim by Depositor of conversion must be established by affirmative evidence that Warehouseman converted the Goods to Warehouseman&rsquo;s own use.</p>
+  <div class="foot"><span class="pg">Warehousing Terms and Conditions &mdash; Page 3 of 4</span></div>
+</div>
+<div class="page tc">
+  <h4>Section 16 - RIGHT TO STORE GOODS</h4>
+  <p>Depositor represents and warrants that Depositor is lawfully possessed of the Goods and has the right and authority to store them with Warehouseman. Depositor agrees to indemnify and hold harmless the Warehouseman, it&rsquo;s owners, officers, employees and agents from all loss, cost and expense (including reasonable attorneys&rsquo; fees) as a result of any dispute or litigation, whether instituted by Warehouseman or others, respecting Depositor&rsquo;s right, title or interest in the Goods. Such amounts shall be charges in relation to the Goods and subject to Warehouseman&rsquo;s lien.</p>
+  <h4>Section 17 - ACCURATE INFORMATION</h4>
+  <p>1. Depositor will provide Warehouseman with information concerning the Goods which is accurate, complete and sufficient to allow Warehouseman to comply with all laws and regulations concerning the storage, handling and transporting of the Goods. Depositor will indemnify and hold Warehouseman, it&rsquo;s owners, officers, employees and agents harmless from all loss, cost, penalty and expense (including reasonable attorneys&rsquo; fees) as a result of Depositor failing to fully fulfill this obligation.</p>
+  <p>2. Depositor warrants that the information as to count, weight, description and condition of the goods set forth on any delivery document are accurate and complete and may be relied upon by Warehouseman. Depositor acknowledges and agrees that Warehouseman has no obligation to verify the quantity, content, condition or quality of the goods delivered to Facility for storage.</p>
+  <h4>Section 18 - SEVERABILITY AND WAIVER</h4>
+  <p>1. If any provision of the Terms and Conditions and the Warehouse Service Agreement, or any application thereof, should be construed or held to be void, invalid or unenforceable, by order, decree or judgment of a court, tribunal or other authority of competent jurisdiction, the remaining provisions shall not be affected thereby but shall remain in full force and effect.</p>
+  <p>2. Warehouseman&rsquo;s failure to require strict compliance with any provision of the Terms and Conditions and the Warehouse Service Agreement shall not constitute a waiver or estoppel to later demand strict compliance with that or any other provision(s).</p>
+  <p>3. The provisions of the Terms and Conditions and the Warehouse Service Agreement shall be binding upon the heirs, executors, successors and assigns of both Depositor and Warehouseman, and contain the sole agreement governing Goods tendered to Warehouseman, and, cannot be modified except by a writing signed by Warehouseman and Depositor.</p>
+  <h4>Section 19 &ndash; FORCE MAJEURE</h4>
+  <p>Neither Depositor nor Warehouseman shall be liable to the other for default in the performance or discharge of any duty or obligation under the Terms and Conditions and the Warehouse Service Agreement, except for Depositor&rsquo;s obligation to pay for services rendered by Warehouseman, when caused by acts of God, hurricanes, tidal waves, flood, tornadoes, cyclone, wind storm, earthquake, public enemy, civil commotion, strikes, labor disputes, work stoppages or other difficulties within the workforce, failure to provide power by the utility provider, intentional or malicious acts of third persons or any other organized opposition, corruption, depredation, accidents, explosions, fire, water sprinkler leakage, moths, vermin, insect, seizure under legal process, embargo, prohibition of export of Goods, closure of public highways, railways, airways or shipping lanes, governmental interference or regulations, or other contingencies, similar or dissimilar to the foregoing, beyond the reasonable control of the affected party. Upon the occurrence of such an event the party seeking to rely on this provision shall promptly give notice to the other party of the nature and consequences of the cause. If the cause is one which nevertheless requires Warehouseman to continue to protect the Goods, Depositor agrees to pay the storage or similar charges associated with Warehouseman&rsquo;s obligation during the continuance of the force majeure. All Goods are stored, handled, and transported at Depositor&rsquo;s sole risk of loss, damage or delay caused by any of the above.</p>
+  <h4>Section 20 - LIEN</h4>
+  <p>1. Warehouseman shall have a general warehouse lien for all lawful charges for storage and preservation of the Goods; also for all lawful claims for money advanced, interest, insurance, transportation, labor, weighing, and other charges and expenses in relation to such Goods, and for the balance on any other accounts that may be due. Warehouseman further claims a general warehouse lien for all such charges, advances and expenses with respect to any other Goods stored by the Depositor in any other facility owned or operated by Warehouseman. In order to protect its lien, Warehouseman reserves the right to require advance payment of all charges prior to shipment of Goods. Unless expressly stated otherwise in writing, Warehouseman will not subordinate its lien to any lender, financial institution, or any other third party.</p>
+  <p>2. Depositor agrees to pay to Warehouseman all costs, including reasonable attorney&rsquo;s fees, court costs in trial and appellate courts and other legal expenses, incurred in any action by Warehouseman to collect any of its charges or to enforce any of its rights under this contract or at law.</p>
+  <h4>Section 21 - DOCUMENTS OF TITLE</h4>
+  <p>Documents of title, including warehouse receipts, may be issued either in physical or electronic form at the option of the parties.</p>
+  <h4>Section 22 - GOVERNING LAW AND JURISDICTION</h4>
+  <p>This Contract and the legal relationship between the parties hereto shall be governed by and construed in accordance with the substantive laws of the state where the Facility is located, including Article 7 of the Uniform Commercial Code as ratified in that state, notwithstanding its conflict of laws rules. Arbitration proceeding shall be conducted in the county and state where the Facility is located.</p>
+  <div class="foot"><span class="pg">Warehousing Terms and Conditions &mdash; Page 4 of 4</span></div>
+</div>
+</template>
+
+<script>
+// ✅ LISTPRICE — reads master via API; the ONLY write is the archival record on download.
+window._authRedirecting = false;
+function authGate(res) {
+  if (res.status === 401 || (res.redirected && /index\.html|login/i.test(res.url || ''))) {
+    if (!window._authRedirecting) {
+      window._authRedirecting = true;
+      alert('\u26A0\uFE0F \u767B\u5F55\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u91CD\u65B0\u767B\u5F55\u3002\nSession expired. Please log in again.');
+      window.location.href = '/index.html';
+    }
+    return true;
+  }
+  return false;
+}
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function showBanner(msg) { const b = document.getElementById('banner'); b.textContent = msg; b.style.display = 'block'; }
+function hideBanner() { document.getElementById('banner').style.display = 'none'; }
+
+let DIR = [], CUR = null, LAST_QUOTE_NO = '';
+
+function fmtD(dt){const p=n=>String(n).padStart(2,'0');return p(dt.getMonth()+1)+'-'+p(dt.getDate())+'-'+dt.getFullYear();}
+
+async function init() {
+  try {
+    const res = await fetch('/api/list-prices', { credentials: 'same-origin' });
+    if (authGate(res)) return;
+    const data = await res.json();
+    document.getElementById('loading').style.display = 'none';
+    if (!res.ok) { showBanner('\u26D4 ' + (data.error || 'Unable to load.')); return; }
+    DIR = data.pages || [];
+    if (!DIR.length) { showBanner('List price data is empty. Please run seed_list_prices.js first (dry run, then --write).'); return; }
+    renderDir();
+    loadRecent();
+    showDir();
+  } catch (e) { document.getElementById('loading').textContent = 'Failed to load: ' + e.message; }
+}
+
+function renderDir() {
+  const cats = [];
+  DIR.forEach(p => { if (!cats.includes(p.category)) cats.push(p.category); });
+  let html = '';
+  cats.forEach(cat => {
+    html += '<div class="card dir-group"><h3>' + esc(cat) + '</h3>';
+    DIR.filter(p => p.category === cat).forEach(p => {
+      html += '<div class="dir-item" onclick="openPage(\'' + esc(p.pageKey) + '\')">' + esc(p.title) + '<span style="color:var(--muted);">&#8594;</span></div>';
+    });
+    html += '</div>';
+  });
+  html += '<div class="card dir-group"><h3>&#128340; Recent Downloads</h3><div style="font-size:.72rem;color:var(--muted);margin-bottom:8px;">Manager sees all / Sales sees own group</div><div id="recentBox"><span style="font-size:.75rem;color:var(--muted);">Loading…</span></div></div>';
+  document.getElementById('dirGrid').innerHTML = html;
+  const v = DIR[0] && DIR[0].validThrough;
+  if (v) { const pill = document.getElementById('validPill'); pill.textContent = 'Valid Through: ' + v; pill.style.display = 'inline-block'; }
+}
+
+async function loadRecent() {
+  try {
+    const res = await fetch('/api/list-price-quotes?limit=8', { credentials: 'same-origin' });
+    if (authGate(res)) return;
+    const data = await res.json();
+    const box = document.getElementById('recentBox');
+    if (!box) return;
+    const recs = (data.records || []);
+    box.innerHTML = recs.length
+      ? recs.map(r => '<div class="rec-line">' + esc(r.quoteNo) + ' &middot; ' + esc((r.customer && r.customer.company) || '') + ' &middot; ' + esc(r.pageTitle) + ' &middot; ' + esc(r.username) + ' &middot; ' + esc((r.createdAt || '').slice(5, 10)) + (r.adjustedCount ? ' &middot; ' + r.adjustedCount + ' adj.' : '') + '</div>').join('')
+      : '<span style="font-size:.75rem;color:var(--muted);">No downloads yet.</span>';
+  } catch (e) { /* non-blocking */ }
+}
+
+function showDir() {
+  document.getElementById('vPage').classList.remove('on');
+  document.getElementById('vDir').classList.add('on');
+  document.getElementById('printWrap').classList.remove('on');
+  document.getElementById('appTopbar').style.display = '';
+  hideBanner();
+  loadRecent();
+}
+
+async function openPage(key) {
+  hideBanner();
+  try {
+    const res = await fetch('/api/list-price-page?key=' + encodeURIComponent(key), { credentials: 'same-origin' });
+    if (authGate(res)) return;
+    const data = await res.json();
+    if (!res.ok) { showBanner('\u26D4 ' + (data.error || 'Unable to load page.')); return; }
+    CUR = data.page;
+    document.getElementById('pgTitle').textContent = CUR.category + ' — ' + CUR.title;
+    document.getElementById('cValid').value = CUR.validThrough || '';
+    document.getElementById('cQuoteNo').value = 'Assigned on download';
+    renderTable();
+    const noteEl = document.getElementById('pgNote');
+    if (CUR.pageNote) { noteEl.textContent = CUR.pageNote; noteEl.style.display = 'block'; }
+    else noteEl.style.display = 'none';
+    document.getElementById('vDir').classList.remove('on');
+    document.getElementById('vPage').classList.add('on');
+    window.scrollTo(0, 0);
+  } catch (e) { showBanner('Failed to load: ' + e.message); }
+}
+
+function renderTable() {
+  const two = CUR.layout === 'twocol';
+  let h = '<table class="pt"><tr><th style="width:' + (two ? '45%' : '36%') + '">Service Description</th><th style="width:' + (two ? '43%' : '13%') + '">' + (two ? 'Price and Notes (USD)' : 'Price (USD)') + '</th>'
+        + (two ? '' : '<th style="width:11%">Unit</th><th style="width:8%">Min. Chg</th><th>Pricing Notes</th>')
+        + '<th style="width:90px;text-align:right;">List Price</th></tr>';
+  CUR.sections.forEach((s, si) => {
+    if (s.heading) h += '<tr class="grp"><td colspan="' + (two ? 3 : 6) + '">' + esc(s.heading) + '</td></tr>';
+    s.rows.forEach((r, ri) => {
+      const id = 'pr_' + si + '_' + ri;
+      h += '<tr><td>' + esc(r.description) + '</td>'
+        + '<td><input class="pr" id="' + id + '" data-si="' + si + '" data-ri="' + ri + '" value="' + esc(r.price) + '" oninput="markChanged(this)"></td>'
+        + (two ? '' : ('<td class="lk">' + esc(r.unit) + '</td><td class="lk" style="text-align:right;">' + esc(r.minChg) + '</td><td class="lk">' + esc(r.notes) + '</td>'))
+        + '<td class="lp" id="lp_' + si + '_' + ri + '">' + esc(r.price || '\u2014') + '</td></tr>';
+    });
+  });
+  h += '</table>';
+  document.getElementById('pgTableWrap').innerHTML = h;
+}
+
+function markChanged(inp) {
+  const si = inp.dataset.si, ri = inp.dataset.ri;
+  const master = CUR.sections[si].rows[ri].price;
+  const changed = inp.value.trim() !== String(master).trim();
+  inp.classList.toggle('changed', changed);
+  const lp = document.getElementById('lp_' + si + '_' + ri);
+  lp.innerHTML = changed ? '<s>' + esc(master || '\u2014') + '</s>' : esc(master || '\u2014');
+}
+
+function snapshot() {
+  return CUR.sections.map((s, si) => ({
+    heading: s.heading,
+    rows: s.rows.map((r, ri) => {
+      const cur = document.getElementById('pr_' + si + '_' + ri).value.trim();
+      return { description: r.description, price: cur, listPrice: r.price, unit: r.unit, minChg: r.minChg, notes: r.notes, changed: cur !== String(r.price).trim() };
+    })
+  }));
+}
+
+async function downloadPDF() {
+  hideBanner();
+  const company = document.getElementById('cCompany').value.trim();
+  if (!company) { showBanner('Company Name is required before download. \u8BF7\u5148\u586B\u5199\u5BA2\u6237\u516C\u53F8\u540D\u79F0\u3002'); window.scrollTo(0, 0); return; }
+  const payload = {
+    pageKey: CUR.pageKey,
+    customer: {
+      company,
+      contact: document.getElementById('cContact').value.trim(),
+      phone: document.getElementById('cPhone').value.trim(),
+      address: document.getElementById('cAddress').value.trim(),
+      paymentTerm: document.getElementById('cPayment').value.trim()
+    },
+    validThrough: document.getElementById('cValid').value.trim(),
+    sections: snapshot()
+  };
+  try {
+    const res = await fetch('/api/list-price-quotes', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload), credentials: 'same-origin'
+    });
+    if (authGate(res)) return;
+    const data = await res.json();
+    if (!res.ok) { showBanner('\u26D4 ' + (data.error || 'Download failed.')); window.scrollTo(0, 0); return; }
+    LAST_QUOTE_NO = data.quoteNo;
+    document.getElementById('cQuoteNo').value = data.quoteNo;
+    renderPrint(payload, data.quoteNo);
+  } catch (e) { showBanner('Download failed: ' + e.message); }
+}
+
+function renderPrint(p, quoteNo) {
+  const isWh = ['Transload (Cross Dock)', 'Distribution (B2B)', 'Fulfillment (B2C)'].indexOf(CUR.category) >= 0;
+  const today = fmtD(new Date());
+  const two = CUR.layout === 'twocol';
+  let tables = '';
+  p.sections.forEach(s => {
+    let rows = '';
+    if (s.heading) rows += '<tr class="grp"><td colspan="' + (two ? 2 : 6) + '">' + esc(s.heading) + '</td></tr>';
+    s.rows.forEach(r => {
+      rows += '<tr><td>' + esc(r.description) + '</td>'
+        + (two ? '' : '<td>USD</td>')
+        + '<td class="' + (two ? '' : 'r') + '">' + esc(r.price || '\u2014') + '</td>'
+        + (two ? '' : ('<td>' + esc(r.unit) + '</td><td class="r" style="font-weight:normal;">' + esc(r.minChg) + '</td><td>' + esc(r.notes) + '</td>'))
+        + '</tr>';
+    });
+    tables += rows;
+  });
+  const thead = two
+    ? '<tr><th style="width:48%">SERVICE DESCRIPTION</th><th>PRICE AND NOTES (USD)</th></tr>'
+    : '<tr><th style="width:34%">SERVICE DESCRIPTION</th><th style="width:7%">CUR.</th><th style="width:10%">PRICE</th><th style="width:12%">UNIT</th><th style="width:9%">MIN. CHG</th><th>PRICING NOTES</th></tr>';
+
+  const page1 =
+    '<div class="page">'
+    + '<div class="hdr"><img class="logo" src="images/TTS-LOGO.png" alt="TTS Logo">'
+    + '<div class="co"><h1>TOTAL SOLUTION</h1><p>10820 WESTPARK DR, HOUSTON, TX, 77042<br>FMC-Licensed NVOCC OTI#032560NF<br>TEL: 713-706-5742<br>EMAIL: salestw@totalsolutionus.com<br><span class="prep">Prepared by ' + esc(window.__lpUser || '') + ' ' + today + '</span></p></div>'
+    + '<div><div class="qbox"><span>QUOTATION</span></div><div class="qno">QUOTE NO&nbsp;:&nbsp;&nbsp;' + esc(quoteNo) + '</div></div></div>'
+    + '<div class="meta"><div class="to">TO&nbsp;&nbsp;:&nbsp;&nbsp;<b>' + esc(p.customer.company) + '</b>'
+    + (p.customer.address ? '<br><span style="padding-left:24px;">' + esc(p.customer.address) + '</span>' : '')
+    + ((p.customer.contact || p.customer.phone) ? '<br><span style="padding-left:24px;">' + (p.customer.contact ? 'ATTN: ' + esc(p.customer.contact) : '') + (p.customer.phone ? ' &nbsp;TEL: ' + esc(p.customer.phone) : '') + '</span>' : '')
+    + '</div><div class="kv">'
+    + '<div><span>CREATE DATE</span><span>' + today + '</span></div>'
+    + '<div><span>PREPARED BY</span><span>' + esc(window.__lpUser || '') + '</span></div>'
+    + '<div><span>SERVICE</span><span>' + esc(CUR.category.toUpperCase()) + '</span></div>'
+    + (p.customer.paymentTerm ? '<div><span>PAYMENT TERM</span><span>' + esc(p.customer.paymentTerm) + '</span></div>' : '')
+    + '<div><span>VALID THROUGH</span><span>' + esc(p.validThrough || '') + '</span></div>'
+    + '</div></div>'
+    + '<h3 class="lane">' + esc(CUR.category) + ' : ' + esc(CUR.title) + '</h3>'
+    + '<table class="rt">' + thead + tables + '</table>'
+    + (CUR.pageNote ? '<div class="pnote">' + esc(CUR.pageNote) + '</div>' : '')
+    + '<div class="terms">\u203BALL RATES ARE BASED ON AVAILABILITY AT TIME OF SHIPMENT. \u203B\u50F9\u683C\u6709\u6548\u671F\u81F3 VALID THROUGH \u65E5\u671F\uFF0C\u903E\u671F\u8ACB\u91CD\u65B0\u8A62\u50F9\u3002\u767C\u9001\u8A02\u55AE\u6642\u8ACB\u9644\u4E0A\u672C\u5831\u50F9\u3002 \u203BPLEASE ATTACH THIS QUOTATION WHEN SENDING US YOUR ORDER.'
+    + (isWh ? ' \u203BWAREHOUSEMAN DOES NOT INSURE THE GOODS WHILE IN STORAGE. DEPOSITOR IS RESPONSIBLE FOR INSURING GOODS TENDERED FOR STORAGE. SEE ATTACHED WAREHOUSING TERMS AND CONDITIONS.' : '')
+    + '</div>'
+    + '<div class="sig"><div class="line">TOTAL SOLUTION</div></div>'
+    + '<div class="foot"><span class="pg">page 1 of ' + (isWh ? '5' : '1') + '</span></div>'
+    + '</div>';
+
+  const whTerms = isWh ? document.getElementById('whTermsTpl').innerHTML : '';
+  document.getElementById('printDoc').innerHTML = page1 + whTerms;
+  document.getElementById('pQn').textContent = quoteNo;
+  document.getElementById('vDir').classList.remove('on');
+  document.getElementById('vPage').classList.remove('on');
+  document.getElementById('appTopbar').style.display = 'none';
+  document.getElementById('printWrap').classList.add('on');
+  window.scrollTo(0, 0);
+}
+
+function backToPage() {
+  document.getElementById('printWrap').classList.remove('on');
+  document.getElementById('appTopbar').style.display = '';
+  document.getElementById('vPage').classList.add('on');
+}
+
+// fetch current user's name for "Prepared by"
+(async () => {
+  try {
+    const r = await fetch('/user', { credentials: 'same-origin' });
+    if (r.ok) { const u = await r.json(); window.__lpUser = (u && (u.username || u.name)) || ''; window.__lpRole = (u && u.role) || ''; }
+  } catch (e) { window.__lpUser = ''; }
+  init();
+})();
+</script>
+</body>
+</html>

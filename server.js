@@ -1446,6 +1446,136 @@ app.get('/api/quotation-print', async (req, res) => {
   }
 });
 
+// ✅ LISTPRICE: TTS List Price module (new; additive only). Collections used:
+//   list_prices        — master price pages (seeded by seed_list_prices.js; GM-only writes via script)
+//   list_price_quotes  — archival record of every customer quotation downloaded by Sales/Manager
+//   counters           — atomic TTSLP-XXXXXX sequence
+// No route here writes to `inquiries` or to `list_prices`.
+
+function lpAuth(req, res) {
+  const role = String(req.cookies?.role || '').toLowerCase();
+  if (!role) { res.status(401).json({ error: 'Session expired. Please log in again.' }); return null; }
+  if (role !== 'sales' && role !== 'manager') { res.status(403).json({ error: 'Not authorized for List Price.' }); return null; }
+  if (!conn || conn.readyState !== 1) { res.status(503).json({ error: 'Database not ready. Please retry.' }); return null; }
+  return {
+    role,
+    username: String(req.cookies?.username || ''),
+    salesGroup: String(req.cookies?.salesGroup || '').trim()
+  };
+}
+
+// Directory: page list without row data
+app.get('/api/list-prices', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  try {
+    const auth = lpAuth(req, res); if (!auth) return;
+    const pages = await conn.collection('list_prices')
+      .find({}, { projection: { sections: 0, pageNote: 0 } })
+      .sort({ sortOrder: 1 }).toArray();
+    return res.json({ pages });
+  } catch (err) {
+    console.error('❌ /api/list-prices error:', err);
+    return res.status(500).json({ error: 'Server error while loading list prices.' });
+  }
+});
+
+// Single page: full master data (read-only)
+app.get('/api/list-price-page', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  try {
+    const auth = lpAuth(req, res); if (!auth) return;
+    const key = String(req.query.key || '').trim();
+    if (!key) return res.status(400).json({ error: 'Missing page key.' });
+    const page = await conn.collection('list_prices').findOne({ pageKey: key });
+    if (!page) return res.status(404).json({ error: 'Price page not found. Has seed_list_prices.js been run?' });
+    return res.json({ page });
+  } catch (err) {
+    console.error('❌ /api/list-price-page error:', err);
+    return res.status(500).json({ error: 'Server error while loading price page.' });
+  }
+});
+
+// Download record: called once per PDF download; assigns the TTSLP number and archives the snapshot
+app.post('/api/list-price-quotes', async (req, res) => {
+  try {
+    const auth = lpAuth(req, res); if (!auth) return;
+    const b = req.body || {};
+    const clip = (v, n) => String(v == null ? '' : v).slice(0, n);
+    const company = clip(b.customer && b.customer.company, 200).trim();
+    if (!company) return res.status(400).json({ error: 'Company Name is required before download.' });
+    const pageKey = clip(b.pageKey, 60).trim();
+    const master = await conn.collection('list_prices').findOne({ pageKey }, { projection: { title: 1, category: 1 } });
+    if (!master) return res.status(400).json({ error: 'Unknown price page.' });
+    if (!Array.isArray(b.sections) || b.sections.length === 0 || b.sections.length > 40) {
+      return res.status(400).json({ error: 'Invalid snapshot.' });
+    }
+    // snapshot sanitize: fixed shape, capped sizes (adjusted price + original list price both kept)
+    const sections = b.sections.map(s => ({
+      heading: clip(s.heading, 300),
+      rows: (Array.isArray(s.rows) ? s.rows : []).slice(0, 120).map(r => ({
+        description: clip(r.description, 500),
+        price: clip(r.price, 60),
+        listPrice: clip(r.listPrice, 60),
+        unit: clip(r.unit, 40),
+        minChg: clip(r.minChg, 40),
+        notes: clip(r.notes, 300),
+        changed: !!r.changed
+      }))
+    }));
+    const adjustedCount = sections.reduce((n, s) => n + s.rows.filter(r => r.changed).length, 0);
+
+    // atomic TTSLP sequence
+    const counters = conn.collection('counters');
+    let seqDoc = await counters.findOneAndUpdate(
+      { _id: 'ttslp' }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: 'after' });
+    if (seqDoc && seqDoc.value !== undefined) seqDoc = seqDoc.value;   // driver version compatibility
+    if (!seqDoc || !seqDoc.seq) seqDoc = await counters.findOne({ _id: 'ttslp' });
+    const quoteNo = 'TTSLP-' + String(seqDoc.seq).padStart(6, '0');
+
+    await conn.collection('list_price_quotes').insertOne({
+      quoteNo,
+      pageKey,
+      pageTitle: master.title || pageKey,
+      category: master.category || '',
+      customer: {
+        company,
+        contact: clip(b.customer && b.customer.contact, 120),
+        phone: clip(b.customer && b.customer.phone, 60),
+        address: clip(b.customer && b.customer.address, 300),
+        paymentTerm: clip(b.customer && b.customer.paymentTerm, 60)
+      },
+      validThrough: clip(b.validThrough, 40),
+      sections,
+      adjustedCount,
+      username: auth.username,
+      role: auth.role,
+      salesGroup: auth.salesGroup,
+      createdAt: new Date()
+    });
+    return res.json({ quoteNo });
+  } catch (err) {
+    console.error('❌ /api/list-price-quotes POST error:', err);
+    return res.status(500).json({ error: 'Server error while recording the download.' });
+  }
+});
+
+// Recent downloads: manager sees all, sales sees own group
+app.get('/api/list-price-quotes', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  try {
+    const auth = lpAuth(req, res); if (!auth) return;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 20);
+    const filter = auth.role === 'manager' ? {} : { salesGroup: auth.salesGroup };
+    const recs = await conn.collection('list_price_quotes')
+      .find(filter, { projection: { quoteNo: 1, pageTitle: 1, pageKey: 1, 'customer.company': 1, username: 1, createdAt: 1, adjustedCount: 1 } })
+      .sort({ createdAt: -1 }).limit(limit).toArray();
+    return res.json({ records: recs });
+  } catch (err) {
+    console.error('❌ /api/list-price-quotes GET error:', err);
+    return res.status(500).json({ error: 'Server error while loading download records.' });
+  }
+});
+
 app.post('/inquiries/update', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();
   if (!['sales', 'sourcing', 'manager'].includes(role)) {

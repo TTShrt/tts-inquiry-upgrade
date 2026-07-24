@@ -1362,6 +1362,90 @@ app.get('/inquiries', async (req, res) => {
   }
 });
 
+// ✅ EXPORT: read-only data endpoint for quotation_print.html (new; additive only).
+// Security model (three layers, mirrors GET /inquiries):
+//   1. role gate — only sales & manager may export (sourcing/ops_view: 403)
+//   2. salesGroup gate — sales can only export inquiries of their own group
+//   3. sent-flag gate — draft (unsent) prices are stripped exactly like GET /inquiries,
+//      so an export can never reveal prices Sourcing hasn't sent. Applies to BOTH roles.
+// Output is a WHITELIST: only identity + customer-facing Price/Unit fields are returned.
+// Cost fields, supplier costs (S1-S5), GP and Adjusted GP are never included.
+app.get('/api/quotation-print', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  try {
+    const role = String(req.cookies?.role || '').toLowerCase();
+    const username = String(req.cookies?.username || '');
+    const salesGroup = String(req.cookies?.salesGroup || '').trim();
+    if (!role) {
+      return res.status(401).json({ error: 'Session expired. Please log in again.' });
+    }
+    if (role !== 'sales' && role !== 'manager') {
+      return res.status(403).json({ error: 'Not authorized to export quotations.' });
+    }
+    const mongoReady = !!conn && conn.readyState === 1 && !!Inquiry;
+    if (!mongoReady) return res.status(503).json({ error: 'Database not ready. Please retry.' });
+
+    const q = String(req.query.q || '').trim();
+    if (!q) return res.status(400).json({ error: 'Missing quotation number.' });
+
+    const doc = await Inquiry.findOne({ 'Quotation #': q }).lean();
+    if (!doc) return res.status(404).json({ error: 'Quotation ' + q + ' not found.' });
+
+    if (role === 'sales' && String(doc.salesGroup || '').trim() !== salesGroup) {
+      return res.status(403).json({ error: 'This quotation belongs to another sales group.' });
+    }
+
+    const isTrueStr = v => String(v || '').toLowerCase().trim() === 'true';
+    const truckDraft = isTrueStr(doc['truckingCostDraft']);
+    const whDraft = isTrueStr(doc['warehouseCostDraft']);
+
+    // Whitelisted identity fields (no cost / GP / supplier data)
+    const out = {};
+    const idFields = [
+      'Quotation #', 'Date', 'Customer ID', 'Requested By', 'Assigned Sales',
+      'Inquiry Type', 'Dry Van Type', 'Container Size', 'QTY',
+      'From', 'To', 'To City', 'To State', 'To ZIP',
+      'Legal or Over Weight', 'Gross Weight', 'Commodity', 'Packages Per Container',
+      'Service Types', 'Warehouse Services', 'Warehouse Service Detail'
+    ];
+    idFields.forEach(f => { if (doc[f] != null) out[f] = doc[f]; });
+
+    // Trucking price/unit fields — stripped entirely while sourcing draft is unsent
+    if (!truckDraft) {
+      const truckBuckets = ['Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
+        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Layover'];
+      ['Adjusted Price', 'Price', 'Base Rate Unit'].forEach(f => { if (doc[f] != null) out[f] = doc[f]; });
+      truckBuckets.forEach(b => {
+        if (doc[b + ' Price'] != null) out[b + ' Price'] = doc[b + ' Price'];
+        if (doc[b + ' Unit'] != null) out[b + ' Unit'] = doc[b + ' Unit'];
+      });
+    }
+
+    // Warehouse price/unit/qty fields — stripped entirely while warehouse draft is unsent
+    if (!whDraft) {
+      WH_ALL_BUCKETS.forEach(b => {
+        if (doc[b + ' Price'] != null) out[b + ' Price'] = doc[b + ' Price'];
+        if (doc[b + ' Unit'] != null) out[b + ' Unit'] = doc[b + ' Unit'];
+        if (doc[b + ' Qty'] != null) out[b + ' Qty'] = doc[b + ' Qty'];
+        if (doc[b + ' Period'] != null) out[b + ' Period'] = doc[b + ' Period'];
+      });
+    }
+
+    // Nothing exportable at all → tell the user why instead of printing an empty sheet
+    const hasMain = String(out['Adjusted Price'] || out['Price'] || '').trim() !== '';
+    const hasWh = WH_ALL_BUCKETS.some(b => String(out[b + ' Price'] || '').trim() !== '');
+    if (!hasMain && !hasWh) {
+      return res.status(409).json({ error: 'No prices have been sent to Sales for this quotation yet. Please complete pricing in the system first. \u4EF7\u683C\u5C1A\u672A\u53D1\u9001\u7ED9 Sales\uFF0C\u6682\u65E0\u6CD5\u5BFC\u51FA\u62A5\u4EF7\u5355\u3002' });
+    }
+
+    return res.json({ inquiry: out, username });
+  } catch (err) {
+    console.error('❌ /api/quotation-print error:', err);
+    return res.status(500).json({ error: 'Server error while loading quotation.' });
+  }
+});
+
 app.post('/inquiries/update', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();
   if (!['sales', 'sourcing', 'manager'].includes(role)) {

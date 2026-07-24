@@ -3143,6 +3143,15 @@
               editBtn.className = 'btn-edit-inquiry action-button'; // ✅ 关键：加 action-button
               editBtn.dataset.quote = quote;
 
+              // ✅ EXPORT: open printable quotation in a new tab (read-only; new feature)
+              const exportBtn = document.createElement('button');
+              exportBtn.type = 'button';
+              exportBtn.textContent = '\ud83d\udda8\ufe0f';
+              exportBtn.title = 'Export Quotation (Print / PDF)';
+              exportBtn.className = 'btn-export-quote action-button';
+              exportBtn.dataset.quote = quote;
+              exportBtn.onclick = () => window.open('/quotation_print.html?q=' + encodeURIComponent(quote), '_blank');
+
               // 💾 Inquiry Save
               const saveBtn = document.createElement('button');
               saveBtn.type = 'button';
@@ -3160,8 +3169,10 @@
                 }
                 wrapBasic.appendChild(editBtn);
                 wrapBasic.appendChild(saveBtn);
+                if (!viewOnly) wrapBasic.appendChild(exportBtn);   // ✅ EXPORT (sales only; ops_view has no export permission)
               } else {
                 inquiryActionTd.innerHTML = lockBadgeHTML();
+                if (!viewOnly) wrapBasic.appendChild(exportBtn);   // ✅ EXPORT: read-only export stays available on locked rows
               }
 
               if (wrapBasic.childNodes.length) inquiryActionTd.appendChild(wrapBasic);

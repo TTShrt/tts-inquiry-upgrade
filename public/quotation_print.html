@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TTS — Quotation Print</title>
+<style>
+  /* ✅ EXPORT quotation print template (new file, additive only) */
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{background:#9a9a9a;}
+  body{font-family:Arial,"Microsoft YaHei","PingFang SC",sans-serif;color:#1a1a1a;font-size:11px;line-height:1.35;}
+  .toolbar{position:sticky;top:0;z-index:10;background:#1f2937;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:14px;font-size:13px;}
+  .toolbar .qn{font-weight:bold;}
+  .toolbar .tip{color:#9ca3af;font-size:11px;}
+  .toolbar button{margin-left:auto;background:#4361ee;color:#fff;border:none;padding:7px 18px;border-radius:4px;font-size:13px;cursor:pointer;}
+  .toolbar button:hover{background:#3a56d4;}
+  .page{width:8.5in;min-height:11in;margin:16px auto;background:#fff;padding:.45in .5in .55in;box-shadow:0 2px 10px rgba(0,0,0,.35);position:relative;display:flex;flex-direction:column;}
+  .hdr{display:flex;align-items:flex-start;gap:14px;}
+  .hdr img.logo{width:74px;height:74px;object-fit:contain;flex:none;}
+  .co{flex:1;}
+  .co h1{font-size:20px;letter-spacing:.5px;}
+  .co p{font-size:9.5px;line-height:1.45;}
+  .co .prep{font-weight:bold;}
+  .qbox{flex:none;width:2.9in;border:1.5px solid #2e5fa3;height:74px;display:flex;align-items:center;justify-content:center;}
+  .qbox span{color:#2e5fa3;font-size:19px;font-weight:bold;letter-spacing:1px;}
+  .qno{text-align:right;font-size:12.5px;font-weight:bold;margin-top:10px;}
+  .meta{display:flex;gap:20px;border-top:1px solid #333;margin-top:6px;padding-top:8px;}
+  .meta .to{flex:1;display:flex;gap:6px;}
+  .meta .to .lbl{width:30px;flex:none;}
+  .meta .to .val{font-weight:bold;line-height:1.45;min-width:2in;}
+  .kv{flex:none;width:2.9in;}
+  .kv .row{display:flex;margin-bottom:3px;}
+  .kv .k{width:1.25in;flex:none;}
+  .kv .c{width:10px;flex:none;}
+  .kv .v{font-weight:bold;}
+  .meta-end{border-bottom:1px solid #333;margin-top:8px;}
+  h3.lane{font-size:12.5px;margin:14px 0 5px;}
+  table.rt{width:100%;border-collapse:collapse;}
+  .rt th{background:#e8e8e8;border-top:1.5px solid #333;border-bottom:1px solid #333;font-size:9.5px;text-align:left;padding:3px 6px;}
+  .rt td{padding:4px 6px;vertical-align:top;font-size:10px;}
+  .rt tr:last-child td{border-bottom:1.5px solid #333;}
+  .rt .desc{width:2.5in;font-weight:bold;}
+  .rt .cur{width:.55in;}
+  .rt .rate{width:.8in;text-align:right;font-weight:bold;}
+  .rt .unit{width:.7in;}
+  .rt .rmk{font-size:9.5px;}
+  .notes{margin-top:14px;font-size:10px;font-weight:bold;line-height:1.5;}
+  .foot{margin-top:auto;padding-top:24px;display:flex;align-items:center;font-size:9.5px;color:#555;}
+  .foot .pg{flex:1;text-align:center;}
+  .remark{display:flex;border:1px solid #333;}
+  .remark .cap{flex:none;width:1.5in;background:#efefef;display:flex;align-items:center;justify-content:center;font-size:10px;border-right:1px solid #333;}
+  .remark .body{flex:1;padding:8px 10px;font-size:9px;font-weight:bold;line-height:1.5;}
+  .remark .body p{margin-bottom:8px;}
+  .terms{margin-top:14px;font-size:8.5px;font-weight:bold;line-height:1.55;}
+  .sig{margin-top:40px;text-align:center;}
+  .sig .line{border-top:1px solid #333;width:3.2in;margin:0 auto;padding-top:4px;font-size:10px;font-weight:bold;}
+  .tc{font-size:9px;line-height:1.5;}
+  .tc .tc-title{font-size:13px;font-weight:bold;text-align:center;margin-bottom:10px;}
+  .tc h4{font-size:10px;margin:8px 0 3px;}
+  .tc p{margin-bottom:5px;text-align:justify;}
+  [contenteditable="true"]{outline:1px dashed transparent;}
+  [contenteditable="true"]:hover{outline-color:#f59e0b;background:#fffbeb;}
+  [contenteditable="true"]:focus{outline-color:#4361ee;background:#eef2ff;}
+  #blocked{display:none;max-width:8.5in;margin:24px auto;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:16px 20px;font-size:13px;line-height:1.6;}
+  #loading{max-width:8.5in;margin:24px auto;color:#fff;font-size:13px;text-align:center;}
+  @media print{
+    html{background:#fff;}
+    .toolbar,#blocked,#loading{display:none !important;}
+    .page{width:auto;min-height:auto;margin:0;box-shadow:none;padding:.45in .5in .4in;page-break-after:always;}
+    .page:last-child{page-break-after:auto;}
+    [contenteditable="true"]{outline:none !important;background:transparent !important;}
+  }
+  @page{size:letter;margin:0;}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <span class="qn" id="tbQuote">Loading…</span>
+  <span class="tip">Hover any dashed area to edit before printing · 虚线区域可在打印前修改</span>
+  <button onclick="window.print()">Print / Save as PDF</button>
+</div>
+
+<div id="loading">Loading quotation data…</div>
+<div id="blocked"></div>
+<div id="doc" style="display:none;"></div>
+
+<template id="whTermsTpl">
+<div class="page tc">
+  <div class="tc-title">WAREHOUSING TERMS AND CONDITIONS</div>
+  <h4>Section 1 - DEFINITIONS</h4>
+  <p>Warehouseman, Depositor, Facility and Goods have the same meaning as defined in Warehouse Service Agreement.</p>
+  <h4>Section 2 - SHIPMENTS TO AND FROM WAREHOUSE</h4>
+  <p>1. Depositor agrees that all Goods shipped to Warehouseman shall identify Depositor on the bill of lading or other contract of carriage as the named consignee, in care of Warehouseman, and shall not identify Warehouseman as the consignee. If, in violation of this, Goods are shipped to Warehouseman as named consignee on the bill of lading or other contract of carriage, Depositor agrees to immediately notify carrier in writing, with copy of such notice to Warehouseman, that Warehouseman named as consignee is the &ldquo;in care of party&rdquo; only and has no beneficial title or interest in the Goods. Depositor agrees that regardless of whether Warehouseman is incorrectly identified as named consignee, or Depositor fails to notify carrier of the incorrect identification on the bill of lading or other contract of carriage, under no circumstances shall Warehouseman be considered the consignee for purposes of identifying the &ldquo;importer&rdquo; under 21 U.S.C. &sect; 384a. Furthermore, Warehouseman shall have the right to refuse such Goods and shall not be liable for any loss, mis-consignment, or damage of any nature to, or related to, such Goods. Whether Warehouseman accepts or refuses Goods shipped in violation of this Section 2, Depositor agrees to indemnify and hold Warehouseman, it&rsquo;s owners, officers, employees and agents harmless from all claims for transportation, storage, handling and other charges relating to such Goods, including undercharges, rail demurrage, truck/intermodal detention, and any fines, penalties, costs and expenses (including attorney&rsquo;s fees) and other charges of any nature whatsoever.</p>
+  <p>2. When Goods are ordered shipped out by Depositor on a freight collect basis and Warehouseman (or Warehouseman&rsquo;s agent) provides carriage and delivery services on that shipment, Warehouseman shall have recourse on the Depositor to guarantee payment and reimburse Warehouseman for the freight charge on any invoice that becomes uncollectible plus an additional fee of $ 20.00 per shipment.</p>
+  <h4>Section 3 - TENDER OF GOODS</h4>
+  <p>1. All Goods shall be delivered at the Facility properly marked and packaged for storage and handling. The Depositor shall furnish at or prior to such delivery, a manifest showing marks, brands, and/or sizes to be kept and accounted for separately, and the class of storage and other services desired. Warehouseman may, at its sole discretion, reject any shipment of Goods that it deems to be improperly marked, packaged or contains any hazardous material. Warehouseman is not a guarantor of the condition of Goods under any circumstances, including, but not limited to hidden, concealed, or latent defects in the Goods. Concealed shortages, damage, inherent vice or tampering will not be the responsibility of Warehouseman. Unless otherwise agreed by Warehouseman, Goods returned to Warehouseman shall be deemed to be Goods tendered for storage hereunder by Depositor.</p>
+  <p>Warehouseman shall not be liable for any damaged goods received. Warehouseman will notify Depositor and completes appropriate OS&amp;D documentation within 48 hours of Depositor&rsquo;s request.</p>
+  <h4>Section 4 - STORAGE PERIOD AND CHARGES</h4>
+  <p>Unless otherwise agreed in writing, storage charges become applicable upon the date the Warehouseman accepts the goods.</p>
+  <p>1. The storage month begins on the date that Warehouseman accepts care, custody and control of the Goods, regardless of unloading date or date of issue of warehouse receipt. A full month&rsquo;s storage charge will apply to all Goods in storage on the first day of the next and succeeding calendar months. For Goods that are ordered out of the Facility anytime during a month, a full month&rsquo;s storage charge will apply.</p>
+  <p>2. All storage charges are due and payable on the first day of storage for the initial month and thereafter on the first day of the calendar month.</p>
+  <p>3. Storage rate may be adjusted by the Warehouseman through general rate increases or otherwise, without limitation, provided Warehouseman provides reasonable notice.</p>
+  <p>4. Warehouseman shall have no obligation to store or deliver any Goods except in the packaging in which such Goods were received by warehouseman unless otherwise agreed by Warehouseman.</p>
+  <p>5. Warehouseman may provide additional services to Depositor as requested and as agreed. And whenever additional services are requested that are not explicitly included in the monthly storage charge quoted to Depositor, such additional charges will be provided to Depositor and will be invoiced to Depositor in addition to any storage charges due.</p>
+  <p>6. All rates are subject to review in order to validate assumptions made by both parties and rates may be updated according to the review results.</p>
+  <p>Claims may not be deducted or otherwise offset from Warehouseman invoices. All charges are due and payable prior to final shipment of Goods. Invoices not paid in 7 days will be subject to a 1.5% monthly interest fee or maximum allowed by law, billed on the 8th day from issue.</p>
+  <h4>Section 5 - TRANSFER, TERMINATION OF STORAGE, REMOVAL OF GOODS</h4>
+  <p>1. Instructions to transfer Goods on the books of the Warehouseman are not effective until delivered to and accepted by Warehouseman, and all charges up to the time transfer is made are chargeable to the Depositor. If a transfer involves re-handling the Goods, such will be subject to a charge. When Goods in storage are transferred from one party to another through issuance of a new Warehouseman receipt, a new storage date is established on the date of transfer.</p>
+  <p>2. Warehouseman reserves the right to move, at its expense, 14 days after notice is sent to the Depositor by certified mail, overnight delivery or other regularly used communication methods between Warehouseman and Depositor, any Goods in storage from the Facility in which they may be stored to any other of Warehouseman&rsquo;s Facilities. Warehouseman will store the Goods at, and may without notice move the Goods within and between, any one or more of the Warehouseman buildings which comprise the Facility identified in the Contract.</p>
+  <div class="foot"><span class="pg">Warehousing Terms and Conditions &mdash; Page 1 of 4</span></div>
+</div>
+<div class="page tc">
+  <p>3. Warehouseman reserves the right to require advance payment of all past, present, and future charges prior to removal of the Goods from the Facility.</p>
+  <p>4. Warehouseman may, upon written notice of not less than 30 days to the Depositor and any other person known by the Warehouseman to claim an interest in the Goods, require the removal of any Goods. Such notice shall be given to the last known place of business of the person to be notified. If Goods are not removed before the end of the notice period, Warehouseman may sell them in accordance with applicable law.</p>
+  <p>5. If Warehouseman in good faith believes that the Goods are about to deteriorate or decline in value to less than the amount of Warehouseman&rsquo;s lien before the end of the 30-day notice period referred to in Section 5(3), Warehouseman may specify in the notification any reasonable shorter time for removal of the Goods and if the Goods are not removed, Warehouseman may sell them at public sale held one week after a single advertisement or posting, or otherwise as provided by law.</p>
+  <p>6. If as a result of a quality or condition of the Goods of which the Warehouseman had no notice at the time of deposit, the Goods are a hazard to other property or to the Facility or to persons, Warehouseman may: i) sell the Goods at public or private sale without advertisement on reasonable notification to all persons known to claim an interest in the Goods, ii) return Goods freight collect, or iii) dispose of Goods. Pending such disposition, sale or return of the Goods, Warehouseman may remove the Goods from the Facility and shall incur no liability by reason of such removal. If, after a reasonable effort, Warehouseman is unable to sell the Goods pursuant to this Section 5, Warehouseman may dispose of the Goods in any lawful manner and shall incur no liability by reason of such disposition.</p>
+  <h4>Section 6 - HANDLING</h4>
+  <p>1. The handling charge covers the ordinary labor involved in receiving Goods at warehouse door, placing Goods in storage, and returning Goods to warehouse door. Handling charges are due and payable on receipt of Goods.</p>
+  <p>2. Unless otherwise agreed in writing, labor for unloading and loading Goods will be subject to a charge. Additional expenses incurred by Warehouseman in receiving and handling damaged Goods, and additional expense in unloading from or loading into cars or other vehicles not at warehouse door will be charged to the Depositor.</p>
+  <p>3. Labor and materials used in loading rail cars or other vehicles are chargeable to the Depositor.</p>
+  <p>4. When Goods are ordered out in quantities less than in which received, Warehouseman may make an additional charge for each order or each item of an order.</p>
+  <p>5. Warehouseman shall not be liable for any demurrage or detention, any delays in unloading inbound cars, trailers or other containers, or any delays in obtaining and loading cars, trailers or other containers for outbound shipment unless Warehouseman has failed to exercise reasonable care.</p>
+  <p>6. Depositor shall be responsible for advising warehouseman of all laws, ordinances, rules and regulations of federal, state, municipal and other governmental authorities and the like relating specifically to the safeguarding, receiving, storing and handling of depositor&rsquo;s products.</p>
+  <h4>Section 7 - DELIVERY REQUIREMENTS</h4>
+  <p>1. No Goods shall be delivered or transferred except upon receipt by Warehouseman of Depositor&rsquo;s complete written instructions. Written instructions shall include, but are not limited to, FAX, EDI, E-Mail or similar communication, provided Warehouseman has no liability when relying on the information contained in the communication as received. When no negotiable receipt is outstanding, Goods may be delivered upon instruction by telephone or electronically in accordance with Depositor&rsquo;s prior written authorization, but Warehouseman shall not be responsible for loss or error occasioned thereby. Warehouseman shall not be liable for failure to carry out such instructions and Goods remaining in storage will continue to be subject to regular storage charges.</p>
+  <p>2. When a negotiable receipt has been issued, no goods covered by that receipt shall be delivered, or transferred on the books of warehouseman, unless the receipt, properly endorsed, is surrendered for cancellation, or for endorsement of partial delivery thereon. If a negotiable receipt is lost or destroyed, delivery of goods may be made only upon order of a court of competent jurisdiction, accompanied by the posting of security approved by the court as provided by law.</p>
+  <p>3. When Goods are ordered out, a reasonable time shall be given to Warehouseman to carry out instructions, and if it is unable because of acts of God, war, public enemies, seizure under legal process, strikes, lockouts, riots or civil commotions, or any reason beyond Warehouseman&rsquo;s control, or because of loss of or damage to Goods for which Warehouseman is not liable, or because of any other excuse provided by law, Warehouseman shall not be liable for failure to carry out such instructions and Goods remaining in storage will continue to be subject to regular storage charges.</p>
+  <h4>Section 8 - EXTRA SERVICES (SPECIAL SERVICES)</h4>
+  <p>1. Warehouse labor required for services other than ordinary handling and storage will be charged to the Depositor.</p>
+  <p>2. Special services requested by Depositor including but not limited to compiling of special stock statements; reporting marked weights, serial numbers or other data from packages; physical check or inspection of Goods; packaging, sampling, secondary sorting, repackaging, redistributing and handling transit billing will be subject to a charge.</p>
+  <p>3. Dunnage, bracing, packing materials or other special supplies, may be provided for the Depositor at a charge in addition to Warehouseman&rsquo;s cost.</p>
+  <p>4. By prior arrangement, Goods may be received or delivered during other than usual business hours, subject to a charge.</p>
+  <div class="foot"><span class="pg">Warehousing Terms and Conditions &mdash; Page 2 of 4</span></div>
+</div>
+<div class="page tc">
+  <p>5. Communication expense including postage, overnight delivery, or telephone may be charged to the Depositor if such concern more than normal inventory reporting or if, at the request of the Depositor, communications are made by other than email.</p>
+  <p>6. Depositor, including holder of negotiable receipts, may, subject to insurance regulations and reasonable limitations, have access to Goods in store when accompanied by a Warehouseman&rsquo;s employee whose time is chargeable to the Depositor.</p>
+  <h4>Section 9 - BONDED STORAGE</h4>
+  <p>Warehouse is not a bonded warehouse and shall not cover any merchandise in bond.</p>
+  <h4>Section 10 - MINIMUM CHARGES</h4>
+  <p>1. A minimum handling charge per lot and a minimum storage charge per lot per month will be made. When a warehouse receipt covers more than one lot or when a lot is in assortment, a minimum charge per mark, brand, or variety will be made.</p>
+  <p>2. A minimum monthly charge to one account for storage and/or handling will be made according to rate confirmation sheet. This charge will apply also to each account when one customer has several accounts, each requiring separate records and billing.</p>
+  <h4>Section 11 - LIABILITY AND LIMITATION OF DAMAGES</h4>
+  <p>1. WAREHOUSEMAN DOES NOT INSURE THE GOODS WHILE IN STORAGE, AND THE STORAGE RATES OR CHARGES BILLED TO DEPOSITOR DO NOT INCLUDE ANY INSURANCE ON THE GOODS. THE GOODS WILL THEREFORE NOT BE INSURED FOR ANY LOSS OR DAMAGE HOWEVER CAUSED. DEPOSITOR IS RESPONSIBLE FOR INSURING GOODS TENDERED FOR STORAGE. IF NONE IS PROCURED, DEPOSITOR IS DEEMED TO HAVE ELECTED TO SELF-INSURE.</p>
+  <p>2. WAREHOUSEMAN SHALL NOT BE LIABLE FOR ANY LOSS OR DAMAGE TO GOODS TENDERED, STORED OR HANDLED HOWEVER CAUSED UNLESS SUCH LOSS OR DAMAGE IS RESULTED FROM THE FAILURE BY WAREHOUSEMAN TO EXERCISE SUCH CARE IN REGARD TO THEM AS A REASONABLY CAREFUL PERSON WOULD EXERCISE UNDER LIKE CIRCUMSTANCES AND WAREHOUSEMAN IS NOT LIABLE FOR DAMAGES WHICH COULD NOT HAVE BEEN AVOIDED BY THE EXERCISE OF SUCH CARE.</p>
+  <p>3. LIABILITY OF LOSS OR DAMAGE TO GOODS IN ABOVE (2) SHALL BE FOR ACTUAL LOSS SUBJECT TO DECLARED LIMIT BY DEPOSITOR. THE DEPOSITOR DECLARES THAT DAMAGES ARE LIMITED TO $0.10 PER POUND, OR 100 TIMES OF THE BASE STORAGE RATE PER ACCOUNT, WHICHEVER IS LESS, PROVIDED, HOWEVER, THAT SUCH LIABILITY MAY AT THE TIME OF ACCEPTANCE OF THIS CONTRACT BE INCREASED UPON DEPOSITOR&rsquo;S WRITTEN REQUEST ON PART OR ALL OF THE GOODS HEREUNDER IN WHICH EVENT AN ADDITIONAL MONTHLY CHARGE WILL BE MADE BASED UPON SUCH INCREASED VALUATION.</p>
+  <p>WHERE LOSS OR DAMAGE OCCURS TO TENDERED, STORED OR HANDLED GOODS, THE DEPOSITOR SHALL BE RESPONSIBLE FOR THE COST OF REMOVING AND DISPOSING OF SUCH GOODS AND THE COST OF ANY ENVIRONMENTAL CLEAN UP AND SITE REMEDIATION RESULTING FROM THE LOSS OR DAMAGE TO THE GOODS.</p>
+  <h4>Section 12 - NOTICE OF CLAIM AND FILING OF SUIT</h4>
+  <p>1. Claims for loss or damage to Goods by the Depositor and all other persons must be presented in writing to Warehouseman within a reasonable time, and in no event any later than the earlier of: (i) sixty (60) days after delivery of the Goods by Warehouseman or (ii) sixty (60) days after Depositor is notified by Warehouseman that loss or damage to part or all of the Goods has occurred.</p>
+  <p>2. Claims for an overcharge of handling charges, storage charges and extra services must be filed within seven (7) days of the original billing. Any claim for overcharge not filed within seven (7) days shall be deemed waived.</p>
+  <p>3. In the event of a dispute arising out of this Contract related to claims by or against Warehouseman, a party&rsquo;s recourse shall be exclusively settled through binding and confidential arbitration, no later than the earlier of: (i) nine months after date of delivery by Warehouseman or (ii) nine months after Depositor is notified that loss or damage to part or all of the Goods has occurred. Arbitration shall be subject to the Federal Arbitration Act and venue is subject to Section 22.</p>
+  <p>When Goods have not been delivered, notice may be given of known loss or damage to the Goods by email, fax, certified mail or any other verifiable delivery to the Depositor. Time limitations for presentation of claim in writing and maintaining of action after notice begin on the date of sending such notice by Warehouseman.</p>
+  <h4>Section 13 - LIABILITY FOR CONSEQUENTIAL DAMAGES</h4>
+  <p>Warehouseman shall not be liable for any loss of profit, attorney&rsquo;s fees or special, incidental, indirect, or consequential damages of any kind.</p>
+  <h4>Section 14 - LIABILITY FOR MISSHIPMENT</h4>
+  <p>If Warehouseman negligently mis-ships Goods, Warehouseman shall pay the reasonable transportation charges incurred to return the mis-shipped Goods to the Facility. If the consignee fails to return the Goods, Warehouseman&rsquo;s maximum liability shall be for the lost or damaged Goods as specified in Section 11 above, and Warehouseman shall have no liability for damages due to the consignee&rsquo;s acceptance or use of the Goods whether such Goods be those of the Depositor or another.</p>
+  <h4>Section 15 - MYSTERIOUS DISAPPEARANCE</h4>
+  <p>Warehouseman shall be liable for loss of Goods due to inventory shortage or unexplained or mysterious disappearance of Goods only if Depositor establishes such loss occurred because of Warehouseman&rsquo;s failure to exercise the care required of Warehouseman under Section 11 above. Any presumption of conversion imposed by law shall not apply to such loss and a claim by Depositor of conversion must be established by affirmative evidence that Warehouseman converted the Goods to Warehouseman&rsquo;s own use.</p>
+  <div class="foot"><span class="pg">Warehousing Terms and Conditions &mdash; Page 3 of 4</span></div>
+</div>
+<div class="page tc">
+  <h4>Section 16 - RIGHT TO STORE GOODS</h4>
+  <p>Depositor represents and warrants that Depositor is lawfully possessed of the Goods and has the right and authority to store them with Warehouseman. Depositor agrees to indemnify and hold harmless the Warehouseman, it&rsquo;s owners, officers, employees and agents from all loss, cost and expense (including reasonable attorneys&rsquo; fees) as a result of any dispute or litigation, whether instituted by Warehouseman or others, respecting Depositor&rsquo;s right, title or interest in the Goods. Such amounts shall be charges in relation to the Goods and subject to Warehouseman&rsquo;s lien.</p>
+  <h4>Section 17 - ACCURATE INFORMATION</h4>
+  <p>1. Depositor will provide Warehouseman with information concerning the Goods which is accurate, complete and sufficient to allow Warehouseman to comply with all laws and regulations concerning the storage, handling and transporting of the Goods. Depositor will indemnify and hold Warehouseman, it&rsquo;s owners, officers, employees and agents harmless from all loss, cost, penalty and expense (including reasonable attorneys&rsquo; fees) as a result of Depositor failing to fully fulfill this obligation.</p>
+  <p>2. Depositor warrants that the information as to count, weight, description and condition of the goods set forth on any delivery document are accurate and complete and may be relied upon by Warehouseman. Depositor acknowledges and agrees that Warehouseman has no obligation to verify the quantity, content, condition or quality of the goods delivered to Facility for storage.</p>
+  <h4>Section 18 - SEVERABILITY AND WAIVER</h4>
+  <p>1. If any provision of the Terms and Conditions and the Warehouse Service Agreement, or any application thereof, should be construed or held to be void, invalid or unenforceable, by order, decree or judgment of a court, tribunal or other authority of competent jurisdiction, the remaining provisions shall not be affected thereby but shall remain in full force and effect.</p>
+  <p>2. Warehouseman&rsquo;s failure to require strict compliance with any provision of the Terms and Conditions and the Warehouse Service Agreement shall not constitute a waiver or estoppel to later demand strict compliance with that or any other provision(s).</p>
+  <p>3. The provisions of the Terms and Conditions and the Warehouse Service Agreement shall be binding upon the heirs, executors, successors and assigns of both Depositor and Warehouseman, and contain the sole agreement governing Goods tendered to Warehouseman, and, cannot be modified except by a writing signed by Warehouseman and Depositor.</p>
+  <h4>Section 19 &ndash; FORCE MAJEURE</h4>
+  <p>Neither Depositor nor Warehouseman shall be liable to the other for default in the performance or discharge of any duty or obligation under the Terms and Conditions and the Warehouse Service Agreement, except for Depositor&rsquo;s obligation to pay for services rendered by Warehouseman, when caused by acts of God, hurricanes, tidal waves, flood, tornadoes, cyclone, wind storm, earthquake, public enemy, civil commotion, strikes, labor disputes, work stoppages or other difficulties within the workforce, failure to provide power by the utility provider, intentional or malicious acts of third persons or any other organized opposition, corruption, depredation, accidents, explosions, fire, water sprinkler leakage, moths, vermin, insect, seizure under legal process, embargo, prohibition of export of Goods, closure of public highways, railways, airways or shipping lanes, governmental interference or regulations, or other contingencies, similar or dissimilar to the foregoing, beyond the reasonable control of the affected party. Upon the occurrence of such an event the party seeking to rely on this provision shall promptly give notice to the other party of the nature and consequences of the cause. If the cause is one which nevertheless requires Warehouseman to continue to protect the Goods, Depositor agrees to pay the storage or similar charges associated with Warehouseman&rsquo;s obligation during the continuance of the force majeure. All Goods are stored, handled, and transported at Depositor&rsquo;s sole risk of loss, damage or delay caused by any of the above.</p>
+  <h4>Section 20 - LIEN</h4>
+  <p>1. Warehouseman shall have a general warehouse lien for all lawful charges for storage and preservation of the Goods; also for all lawful claims for money advanced, interest, insurance, transportation, labor, weighing, and other charges and expenses in relation to such Goods, and for the balance on any other accounts that may be due. Warehouseman further claims a general warehouse lien for all such charges, advances and expenses with respect to any other Goods stored by the Depositor in any other facility owned or operated by Warehouseman. In order to protect its lien, Warehouseman reserves the right to require advance payment of all charges prior to shipment of Goods. Unless expressly stated otherwise in writing, Warehouseman will not subordinate its lien to any lender, financial institution, or any other third party.</p>
+  <p>2. Depositor agrees to pay to Warehouseman all costs, including reasonable attorney&rsquo;s fees, court costs in trial and appellate courts and other legal expenses, incurred in any action by Warehouseman to collect any of its charges or to enforce any of its rights under this contract or at law.</p>
+  <h4>Section 21 - DOCUMENTS OF TITLE</h4>
+  <p>Documents of title, including warehouse receipts, may be issued either in physical or electronic form at the option of the parties.</p>
+  <h4>Section 22 - GOVERNING LAW AND JURISDICTION</h4>
+  <p>This Contract and the legal relationship between the parties hereto shall be governed by and construed in accordance with the substantive laws of the state where the Facility is located, including Article 7 of the Uniform Commercial Code as ratified in that state, notwithstanding its conflict of laws rules. Arbitration proceeding shall be conducted in the county and state where the Facility is located.</p>
+  <div class="foot"><span class="pg">Warehousing Terms and Conditions &mdash; Page 4 of 4</span></div>
+</div>
+</template>
+
+<script>
+// ✅ EXPORT — read-only rendering; no writes to the system, ever.
+// Data source: GET /api/quotation-print?q=<Quotation #> (role + salesGroup + sent-flag enforced server-side)
+
+// ✅ AUTH: same pattern as dashboards
+window._authRedirecting = false;
+window.handleAuthError = function (res) {
+  // 403 here means "logged in but not permitted" (wrong role / wrong sales group) and is
+  // shown as an error banner by the caller — only 401 or a login redirect means session expiry.
+  const expired = res.status === 401 ||
+    (res.redirected && /index\.html|login/i.test(res.url || ''));
+  if (!expired) return false;
+  if (!window._authRedirecting) {
+    window._authRedirecting = true;
+    alert('⚠️ 登录已过期，请重新登录。\nSession expired. Please log in again.');
+    window.location.href = '/index.html';
+  }
+  return true;
+};
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const val = (d, f) => { const v = d[f]; return v == null ? '' : String(v).trim(); };
+const has = (d, f) => val(d, f) !== '' && val(d, f) !== '0';
+const money = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? esc(v) : n.toFixed(2); };
+
+// Main price rule: Adjusted Price wins over Price (confirmed by Lina)
+const mainPrice = d => has(d, 'Adjusted Price') ? val(d, 'Adjusted Price') : val(d, 'Price');
+
+// ---- Trucking row specs per Inquiry Type ------------------------------------
+// [fieldPrice, description, unitField, defaultUnit, defaultRemark, mandatory]
+const DRAYAGE_ROWS = [
+  ['__MAIN__', 'Drayage- Hauling Fee per Container', 'Base Rate Unit', 'CNTR', 'INCLUDING FSC', true],
+  ['Chassis Price', 'Drayage Surcharge- Chassis Fee Per Day', 'Chassis Unit', 'DAYS', '(MIN. 2 DAYS)', true],
+  ['Pre-Pull Price', 'Drayage Surcharge- Pre Pull', 'Pre-Pull Unit', 'CNTR', 'IF APPLICABLE', false],
+  ['Yard Storage Price', 'Drayage Surcharge- Yard Storage', 'Yard Storage Unit', 'DAYS', 'IF APPLICABLE', false],
+  ['Driver Waiting Price', 'Drayage Surcharge- Detention', 'Driver Waiting Unit', 'HRS', 'IF APPLICABLE, BILLED IN 30 MINS INCREMENT (1 HOUR FREE AT THE TERMINAL, 1 HOUR FREE AT THE WAREHOUSE)', false],
+  ['Over Weight Price', 'Drayage Surcharge- Over Weight Fee', 'Over Weight Unit', 'CNTR', 'IF APPLICABLE', false],
+  ['Chassis Split Price', 'Drayage Surcharge- Chassis Split', 'Chassis Split Unit', 'SPLIT', 'IF APPLICABLE', false],
+  ['Toll Price', 'Drayage Surcharge- Toll', 'Toll Unit', 'CNTR', 'IF APPLICABLE', false],
+  ['Reefer Fee Price', 'Drayage Surcharge- Reefer Fee', 'Reefer Fee Unit', 'CNTR', 'IF APPLICABLE', false],
+  ['Bond Fee Price', 'Drayage Surcharge- Bonded Fee', 'Bond Fee Unit', 'CNTR', 'IF APPLICABLE', false],
+];
+const FTL_ROWS = truckName => ([
+  ['__MAIN__', 'Dedicated ' + truckName, 'Base Rate Unit', 'TRUCK', 'DOOR TO DOOR, FSC INCLU', true],
+  ['Layover Price', 'FTL Freight Surcharge- Layover', 'Layover Unit', 'DAY', 'IF APPLICABLE, PER DAY', false],
+  ['Driver Waiting Price', 'FTL Freight Surcharge- Detention per Hour', 'Driver Waiting Unit', 'HRS', 'IF APPLICABLE, BILLED IN 30 MINS INCREMENTS (2 HOUR FREE)', false],
+]);
+const LTL_ROWS = [
+  ['__MAIN__', 'LTL Freight', 'Base Rate Unit', 'SHPT', '', true],
+  ['Over Weight Price', 'LTL Freight Surcharge- Over Weight Fee', 'Over Weight Unit', 'SHPT', 'IF APPLICABLE', false],
+];
+
+// ---- Warehouse buckets (mirror of server WH structure; display in this order) ----
+// [priceField base name, display description]
+const WH_ROWS = [
+  ['Order Processing', 'Order Processing Fee'],
+  ['Inbound Floor Load', 'Floor-load Cargo Devan (Hand Unload)'],
+  ['Inbound Palletized', 'Handling In - Palletized'],
+  ['Inbound', 'Inbound Handling'],
+  ['Sorting', 'Sorting Fee'],
+  ['Palletizing', 'Palletizing (Incl. Stretch Wrap)'],
+  ['Pallet Fee', 'Standard Pallet'],
+  ['OW Handling Fee', 'Oversize / Overweight Handling Fee'],
+  ['Inbound Others', 'Inbound - Others'],
+  ['Label', 'Labeling'],
+  ['Outbound Order Processing', 'Outbound Order Processing Fee'],
+  ['Order Picking', 'Order Picking'],
+  ['Staging Palletizing', 'Staging & Palletizing'],
+  ['Outbound Pallet Fee', 'Outbound Standard Pallet'],
+  ['Handling Out', 'Handling Out'],
+  ['Floor Load Loading', 'Floor Load Loading'],
+  ['Fulfillment', 'Fulfillment Order Picking'],
+  ['Outbound', 'Outbound Handling'],
+  ['Cross Dock', 'Cross Dock'],
+  ['Storage Pallet Stackable', 'Storage per Pallet (Stackable)'],
+  ['Storage Pallet NonStackable', 'Storage per Pallet (Non-Stackable)'],
+  ['Storage Crate', 'Storage per Crate'],
+  ['Storage Bundle', 'Storage per Bundle'],
+  ['Storage Sack', 'Storage per Sack'],
+  ['Storage Container', 'Storage per Container'],
+  ['Storage CBF', 'Storage per CBF'],
+  ['Storage CBM', 'Storage per CBM'],
+  ['Storage', 'Storage'],
+  ['Depalletizing', 'Depalletizing'],
+  ['Repacking', 'Repacking'],
+  ['Block Brace', 'Block & Brace'],
+  ['Pallet Crate Repair', 'Pallet / Crate Repair'],
+  ['Rush Order', 'Rush Order Fee'],
+  ['Rework Other', 'Rework - Others'],
+  ['Others', 'Others'],
+];
+
+function truckRowsFor(d) {
+  const t = val(d, 'Inquiry Type').toLowerCase();
+  if (t.indexOf('drayage') >= 0) return { title: 'DRAYAGE', rows: DRAYAGE_ROWS };
+  if (t.indexOf('dry van') >= 0 || t.indexOf('dryvan') >= 0) {
+    const dvType = val(d, 'Dry Van Type');
+    return { title: 'DRY VAN (FTL)', rows: FTL_ROWS(dvType ? 'Dry Van ' + dvType : 'Dry Van') };
+  }
+  if (t.indexOf('flat') >= 0) return { title: 'FLAT BED', rows: FTL_ROWS('Flatbed') };
+  if (t.indexOf('ltl') >= 0) return { title: 'LTL', rows: LTL_ROWS };
+  // Fallback: unrecognized inquiry type — never let a sent main price disappear silently.
+  if (mainPrice(d) !== '') return { title: (val(d, 'Inquiry Type') || 'FREIGHT').toUpperCase(), rows: [
+    ['__MAIN__', 'Freight Rate', 'Base Rate Unit', 'CNTR', 'FSC INCLU', true]
+  ] };
+  return null;
+}
+
+function buildTruckTable(d, spec, missing) {
+  let rows = '';
+  for (const [field, descText, unitField, defUnit, defRemark, mandatory] of spec.rows) {
+    const raw = field === '__MAIN__' ? mainPrice(d) : val(d, field);
+    if (!mandatory && raw === '') continue;
+    if (mandatory && raw === '') missing.push(descText);
+    const unit = val(d, unitField) || defUnit;
+    rows += '<tr><td class="desc" contenteditable="true">' + esc(descText) + '</td>'
+      + '<td class="cur">USD</td>'
+      + '<td class="rate">' + (raw === '' ? '—' : money(raw)) + '</td>'
+      + '<td class="unit" contenteditable="true">' + esc(unit) + '</td>'
+      + '<td class="rmk" contenteditable="true">' + esc(defRemark) + '</td></tr>';
+  }
+  const lane = esc(val(d, 'From')) + ' to ' + esc(val(d, 'To') || (val(d, 'To City') + ', ' + val(d, 'To State') + ' ' + val(d, 'To ZIP')));
+  return '<h3 class="lane" contenteditable="true">' + spec.title + ' — ' + lane + '</h3>'
+    + '<table class="rt"><tr><th class="desc">FREIGHT DESCRIPTION</th><th class="cur">CUR.</th><th class="rate">RATE</th><th class="unit">UNIT</th><th>REMARK</th></tr>' + rows + '</table>';
+}
+
+function buildWarehouseTable(d) {
+  let rows = '';
+  for (const [base, descText] of WH_ROWS) {
+    const p = val(d, base + ' Price');
+    if (p === '') continue;
+    let unit = val(d, base + ' Unit');
+    if (val(d, base + ' Period')) unit = (unit ? unit + '/' : '') + val(d, base + ' Period').toUpperCase();
+    const qty = val(d, base + ' Qty');
+    rows += '<tr><td class="desc" contenteditable="true">' + esc(descText) + '</td>'
+      + '<td class="cur">USD</td>'
+      + '<td class="rate">' + money(p) + '</td>'
+      + '<td class="unit" contenteditable="true">' + esc(unit) + '</td>'
+      + '<td class="rmk" contenteditable="true">' + (qty ? 'EST. QTY: ' + esc(qty) : '') + '</td></tr>';
+  }
+  if (!rows) return '';
+  const detail = val(d, 'Warehouse Service Detail') || val(d, 'Warehouse Services') || 'Warehouse Services';
+  return '<h3 class="lane" contenteditable="true">WAREHOUSE — ' + esc(detail) + '</h3>'
+    + '<table class="rt"><tr><th class="desc">FREIGHT DESCRIPTION</th><th class="cur">CUR.</th><th class="rate">RATE</th><th class="unit">UNIT</th><th>REMARK</th></tr>' + rows + '</table>';
+}
+
+function fmtDate(dt) {
+  const p = n => String(n).padStart(2, '0');
+  return p(dt.getMonth() + 1) + '-' + p(dt.getDate()) + '-' + dt.getFullYear();
+}
+
+function render(d, user) {
+  let created = d['Date'] ? new Date(d['Date']) : new Date();
+  if (isNaN(created.getTime())) created = new Date();
+  const valid = new Date(created.getTime() + 30 * 24 * 3600 * 1000);
+  const spec = truckRowsFor(d);
+  const missing = [];
+  const truckHTML = spec ? buildTruckTable(d, spec, missing) : '';
+  const whHTML = buildWarehouseTable(d);
+
+  const owFlag = val(d, 'Legal or Over Weight').toLowerCase().indexOf('over') >= 0;
+  const weightNote = owFlag ? 'NON-HAZARDOUS, FSC INCLU' : 'NON-HAZARDOUS, FSC INCLU\uFF0CLEGAL WEIGHT';
+
+  const page1 =
+    '<div class="page">'
+    + '<div class="hdr">'
+    +   '<img class="logo" src="images/TTS-LOGO.png" alt="TTS Logo">'
+    +   '<div class="co"><h1>TOTAL SOLUTION</h1><p>10820 WESTPARK DR, HOUSTON, TX, 77042<br>'
+    +   'FMC-Licensed NVOCC OTI#032560NF<br>TEL: 713-706-5742<br>EMAIL: salestw@totalsolutionus.com<br>'
+    +   '<span class="prep">Prepared by ' + esc(user || val(d, 'Assigned Sales') || val(d, 'Requested By')) + ' ' + fmtDate(new Date()) + '</span></p></div>'
+    +   '<div><div class="qbox"><span>QUOTATION</span></div>'
+    +   '<div class="qno">QUOTE NO&nbsp;:&nbsp;&nbsp;' + esc(val(d, 'Quotation #')) + '</div></div>'
+    + '</div>'
+    + '<div class="meta">'
+    +   '<div class="to"><span class="lbl">TO</span><span>:</span>'
+    +   '<span class="val" contenteditable="true">' + esc(val(d, 'Customer ID')) + '<br>[Customer address — click to edit]<br>&nbsp;</span></div>'
+    +   '<div class="kv">'
+    +   '<div class="row"><span class="k">CREATE DATE</span><span class="c">:</span><span class="v">' + fmtDate(created) + '</span></div>'
+    +   '<div class="row"><span class="k">SALES PERSON</span><span class="c">:</span><span class="v" contenteditable="true">' + esc(val(d, 'Assigned Sales') || val(d, 'Requested By')) + '</span></div>'
+    +   '<div class="row"><span class="k">SHIP MODE</span><span class="c">:</span><span class="v">TRUCK</span></div>'
+    +   '<div class="row"><span class="k">SERVICE TERM</span><span class="c">:</span><span class="v" contenteditable="true">CY/DOOR</span></div>'
+    +   '<div class="row"><span class="k">CONTAINER</span><span class="c">:</span><span class="v">' + esc(val(d, 'Container Size')) + (val(d, 'QTY') ? ' × ' + esc(val(d, 'QTY')) : '') + '</span></div>'
+    +   '<div class="row"><span class="k">VALID DATE</span><span class="c">:</span><span class="v" contenteditable="true">' + fmtDate(created) + ' ~ ' + fmtDate(valid) + '</span></div>'
+    +   '</div></div><div class="meta-end"></div>'
+    + truckHTML + whHTML
+    + '<div class="notes" contenteditable="true">' + weightNote + '<br>'
+    + 'INSURANCE POLICY:<br>THE TRUCKING INSURANCE COVERAGE LIMIT IS $100,000 PER CONTAINER. IF THE CARGO VALUE EXCEEDS $100,000 PER CONTAINER AND FULL COVERAGE IS REQUIRED, AN INSURANCE FEE OF 0.25% WILL BE CHARGED ON THE AMOUNT EXCEEDING $100,000.<br>'
+    + '\u5361\u8F66\u8FD0\u8F93\u4FDD\u9669\u91D1\u989D\u4E0A\u9650\u4E3A10\u4E07\u7F8E\u91D1/\u67DC\uFF0C\u5982\u679C\u8D27\u7269\u4EF7\u503C\u8D85\u8FC710\u4E07\u7F8E\u91D1/\u67DC\u4E14\u9700\u8981\u5168\u989D\u4FDD\u9669\uFF0C\u8D85\u8FC710\u4E07\u7F8E\u91D1\u7684\u90E8\u5206\u9700\u8981\u652F\u4ED80.25%\u7684\u4FDD\u9669\u8D39\u3002</div>'
+    + '<div class="foot"><span class="pg">page 1 of 2</span></div>'
+    + '</div>';
+
+  const page2 =
+    '<div class="page">'
+    + '<div class="remark"><div class="cap">QUOTATION REMARK</div><div class="body" contenteditable="true">'
+    + '<p>LOS ANGELES PORT: 40\' CONTAINER: $98 / TMF\uFF0C$25.00 / CLEAN TRUCK FEE\uFF1B20\' CONTAINER: $55 / TMF\uFF0C$15.00 / CLEAN TRUCK FEE\u3002OAKLAND GATE FEE $60/CONTAINER.</p>'
+    + '<p>PLEASE KINDLY NOTE THAT LAYOVER FEE MIGHT OCCUR IF APPLICABLE TO BUT NOT LIMITED TO LANES OVER 250 MILES, EXTENDED LOADING/UNLOADING TIME OF WAREHOUSE, ETC. LAYOVER FEE $400 MINIMUM DEPENDING ON SITUATIONS.<br>'
+    + 'OVERWEIGHT SURCHARGES MAY BE APPLICABLE IF THE CONTAINER IS OVERWEIGHT. OVERWEIGHT FEE ALSO APPLIES TO CONTAINERS THAT ARE OVERWEIGHT ON AXLES OF TRUCK.<br>'
+    + 'TO AVOID OVERWEIGHT, PLEASE CONTROL THE GROSS WEIGHT OF THE CARGO UNDER 43500 LBS/40\' AND 37500 LBS/20\'. TOO CLOSE TO 44000 LBS/40\' AND 38000 LBS/20\' WILL HAVE A HIGH POSSIBILITY OF INCURRING OVERWEIGHT FEES.<br>'
+    + '*MORNING APPOINTMENT OR LONG-DISTANCE DELIVERIES MAY REQUIRE PRE-PULL*</p>'
+    + '<p>PLEASE KINDLY NOTE:<br>CARGO INSURANCE IN THE AMOUNT OF $100,000 APPLIES TO ALL SHIPMENTS OF FCL/FTL UNLESS OTHERWISE STATED IN THE LOAD CONFIRMATION OR RATE AGREEMENT. CUSTOMER SHALL ADVISE TOTAL SOLUTION (TTS) OF ANY ADDITIONAL OR OTHER CARGO INSURANCE REQUIREMENTS AT LEAST 24 HOURS BEFORE SUCH SHIPMENT. ADDITIONAL CARGO INSURANCE CAN BE PURCHASED AT A PREMIUM OF 0.25% OF THE VALUE OVER $100,000. UNLESS SUCH ADDITIONAL INSURANCE IS CONFIRMED BY TTS AND ADDITIONAL PREMIUM AGREED TO AND PAID BY CUSTOMER, A MAXIMUM OF $100,000 CARGO INSURANCE WILL APPLY TO ALL SHIPMENTS. ACCORDINGLY, BY THE ACTUAL TENDER OF THE LOAD TO TTS FOR SHIPMENT IT IS AGREED THAT TTS\' LIABILITY FOR CARGO LOSS OR DAMAGE IS STRICTLY LIMITED TO THE AVAILABLE INSURANCE COVERAGE APPLICABLE TO THAT LOAD WHICH SHALL BE LIMITED TO $100,000 OR A HIGHER LIMIT MUTUALLY AGREED AND PAID BY CUSTOMER</p>'
+    + '</div></div>'
+    + '<div class="terms">\u203BALL RATES ARE BASED ON AVAILABILITY AT TIME OF SHIPMENT. \u203B\u50F9\u683C\u6709\u6548\u671F\u70BA30\u5929\uFF0C\u8D85\u904E30\u5929\u8ACB\u91CD\u65B0\u8A62\u50F9\u3002\u767C\u9001\u8A02\u55AE\u6642\u8ACB\u9644\u4E0A\u672C\u5831\u50F9\u3002 \u203BALL RATES ARE VALID FOR 30 DAYS. \u203BPLEASE ATTACH THIS QUOTATION WHEN SENDING US YOUR ORDER. \u203BTHIS QUOTATION, INCLUDING ACCESSORIAL CHARGES THAT MAY BE ATTACHED HERETO, MUST BE ACCEPTED WITHIN 30 DAYS FROM THE PROPOSAL DATE BY SIGNATURE OF THE DEPOSITOR. IN THE ABSENCE OF WRITTEN ACCEPTANCE, THE ACT OF TENDERING GOODS DESCRIBED HEREIN FOR STORAGE OR OTHER SERVICES BY WAREHOUSEMAN WITHIN 30 DAYS FROM THE PROPOSAL DATE SHALL CONSTITUTE ACCEPTANCE BY DEPOSITOR. \u203BWAREHOUSEMAN DOES NOT INSURE THE GOODS WHILE IN STORAGE, AND THE STORAGE RATES OR CHARGES BILLED TO DEPOSITOR DO NOT INCLUDE ANY INSURANCE ON THE GOODS. THE GOODS WILL THEREFORE NOT BE INSURED FOR ANY LOSS OR DAMAGE HOWEVER CAUSED. DEPOSITOR IS RESPONSIBLE FOR INSURING GOODS TENDERED FOR STORAGE. IF NONE IS PROCURED, DEPOSITOR IS DEEMED TO HAVE ELECTED TO SELF-INSURE.</div>'
+    + '<div class="sig"><div class="line">TOTAL SOLUTION</div></div>'
+    + '<div class="foot"><span class="pg">page 2 of 2</span></div>'
+    + '</div>';
+
+  // ✅ EXPORT: any quotation containing a warehouse section must carry the
+  // Warehousing Terms and Conditions as attached pages (verbatim legal text).
+  const whTerms = whHTML ? document.getElementById('whTermsTpl').innerHTML : '';
+  document.getElementById('doc').innerHTML = page1 + page2 + whTerms;
+  document.getElementById('doc').style.display = 'block';
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('tbQuote').textContent = 'Quotation ' + val(d, 'Quotation #');
+
+  if (missing.length) {
+    const b = document.getElementById('blocked');
+    b.innerHTML = '\u26A0\uFE0F Required prices missing (\u5FC5\u586B\u4EF7\u683C\u7F3A\u5931): <b>' + missing.map(esc).join(', ')
+      + '</b><br>The quotation can still be previewed, but please complete these prices in the system before sending to the customer.';
+    b.style.display = 'block';
+  }
+}
+
+(async function init() {
+  const params = new URLSearchParams(location.search);
+  const q = (params.get('q') || '').trim();
+  if (!q) {
+    document.getElementById('loading').textContent = 'Missing quotation number (?q=...)';
+    return;
+  }
+  try {
+    const res = await fetch('/api/quotation-print?q=' + encodeURIComponent(q), { credentials: 'same-origin' });
+    if (window.handleAuthError(res)) return;
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      const b = document.getElementById('blocked');
+      b.textContent = '\u26D4 ' + (data.error || 'Unable to load this quotation.');
+      b.style.display = 'block';
+      document.getElementById('loading').style.display = 'none';
+      return;
+    }
+    render(data.inquiry, data.username);
+  } catch (e) {
+    document.getElementById('loading').textContent = 'Failed to load: ' + e.message;
+  }
+})();
+</script>
+</body>
+</html>

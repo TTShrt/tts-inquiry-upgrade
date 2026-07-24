@@ -1603,7 +1603,7 @@ app.post('/api/list-price-quotes', async (req, res) => {
       { _id: 'ttslp' }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: 'after' });
     if (seqDoc && seqDoc.value !== undefined) seqDoc = seqDoc.value;   // driver version compatibility
     if (!seqDoc || !seqDoc.seq) seqDoc = await counters.findOne({ _id: 'ttslp' });
-    const quoteNo = 'TTSLP-' + String(seqDoc.seq).padStart(6, '0');
+    const quoteNo = 'TTSQT-' + String(seqDoc.seq).padStart(6, '0');   // ✅ LPSEARCH: unified customer-facing prefix (legacy TTSLP-xxxxxx records remain valid & searchable)
 
     await conn.collection('list_price_quotes').insertOne({
       quoteNo,

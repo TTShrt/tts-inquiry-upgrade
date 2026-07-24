@@ -4563,6 +4563,19 @@
         });
 
         document.getElementById('searchBtn')?.addEventListener('click', async () => {
+          // ✅ LPSEARCH: TTSQT-/TTSLP- prefixed numbers may be List-Price archive records OR inquiries.
+          // Probe the archive first; on 404 (or no access) strip the prefix and search inquiries as usual.
+          const _q = (document.getElementById('searchBox')?.value || '').trim();
+          const _pm = _q.match(/^(TTSLP|TTSQT)[-\s]?(\d{1,6})$/i);
+          if (_pm) {
+            const _no = (_pm[1] + '-' + _pm[2].padStart(6, '0')).toUpperCase();
+            try {
+              const _pr = await fetch('/api/list-price-quote-detail?no=' + encodeURIComponent(_no), { credentials: 'same-origin' });
+              if (_pr.ok) { window.location.href = '/list_price.html?rec=' + encodeURIComponent(_no); return; }
+            } catch (eBr) { /* fall through to inquiry search */ }
+            const box2 = document.getElementById('searchBox');
+            if (box2) box2.value = _pm[2].replace(/^0+(?=\d{3})/, '');   // strip prefix (and LP-style zero padding) for inquiry search
+          }
           window.searchTerm = document.getElementById('searchBox')?.value || '';
           await window.loadInquiries();
         });

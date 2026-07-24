@@ -422,7 +422,7 @@ function render(d, user, email) {
     +   'FMC-Licensed NVOCC OTI#032560NF<br>' + (email ? 'EMAIL: ' + esc(email) + '<br>' : '')
     +   '<span class="prep">Prepared by ' + esc(user || val(d, 'Assigned Sales') || val(d, 'Requested By')) + ' ' + fmtDate(new Date()) + '</span></p></div>'
     +   '<div><div class="qbox"><span>QUOTATION</span></div>'
-    +   '<div class="qno">QUOTE NO&nbsp;:&nbsp;&nbsp;' + esc(val(d, 'Quotation #')) + '</div></div>'
+    +   '<div class="qno">QUOTE NO&nbsp;:&nbsp;&nbsp;TTSQT-' + esc(val(d, 'Quotation #')) + '</div></div>'
     + '</div>'
     + '<div class="meta">'
     +   '<div class="to"><span class="lbl">TO</span><span>:</span>'

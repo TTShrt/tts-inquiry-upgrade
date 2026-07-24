@@ -315,6 +315,7 @@ async function init() {
     if (!DIR.length) { showBanner('List price data is empty. Please run seed_list_prices.js first (dry run, then --write).'); return; }
     renderDir();
     loadRecent();
+  handleRecParam();   // ✅ LPSEARCH
     showDir();
   } catch (e) { document.getElementById('loading').textContent = 'Failed to load: ' + e.message; }
 }
@@ -333,7 +334,7 @@ function renderDir() {
   html += '<div class="card dir-group"><h3>&#128340; Download Records</h3>'
     + '<div style="font-size:.72rem;color:var(--muted);margin-bottom:8px;">Search by TTSLP # / customer / GF # &middot; Manager &amp; OPS see all, Sales own group</div>'
     + '<div style="display:flex;gap:8px;margin-bottom:10px;">'
-    + '<input id="recSearch" placeholder="e.g. TTSLP-000012 or customer name" style="flex:1;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font:inherit;font-size:.8rem;" onkeydown="if(event.key===\'Enter\')searchRecs()">'
+    + '<input id="recSearch" placeholder="e.g. TTSQT-000012 or customer name" style="flex:1;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font:inherit;font-size:.8rem;" onkeydown="if(event.key===\'Enter\')searchRecs()">'
     + '<button class="btn" onclick="searchRecs()">Search</button></div>'
     + '<div id="recentBox"><span style="font-size:.75rem;color:var(--muted);">Loading…</span></div></div>';
   document.getElementById('dirGrid').innerHTML = html;
@@ -356,6 +357,16 @@ async function loadRecent(q) {
   } catch (e) { /* non-blocking */ }
 }
 function searchRecs() { loadRecent((document.getElementById('recSearch') || { value: '' }).value.trim()); }   // ✅ LPSEARCH
+
+// ✅ LPSEARCH: arriving from a dashboard search (?rec=TTSLP-xxxxxx) — search immediately, open exact match
+async function handleRecParam() {
+  const rec = new URLSearchParams(location.search).get('rec');
+  if (!rec) return;
+  const inp = document.getElementById('recSearch');
+  if (inp) inp.value = rec;
+  if (/^(TTSLP|TTSQT)-\d{6}$/i.test(rec)) { openSnap(rec.toUpperCase()); }
+  else { loadRecent(rec); }
+}
 
 // ✅ LPSEARCH: read-only archived snapshot view (OPS order processing)
 async function openSnap(no) {

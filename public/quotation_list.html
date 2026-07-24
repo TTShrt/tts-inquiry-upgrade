@@ -43,9 +43,9 @@
   .gsub { font-size:.75rem; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .badge { border-radius:12px; padding:2px 10px; font-size:.68rem; font-weight:600; flex:0 0 auto; white-space:nowrap; }
   .b-confirmed { background:var(--success-bg); color:#065f46; }
-  .b-sent { background:var(--info-bg); color:#1e40af; }
-  .b-saved { background:var(--warning-bg); color:#92400e; }
-  .b-new { background:#fef2f2; color:#b91c1c; }
+  .b-sent { background:#f3e8ff; color:#6b21a8; }
+  .b-reviewing { background:var(--info-bg); color:#1e40af; }
+  .b-await { background:#fef2f2; color:#b91c1c; }
   .gf { display:flex; align-items:center; gap:5px; font-size:.72rem; color:var(--text-secondary); flex:0 0 auto; width:56px; justify-content:center; }
   .gf input { width:15px; height:15px; cursor:pointer; accent-color:var(--primary); }
   .gf.na { color:var(--text-muted); }
@@ -88,10 +88,10 @@
       </select>
       <select id="statusSel">
         <option value="">All status</option>
-        <option value="New">New</option>
-        <option value="Sourcing Saved">Sourcing Saved</option>
-        <option value="Sent to Sales">Sent to Sales</option>
+        <option value="Await Sourcing">Await Sourcing</option>
+        <option value="Reviewing">Reviewing</option>
         <option value="Confirmed">Confirmed</option>
+        <option value="Sent">Sent</option>
       </select>
       <select id="salesSel" style="display:none;"><option value="">All sales</option></select>
       <button class="btn-nav" id="goBtn">Search</button>
@@ -132,10 +132,10 @@ function qlDashHref(base) {
 }
 
 function qlBadgeClass(s) {
+  if (s === 'Sent') return 'b-sent';
   if (s === 'Confirmed') return 'b-confirmed';
-  if (s === 'Sent to Sales') return 'b-sent';
-  if (s === 'Sourcing Saved') return 'b-saved';
-  return 'b-new';
+  if (s === 'Reviewing') return 'b-reviewing';
+  return 'b-await';
 }
 
 function qlGPHtml(line) {
@@ -167,9 +167,9 @@ function qlRenderLine(g, line) {
 function qlRender() {
   var body = document.getElementById('listBody');
   var groups = qlGroups;
-  if (qlUnpushedMode) groups = groups.filter(function (g) { return g.status === 'Confirmed' && !g.pushedToGF; });
+  if (qlUnpushedMode) groups = groups.filter(function (g) { return g.status === 'Confirmed'; });
 
-  var un = qlGroups.filter(function (g) { return g.status === 'Confirmed' && !g.pushedToGF; }).length;
+  var un = qlGroups.filter(function (g) { return g.status === 'Confirmed'; }).length;
   document.getElementById('unpushedCount').textContent = un;
 
   if (!groups.length) { body.innerHTML = '<div class="empty">No quotations match. 没有符合条件的报价。</div>'; return; }
@@ -177,7 +177,7 @@ function qlRender() {
   var html = '';
   groups.forEach(function (g, i) {
     var gfCell;
-    if (g.status === 'Confirmed') {
+    if (g.status === 'Confirmed' || g.status === 'Sent') {
       var tt = g.pushedToGF && g.pushedToGFAt ? ' title="' + esc((g.pushedToGFBy || '') + ' · ' + g.pushedToGFAt) + '"' : '';
       var dis = (qlRole === 'ops_view') ? ' disabled' : '';
       gfCell = '<label class="gf"' + tt + ' onclick="event.stopPropagation();"><input type="checkbox" data-base="' + esc(g.base) + '"' + (g.pushedToGF ? ' checked' : '') + dis + ' onchange="qlToggleGF(this)"> GF</label>';
@@ -219,7 +219,11 @@ async function qlToggleGF(cb) {
     var d = await r.json();
     if (!r.ok || !d.success) throw new Error(d.error || ('HTTP ' + r.status));
     var g = qlGroups.find(function (x) { return x.base === base; });
-    if (g) { g.pushedToGF = want; g.pushedToGFAt = new Date().toISOString(); }
+    if (g) {
+      g.pushedToGF = want; g.pushedToGFAt = new Date().toISOString();
+      if (want && g.status === 'Confirmed') g.status = 'Sent';
+      if (want === false && g.status === 'Sent') g.status = 'Confirmed';
+    }
     qlRender();
   } catch (e) {
     cb.checked = !want;
@@ -263,7 +267,7 @@ async function qlLoad() {
 
 function qlExportCSV() {
   var rows = [['Quotation #', 'Line', 'Date', 'Customer', 'Requested By', 'Sales', 'From', 'To', 'Type', 'Adj Price', 'GP %', 'GP Source', 'Suppliers', 'Confirmed', 'Candidates', 'WH GP %', 'Line Status', 'Group Status', 'Pushed To GF']];
-  var groups = qlUnpushedMode ? qlGroups.filter(function (g) { return g.status === 'Confirmed' && !g.pushedToGF; }) : qlGroups;
+  var groups = qlUnpushedMode ? qlGroups.filter(function (g) { return g.status === 'Confirmed'; }) : qlGroups;
   groups.forEach(function (g) {
     g.lines.forEach(function (l) {
       rows.push([g.base, l.line, g.date, g.customer, g.requestedBy, g.assignedSales, l.from, l.to,

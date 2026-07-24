@@ -3002,16 +3002,26 @@ app.use((req, res, next) => {
     return null;
   }
 
-  // Per-doc status rank. Mirrors /api/kpi flag logic (incl. legacy 'Selected' for old docs).
+  // Status model (Lina, 2026-07-24 v2):
+  //   0 Await Sourcing — cost not filled or not sent
+  //   1 Reviewing      — cost sent to Sales (legacy 'Selected' means exactly this, NOT confirmed),
+  //                      but no VALID confirmation yet
+  //   2 Confirmed      — at least one candidate has confirm-flag true AND non-empty 'Adjusted Price'
+  //                      (both conditions required per Lina; flag alone stays Reviewing)
+  //   3 Sent           — parent-level only: Confirmed AND 'Pushed To GF'==='true'
+  // NOTE: deliberately stricter than /api/kpi (which counts legacy 'Selected' as confirmed);
+  // the home-page KPI may show more "Confirmed" than this list — expected.
+  function qlistValidConfirm(d) {
+    const flag = qlistTrue(d.truckingSalesConfirmed) || qlistTrue(d.truckingManagerConfirmed) ||
+                 qlistTrue(d.warehouseSalesConfirmed) || qlistTrue(d.warehouseManagerConfirmed);
+    return flag && String(d['Adjusted Price'] == null ? '' : d['Adjusted Price']).trim() !== '';
+  }
   function qlistDocRank(d) {
-    if (qlistTrue(d.truckingSalesConfirmed) || qlistTrue(d.truckingManagerConfirmed) ||
-        qlistTrue(d.warehouseSalesConfirmed) || qlistTrue(d.warehouseManagerConfirmed) ||
-        qlistTrue(d['Selected'])) return 3;
-    if (qlistTrue(d.truckingCostSent) || qlistTrue(d.warehouseCostSent)) return 2;
-    if (qlistTrue(d.truckingCostSaved) || qlistTrue(d.warehouseCostSaved)) return 1;
+    if (qlistValidConfirm(d)) return 2;
+    if (qlistTrue(d.truckingCostSent) || qlistTrue(d.warehouseCostSent) || qlistTrue(d['Selected'])) return 1;
     return 0;
   }
-  const QLIST_STATUS = ['New', 'Sourcing Saved', 'Sent to Sales', 'Confirmed'];
+  const QLIST_STATUS = ['Await Sourcing', 'Reviewing', 'Confirmed', 'Sent'];
 
   const QLIST_PROJECTION = {
     'Quotation #': 1, 'Date': 1, 'Customer ID': 1, 'Requested By': 1,
@@ -3101,7 +3111,9 @@ app.use((req, res, next) => {
           for (const c of L.candidates) lineRank = Math.max(lineRank, qlistDocRank(c));
           parentRank = Math.min(parentRank, lineRank);
 
-          const confirmed = L.candidates.filter(c => qlistTrue(c.truckingSalesConfirmed));
+          // GP picks only VALID confirmations (flag + non-empty Adjusted Price) — this also
+          // neutralizes the auto-written "0.00%" Adjusted GP that appears when the price is empty.
+          const confirmed = L.candidates.filter(c => qlistValidConfirm(c) && (qlistTrue(c.truckingSalesConfirmed) || qlistTrue(c.truckingManagerConfirmed)));
           let gp = null, gpSource = 'none', adjPrice = null, suppliers = [];
           for (const c of confirmed) {
             const g = qlistGP(c);
@@ -3139,9 +3151,10 @@ app.use((req, res, next) => {
 
         const statusFilter = String(req.query.status || '').trim();
         const pushed = anchor ? qlistTrue(anchor['Pushed To GF']) : false;
-        const parentStatus = QLIST_STATUS[parentRank];
+        let parentStatus = QLIST_STATUS[parentRank];
+        if (parentStatus === 'Confirmed' && pushed) parentStatus = 'Sent';   // rank 3 is parent-level only
         if (statusFilter === 'unpushed') {
-          if (parentStatus !== 'Confirmed' || pushed) continue;
+          if (parentStatus !== 'Confirmed') continue;   // Confirmed here already means "not yet Sent"
         } else if (statusFilter && statusFilter !== parentStatus) continue;
 
         groups.push({

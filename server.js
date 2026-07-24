@@ -1597,6 +1597,36 @@ app.post('/api/list-price-quotes', async (req, res) => {
     }));
     const adjustedCount = sections.reduce((n, s) => n + s.rows.filter(r => r.changed).length, 0);
 
+    // ✅ REVISE: revision of an existing archive — no new sequence number;
+    // quoteNo becomes <root>-Updated-N (N = existing revision count + 1)
+    const baseQ = clip(b.baseQuoteNo, 40);
+    if (baseQ) {
+      const baseRec = await conn.collection('list_price_quotes').findOne({ quoteNo: baseQ });
+      if (!baseRec) return res.status(404).json({ error: 'Base record ' + baseQ + ' not found.' });
+      if (auth.role === 'sales' && String(baseRec.salesGroup || '').trim() !== auth.salesGroup) {
+        return res.status(403).json({ error: 'This record belongs to another sales group.' });
+      }
+      const root = baseQ.replace(/-Updated-\d+$/i, '');
+      const rxRoot = root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const n = await conn.collection('list_price_quotes').countDocuments({ quoteNo: new RegExp('^' + rxRoot + '-Updated-\\d+$', 'i') });
+      const quoteNo = root + '-Updated-' + (n + 1);
+      const record = {
+        quoteNo, revisionOf: root, pageKey, pageTitle: master.title, category: master.category,
+        customer: {
+          company,
+          contact: clip(b.customer && b.customer.contact, 120),
+          phone: clip(b.customer && b.customer.phone, 60),
+          address: clip(b.customer && b.customer.address, 300),
+          paymentTerm: clip(b.customer && b.customer.paymentTerm, 60)
+        },
+        validThrough: clip(b.validThrough, 40), gfQuoteNo: clip(b.gfQuoteNo, 60),
+        sections, adjustedCount, username: auth.username, role: auth.role, salesGroup: auth.salesGroup,
+        createdAt: new Date()
+      };
+      await conn.collection('list_price_quotes').insertOne(record);
+      return res.json({ quoteNo, revisionOf: root });
+    }
+
     // atomic TTSLP sequence
     const counters = conn.collection('counters');
     let seqDoc = await counters.findOneAndUpdate(

@@ -100,6 +100,15 @@
         price += num(item[b[1] + ' Price']);
       });
     });
+    // ✅ LPQUOTE: dynamic List-Price rows count into the WH totals (mirrors server computeWarehouseTotals)
+    var lpArr = [];
+    try { lpArr = JSON.parse(String(item['LP Rows'] || '[]')); if (!Array.isArray(lpArr)) lpArr = []; } catch (eT) { lpArr = []; }
+    lpArr.forEach(function (r) {
+      var c = item['LP ' + r.i + ' Cost S' + sel];
+      if (c === undefined || c === null || String(c).trim() === '') c = item['LP ' + r.i + ' Cost'];
+      cost += num(c);
+      price += num(item['LP ' + r.i + ' Price']);
+    });
     var gp = price > 0 ? Math.round((price - cost) / price * 100) : null;
     return { cost: cost, price: price, gp: gp };
   };

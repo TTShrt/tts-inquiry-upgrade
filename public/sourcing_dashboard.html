@@ -2855,6 +2855,15 @@ ${qDel}`)) return;
               badge.textContent = '🏬 NEEDS WAREHOUSE QUOTE';
               box.appendChild(badge);
             }
+            // ✅ SUBTYPE: show the requested service sub-option at a glance (Sourcing picks the right template without opening the modal)
+            var _subLbl = String(item['Service Subtypes'] || '').split(/[;,]/)[0].trim();
+            if (_subLbl) {
+              var _sb = document.createElement('span');
+              _sb.className = 'wh-needed-badge';
+              _sb.style.background = '#eef2ff'; _sb.style.color = '#4361ee'; _sb.style.borderColor = '#c7d2fe';
+              _sb.textContent = '\ud83d\udccb ' + _subLbl;
+              box.appendChild(_sb);
+            }
 
             const mk = (label, val, cls) => {
               const s = document.createElement('span');

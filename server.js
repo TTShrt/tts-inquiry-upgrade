@@ -1522,10 +1522,13 @@ app.get('/api/quotation-print', async (req, res) => {
 //   counters           — atomic TTSLP-XXXXXX sequence
 // No route here writes to `inquiries` or to `list_prices`.
 
-function lpAuth(req, res) {
+function lpAuth(req, res, write) {
   const role = String(req.cookies?.role || '').toLowerCase();
   if (!role) { res.status(401).json({ error: 'Session expired. Please log in again.' }); return null; }
-  if (role !== 'sales' && role !== 'manager') { res.status(403).json({ error: 'Not authorized for List Price.' }); return null; }
+  // ✅ LPSEARCH: OPS (view-only roles) get READ access for order processing; writes stay Sales/Manager
+  const READ_ROLES = ['sales', 'manager', 'ops_view', 'viewer'];
+  if (write && role !== 'sales' && role !== 'manager') { res.status(403).json({ error: 'Not authorized for List Price downloads.' }); return null; }
+  if (!write && READ_ROLES.indexOf(role) < 0) { res.status(403).json({ error: 'Not authorized for List Price.' }); return null; }
   if (!conn || conn.readyState !== 1) { res.status(503).json({ error: 'Database not ready. Please retry.' }); return null; }
   return {
     role,
@@ -1568,7 +1571,7 @@ app.get('/api/list-price-page', async (req, res) => {
 // Download record: called once per PDF download; assigns the TTSLP number and archives the snapshot
 app.post('/api/list-price-quotes', async (req, res) => {
   try {
-    const auth = lpAuth(req, res); if (!auth) return;
+    const auth = lpAuth(req, res, true); if (!auth) return;   // ✅ LPSEARCH: write op
     const b = req.body || {};
     const clip = (v, n) => String(v == null ? '' : v).slice(0, n);
     const company = clip(b.customer && b.customer.company, 200).trim();
@@ -1630,13 +1633,37 @@ app.post('/api/list-price-quotes', async (req, res) => {
   }
 });
 
+// ✅ LPSEARCH: single archived record with full snapshot (read-only; OPS allowed)
+app.get('/api/list-price-quote-detail', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  try {
+    const auth = lpAuth(req, res); if (!auth) return;
+    const no = String(req.query.no || '').trim();
+    if (!no) return res.status(400).json({ error: 'Missing quotation number.' });
+    const rec = await conn.collection('list_price_quotes').findOne({ quoteNo: no });
+    if (!rec) return res.status(404).json({ error: 'Record ' + no + ' not found.' });
+    if (auth.role === 'sales' && String(rec.salesGroup || '').trim() !== auth.salesGroup) {
+      return res.status(403).json({ error: 'This record belongs to another sales group.' });
+    }
+    return res.json({ record: rec });
+  } catch (err) {
+    console.error('\u274c /api/list-price-quote-detail error:', err);
+    return res.status(500).json({ error: 'Server error while loading the record.' });
+  }
+});
+
 // Recent downloads: manager sees all, sales sees own group
 app.get('/api/list-price-quotes', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   try {
     const auth = lpAuth(req, res); if (!auth) return;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 20);
-    const filter = auth.role === 'manager' ? {} : { salesGroup: auth.salesGroup };
+    const qStr = String(req.query.q || '').trim();   // ✅ LPSEARCH
+    const limit = Math.min(parseInt(req.query.limit, 10) || (qStr ? 50 : 10), qStr ? 50 : 20);
+    const filter = (auth.role === 'sales') ? { salesGroup: auth.salesGroup } : {};   // manager & OPS: all groups
+    if (qStr) {
+      const rx = new RegExp(qStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filter.$or = [{ quoteNo: rx }, { 'customer.company': rx }, { gfQuoteNo: rx }];
+    }
     const recs = await conn.collection('list_price_quotes')
       .find(filter, { projection: { quoteNo: 1, pageTitle: 1, pageKey: 1, 'customer.company': 1, username: 1, createdAt: 1, adjustedCount: 1 } })
       .sort({ createdAt: -1 }).limit(limit).toArray();

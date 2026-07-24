@@ -140,6 +140,9 @@
     <div class="dir-grid" id="dirGrid"></div>
   </div>
 
+  <!-- Archived snapshot view (read-only) -->
+  <div class="app" id="vSnap"></div>
+
   <!-- Service page view -->
   <div class="app" id="vPage">
     <div class="card">
@@ -149,7 +152,7 @@
           <h2 id="pgTitle"></h2>
           <div class="sub">Master prices are read-only. Your edits apply to this download only and are archived with the record. Only GM can change master prices.</div>
         </div>
-        <button class="btn btn-primary" onclick="downloadPDF()">Download PDF &#11015;</button>
+        <button class="btn btn-primary" id="btnDl" onclick="downloadPDF()">Download PDF &#11015;</button>
       </div>
       <div class="cust-grid">
         <div class="fg"><label>Company Name <b>*</b></label><input id="cCompany" placeholder="Customer company name"></div>
@@ -327,27 +330,84 @@ function renderDir() {
     });
     html += '</div>';
   });
-  html += '<div class="card dir-group"><h3>&#128340; Recent Downloads</h3><div style="font-size:.72rem;color:var(--muted);margin-bottom:8px;">Manager sees all / Sales sees own group</div><div id="recentBox"><span style="font-size:.75rem;color:var(--muted);">Loading…</span></div></div>';
+  html += '<div class="card dir-group"><h3>&#128340; Download Records</h3>'
+    + '<div style="font-size:.72rem;color:var(--muted);margin-bottom:8px;">Search by TTSLP # / customer / GF # &middot; Manager &amp; OPS see all, Sales own group</div>'
+    + '<div style="display:flex;gap:8px;margin-bottom:10px;">'
+    + '<input id="recSearch" placeholder="e.g. TTSLP-000012 or customer name" style="flex:1;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font:inherit;font-size:.8rem;" onkeydown="if(event.key===\'Enter\')searchRecs()">'
+    + '<button class="btn" onclick="searchRecs()">Search</button></div>'
+    + '<div id="recentBox"><span style="font-size:.75rem;color:var(--muted);">Loading…</span></div></div>';
   document.getElementById('dirGrid').innerHTML = html;
   const v = DIR[0] && DIR[0].validThrough;
   if (v) { const pill = document.getElementById('validPill'); pill.textContent = 'Valid Through: ' + v; pill.style.display = 'inline-block'; }
 }
 
-async function loadRecent() {
+async function loadRecent(q) {
   try {
-    const res = await fetch('/api/list-price-quotes?limit=8', { credentials: 'same-origin' });
+    const url = '/api/list-price-quotes?limit=' + (q ? 50 : 8) + (q ? '&q=' + encodeURIComponent(q) : '');
+    const res = await fetch(url, { credentials: 'same-origin' });
     if (authGate(res)) return;
     const data = await res.json();
     const box = document.getElementById('recentBox');
     if (!box) return;
     const recs = (data.records || []);
     box.innerHTML = recs.length
-      ? recs.map(r => '<div class="rec-line">' + esc(r.quoteNo) + ' &middot; ' + esc((r.customer && r.customer.company) || '') + ' &middot; ' + esc(r.pageTitle) + ' &middot; ' + esc(r.username) + ' &middot; ' + esc((r.createdAt || '').slice(5, 10)) + (r.adjustedCount ? ' &middot; ' + r.adjustedCount + ' adj.' : '') + '</div>').join('')
-      : '<span style="font-size:.75rem;color:var(--muted);">No downloads yet.</span>';
+      ? recs.map(r => '<div class="rec-line" style="cursor:pointer;" onclick="openSnap(\'' + esc(r.quoteNo) + '\')" title="View archived quotation"><b style="color:var(--primary);">' + esc(r.quoteNo) + '</b> &middot; ' + esc((r.customer && r.customer.company) || '') + ' &middot; ' + esc(r.pageTitle) + ' &middot; ' + esc(r.username) + ' &middot; ' + esc(String(r.createdAt || '').slice(0, 10)) + (r.adjustedCount ? ' &middot; <span style="color:var(--warn);">' + r.adjustedCount + ' adj.</span>' : '') + (r.gfQuoteNo ? ' &middot; GF: ' + esc(r.gfQuoteNo) : '') + '</div>').join('')
+      : '<span style="font-size:.75rem;color:var(--muted);">' + (q ? 'No records match.' : 'No downloads yet.') + '</span>';
   } catch (e) { /* non-blocking */ }
+}
+function searchRecs() { loadRecent((document.getElementById('recSearch') || { value: '' }).value.trim()); }   // ✅ LPSEARCH
+
+// ✅ LPSEARCH: read-only archived snapshot view (OPS order processing)
+async function openSnap(no) {
+  hideBanner();
+  try {
+    const res = await fetch('/api/list-price-quote-detail?no=' + encodeURIComponent(no), { credentials: 'same-origin' });
+    if (authGate(res)) return;
+    const data = await res.json();
+    if (!res.ok) { showBanner('\u26D4 ' + (data.error || 'Unable to load record.')); return; }
+    const r = data.record;
+    let h = '<div class="card"><div style="font-size:.78rem;color:var(--muted);margin-bottom:10px;cursor:pointer;" onclick="showDir()">&#8592; Back to directory</div>'
+      + '<div class="svc-head"><div><h2>' + esc(r.quoteNo) + ' &middot; ' + esc(r.pageTitle) + '</h2>'
+      + '<div class="sub">Archived ' + esc(String(r.createdAt || '').slice(0, 10)) + ' by ' + esc(r.username) + (r.gfQuoteNo ? ' &middot; GF: ' + esc(r.gfQuoteNo) : '') + ' &middot; Read-only archive</div></div>'
+      + '<button class="btn btn-primary" onclick="reprintSnap()">Print archived PDF</button></div>'
+      + '<div style="font-size:.8rem;margin-bottom:10px;"><b>' + esc((r.customer && r.customer.company) || '') + '</b>'
+      + ((r.customer && r.customer.contact) ? ' &middot; ' + esc(r.customer.contact) : '') + ((r.customer && r.customer.phone) ? ' &middot; ' + esc(r.customer.phone) : '')
+      + ((r.customer && r.customer.address) ? '<br>' + esc(r.customer.address) : '') + '</div>'
+      + '<table class="pt"><tr><th style="width:38%">Service Description</th><th style="text-align:right;">Quoted Price</th><th style="text-align:right;">List Price</th><th>Unit</th><th>Notes</th></tr>';
+    (r.sections || []).forEach(sec => {
+      if (sec.heading) h += '<tr class="grp"><td colspan="5">' + esc(sec.heading) + '</td></tr>';
+      (sec.rows || []).forEach(row => {
+        h += '<tr' + (row.changed ? ' style="background:#fffbeb;"' : '') + '><td>' + esc(row.description) + '</td>'
+          + '<td style="text-align:right;font-weight:700;">' + esc(row.price || '\u2014') + '</td>'
+          + '<td class="lp">' + (row.changed ? '<s>' + esc(row.listPrice || '\u2014') + '</s>' : esc(row.listPrice || '\u2014')) + '</td>'
+          + '<td class="lk">' + esc(row.unit) + '</td><td class="lk">' + esc(row.notes) + '</td></tr>';
+      });
+    });
+    h += '</table><div class="legend"><span><span class="dot"></span>Adjusted rows (quoted differs from list price)</span></div></div>';
+    window.__snapRec = r;
+    document.getElementById('vSnap').innerHTML = h;
+    document.getElementById('vDir').classList.remove('on');
+    document.getElementById('vPage').classList.remove('on');
+    document.getElementById('vSnap').classList.add('on');
+    window.scrollTo(0, 0);
+  } catch (e) { showBanner('Failed to load record: ' + e.message); }
+}
+
+// ✅ LPSEARCH: reprint the archive exactly as recorded (page meta fetched for layout/notes)
+async function reprintSnap() {
+  const r = window.__snapRec; if (!r) return;
+  try {
+    const res = await fetch('/api/list-price-page?key=' + encodeURIComponent(r.pageKey), { credentials: 'same-origin' });
+    const data = await res.json();
+    CUR = (res.ok && data.page) ? data.page : { pageKey: r.pageKey, title: r.pageTitle, category: r.category, layout: 'price', pageNote: '', sections: [] };
+    const p = { pageKey: r.pageKey, customer: r.customer || {}, validThrough: r.validThrough || '', gfQuoteNo: r.gfQuoteNo || '', sections: r.sections || [] };
+    window.__printBack = 'snap';
+    renderPrint(p, r.quoteNo);
+  } catch (e) { showBanner('Reprint failed: ' + e.message); }
 }
 
 function showDir() {
+  document.getElementById('vSnap').classList.remove('on');   // ✅ LPSEARCH
   document.getElementById('vPage').classList.remove('on');
   document.getElementById('vDir').classList.add('on');
   document.getElementById('printWrap').classList.remove('on');
@@ -371,6 +431,8 @@ async function openPage(key) {
     const noteEl = document.getElementById('pgNote');
     if (CUR.pageNote) { noteEl.textContent = CUR.pageNote; noteEl.style.display = 'block'; }
     else noteEl.style.display = 'none';
+    const dl = document.getElementById('btnDl');   // ✅ LPSEARCH: OPS is read-only — no downloads
+    if (dl) dl.style.display = (window.__lpRole === 'ops_view' || window.__lpRole === 'viewer') ? 'none' : '';
     document.getElementById('vDir').classList.remove('on');
     document.getElementById('vPage').classList.add('on');
     window.scrollTo(0, 0);
@@ -535,7 +597,8 @@ function renderPrint(p, quoteNo) {
 function backToPage() {
   document.getElementById('printWrap').classList.remove('on');
   document.getElementById('appTopbar').style.display = '';
-  document.getElementById('vPage').classList.add('on');
+  if (window.__printBack === 'snap') { document.getElementById('vSnap').classList.add('on'); window.__printBack = ''; }   // ✅ LPSEARCH
+  else document.getElementById('vPage').classList.add('on');
 }
 
 // fetch current user's name for "Prepared by"

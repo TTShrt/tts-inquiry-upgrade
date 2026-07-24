@@ -75,6 +75,11 @@
   html{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .lic{width:13px;height:13px;vertical-align:-2px;margin-right:5px;}
   .pnote{margin-top:12px;font-size:9.5px;line-height:1.55;white-space:pre-line;font-style:italic;}
+  /* ✅ POLISH: readability for dense price tables */
+  .rt tr.zeb td{background:#F7FAFC !important;}
+  .rt tr.grp td .grp-sub{font-weight:400;font-style:italic;color:#5b6b7c;}
+  .rt td.tier{padding-left:16px !important;}
+  .rt.dense td{padding:3px 6px !important;} .rt.dense th{padding:5px 6px !important;}
   .rt td{font-weight:bold;}   /* ✅ STYLE: bold table body, same as the original GoFreight quote */
   .rt th{background:#E9F0F8 !important;color:var(--tts-blue) !important;border-top:1.5px solid var(--tts-blue) !important;border-bottom:1px solid var(--tts-blue) !important;}
   .rt tr:last-child td{border-bottom:1.5px solid var(--tts-blue) !important;}
@@ -344,7 +349,7 @@ function buildLpQuoteTable(d) {
   if (!lpRows.length) return '';
   const hasMin = lpRows.some(r => String(r.minChg || '').trim() !== '');   // ✅ STYLE: hide MIN.CHG when the whole page has none
   const grpSpan = hasMin ? 6 : 5;
-  let rows = '', lastSec = null, printed = 0;
+  let rows = '', lastSec = null, printed = 0, zi = 0;   // ✅ POLISH
   lpRows.forEach(r => {
     const quoted = val(d, 'LP ' + r.i + ' Price');
     const desc = r.custom ? val(d, 'LP ' + r.i + ' Desc') : r.description;
@@ -353,11 +358,15 @@ function buildLpQuoteTable(d) {
     const sec = String(r.section || '');
     if (sec !== lastSec) {
       lastSec = sec;
-      if (sec && !(r.custom && sec === 'Others')) rows += '<tr class="grp"><td colspan="' + grpSpan + '" contenteditable="true">' + esc(sec) + '</td></tr>';
+      zi = 0;   // ✅ POLISH: zebra restarts per section
+      const hm = String(sec).match(/^([^(（]*)([(（].*)$/);
+      const headHtml = hm ? esc(hm[1].trim()) + ' <span class="grp-sub">' + esc(hm[2]) + '</span>' : esc(sec);
+      if (sec && !(r.custom && sec === 'Others')) rows += '<tr class="grp"><td colspan="' + grpSpan + '" contenteditable="true">' + headHtml + '</td></tr>';
       if (r.custom && sec === 'Others') rows += '<tr class="grp"><td colspan="' + grpSpan + '" contenteditable="true">Additional Items</td></tr>';
     }
     const qty = val(d, 'LP ' + r.i + ' Qty');
-    rows += '<tr><td class="desc" contenteditable="true">' + esc(desc) + '</td>'
+    const tier = /^\s*(\d[\d.]*\s*<\s*X|>\s*\d)/.test(String(desc));   // ✅ POLISH
+    rows += '<tr' + ((zi++ % 2) ? ' class="zeb"' : '') + '><td class="desc' + (tier ? ' tier' : '') + '" contenteditable="true">' + esc(desc) + '</td>'
       + '<td class="cur">USD</td>'
       + '<td class="rate">' + priceText + '</td>'
       + '<td class="unit" contenteditable="true">' + esc(r.unit) + '</td>'
@@ -368,7 +377,7 @@ function buildLpQuoteTable(d) {
   if (!printed) return '';
   const sub = String(d['Service Subtypes'] || '').split(/[;,]/)[0].trim();
   return '<h3 class="lane" contenteditable="true">' + ic('wh') + 'WAREHOUSE \u2014 ' + esc(sub || 'Services') + '</h3>'
-    + '<table class="rt"><tr><th style="width:42%">SERVICE DESCRIPTION</th><th style="width:6%">CUR.</th><th style="width:10%">PRICE</th><th style="width:12%">UNIT</th>' + (hasMin ? '<th style="width:8%">MIN. CHG</th>' : '') + '<th>PRICING NOTES</th></tr>' + rows + '</table>'
+    + '<table class="rt' + (printed > 28 ? ' dense' : '') + '"><tr><th style="width:42%">SERVICE DESCRIPTION</th><th style="width:6%">CUR.</th><th style="width:10%">PRICE</th><th style="width:12%">UNIT</th>' + (hasMin ? '<th style="width:8%">MIN. CHG</th>' : '') + '<th>PRICING NOTES</th></tr>' + rows + '</table>'
     + (d['LP Page Note'] ? '<div class="pnote" contenteditable="true">' + esc(d['LP Page Note']) + '</div>' : '');   // ✅ LPQUOTE: Excel policy notes
 }
 

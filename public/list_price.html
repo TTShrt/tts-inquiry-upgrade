@@ -85,6 +85,11 @@
   .rt tr.grp td{background:#f5f5f5;font-weight:bold;}
   .rt tr:last-child td{border-bottom:1.5px solid #333;}
   .rt .r{text-align:right;font-weight:bold;white-space:nowrap;}
+  /* ✅ POLISH: readability for dense price tables */
+  .rt tr.zeb td{background:#F7FAFC !important;}
+  .rt tr.grp td .grp-sub{font-weight:400;font-style:italic;color:#5b6b7c;}
+  .rt td.tier{padding-left:16px !important;}
+  .rt.dense td{padding:3px 6px !important;} .rt.dense th{padding:5px 6px !important;}
   .pnote{margin-top:12px;font-size:9.5px;line-height:1.55;white-space:pre-line;font-style:italic;}
   .terms{margin-top:12px;font-size:8.5px;font-weight:bold;line-height:1.55;}
   .sig{margin-top:34px;text-align:center;}
@@ -557,11 +562,20 @@ function renderPrint(p, quoteNo) {
   const two = CUR.layout === 'twocol';
   const hasMin = !two && p.sections.some(s => s.rows.some(r => String(r.minChg || '').trim() !== ''));   // ✅ STYLE
   let tables = '';
+  let zi = 0;   // ✅ POLISH
+  const totalRows = p.sections.reduce((n, s) => n + (s.heading ? 1 : 0) + s.rows.length, 0);
+  const denseCls = (!two && totalRows > 28) ? ' dense' : '';   // ✅ POLISH: tighten padding only on very long pages
   p.sections.forEach(s => {
     let rows = '';
-    if (s.heading) rows += '<tr class="grp"><td colspan="' + (two ? 2 : (hasMin ? 6 : 5)) + '">' + esc(s.heading) + '</td></tr>';
+    if (s.heading) {
+      zi = 0;   // ✅ POLISH: zebra restarts per section
+      const hm = String(s.heading).match(/^([^(（]*)([(（].*)$/);   // ✅ POLISH: demote parenthetical detail
+      const headHtml = hm ? esc(hm[1].trim()) + ' <span class="grp-sub">' + esc(hm[2]) + '</span>' : esc(s.heading);
+      rows += '<tr class="grp"><td colspan="' + (two ? 2 : (hasMin ? 6 : 5)) + '">' + headHtml + '</td></tr>';
+    }
     s.rows.forEach(r => {
-      rows += '<tr><td>' + esc(r.description) + '</td>'
+      const tier = /^\s*(\d[\d.]*\s*<\s*X|>\s*\d)/.test(String(r.description));   // ✅ POLISH: weight-tier sub-rows indent
+      rows += '<tr' + ((zi++ % 2) ? ' class="zeb"' : '') + '><td' + (tier ? ' class="tier"' : '') + '>' + esc(r.description) + '</td>'
         + (two ? '' : '<td>USD</td>')
         + '<td class="' + (two ? '' : 'r') + '">' + esc(r.price || '\u2014') + '</td>'
         + (two ? '' : ('<td>' + esc(r.unit) + '</td>' + (hasMin ? '<td class="r" style="font-weight:normal;">' + esc(r.minChg) + '</td>' : '') + '<td>' + esc(r.notes) + '</td>'))
@@ -591,7 +605,7 @@ function renderPrint(p, quoteNo) {
     + '<div><span>VALID THROUGH</span><span>' + esc(p.validThrough || '') + '</span></div>'
     + '</div></div>'
     + '<h3 class="lane">' + ic(CAT_ICON[CUR.category] || 'wh') + esc(CUR.category) + ' : ' + esc(CUR.title) + '</h3>'
-    + '<table class="rt">' + thead + tables + '</table>'
+    + '<table class="rt' + denseCls + '">' + thead + tables + '</table>'
     + (CUR.pageNote ? '<div class="pnote">' + esc(CUR.pageNote) + '</div>' : '')
     + (isDrayage ? '<div style="margin-top:12px;font-size:10px;font-weight:bold;line-height:1.5;">NON-HAZARDOUS, FSC INCLU<br>INSURANCE POLICY:<br>THE TRUCKING INSURANCE COVERAGE LIMIT IS $100,000 PER CONTAINER. IF THE CARGO VALUE EXCEEDS $100,000 PER CONTAINER AND FULL COVERAGE IS REQUIRED, AN INSURANCE FEE OF 0.25% WILL BE CHARGED ON THE AMOUNT EXCEEDING $100,000.<br>\u5361\u8F66\u8FD0\u8F93\u4FDD\u9669\u91D1\u989D\u4E0A\u9650\u4E3A10\u4E07\u7F8E\u91D1/\u67DC\uFF0C\u5982\u679C\u8D27\u7269\u4EF7\u503C\u8D85\u8FC710\u4E07\u7F8E\u91D1/\u67DC\u4E14\u9700\u8981\u5168\u989D\u4FDD\u9669\uFF0C\u8D85\u8FC710\u4E07\u7F8E\u91D1\u7684\u90E8\u5206\u9700\u8981\u652F\u4ED80.25%\u7684\u4FDD\u9669\u8D39\u3002</div>' : '')
     + (isWh ? termsSigHTML : '')

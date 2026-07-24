@@ -241,7 +241,9 @@
 
     ov.innerHTML =
       '<div class="whm" role="dialog" aria-label="Warehouse cost and price">' +
-        '<div class="whm-hd"><h3>Warehouse cost &amp; price \u2014 Quote ' + esc(quote) + '</h3><button class="whm-x" data-close aria-label="Close">\u00d7</button></div>' +
+        '<div class="whm-hd"><h3>Warehouse cost &amp; price \u2014 Quote ' + esc(quote) + '</h3>' +
+          ((role === 'sales' || role === 'manager') ? '<button class="whm-btn whm-export" type="button" title="Export Quotation (Print / PDF) \u2014 prices appear after Send to Sales" onclick="window.open(\'/quotation_print.html?q=\' + encodeURIComponent(\'' + esc(quote) + '\'), \'_blank\')">Export PDF</button>' : '') +   // ✅ EXPORT: quick access from the modal (sourcing has no export permission)
+          '<button class="whm-x" data-close aria-label="Close">\u00d7</button></div>' +
 
         '<div class="whm-common">' +
           '<div class="whm-cleft">' +
@@ -280,12 +282,12 @@
 
         '<div class="whm-tablewrap"><table class="whm-table">' +
           '<colgroup>' +
-            '<col style="width:26px"><col style="width:150px"><col style="width:88px"><col style="width:70px">' +
+            '<col style="width:26px"><col style="width:150px">' + (lpMode ? '' : '<col style="width:88px">') + '<col style="width:70px">' +
             (function () { var c = ''; for (var i = 0; i < SUP; i++) c += '<col>'; return c; })() +
             (showPrice ? '<col style="width:80px"><col style="width:48px">' : '') +
           '</colgroup>' +
           '<thead><tr>' +
-            '<th class="whm-oqcol" title="Include this row in the quote sheet">\uD83D\uDCC4</th><th class="l">Service</th><th class="l whm-qcol">Qty / detail</th><th>Unit</th>' +
+            '<th class="whm-oqcol" title="Include this row in the quote sheet">\uD83D\uDCC4</th><th class="l">Service</th>' + (lpMode ? '' : '<th class="l whm-qcol">Qty / detail</th>') + '<th>Unit</th>' +
             headCols +
             (showPrice ? '<th class="r whm-pcol">Price</th><th class="r">GP</th>' : '') +
           '</tr></thead>' +
@@ -318,7 +320,7 @@
     // ✅ LPQUOTE: tiny extra styles (once)
     if (!document.getElementById('whm-lp-css')) {
       var stLp = document.createElement('style'); stLp.id = 'whm-lp-css';
-      stLp.textContent = '.whm-lpref{font-size:10px;color:#94a3b8;text-align:right;margin-top:1px;}.whm-in-desc{background:#fefce8;border-style:dashed;}.whm-lpnote{cursor:help;color:#94a3b8;}.whm-subgrp-lbl{font-size:11px;color:#64748b;font-weight:600;margin:0 4px 0 10px;}.whm-ro{font-size:12px;color:#334155;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;min-height:18px;white-space:pre-wrap;}';
+      stLp.textContent = '.whm-lpref{font-size:10px;color:#94a3b8;text-align:right;margin-top:1px;}.whm-in-desc{background:#fefce8;border-style:dashed;}.whm-lpnote{cursor:help;color:#94a3b8;}.whm-subgrp-lbl{font-size:11px;color:#64748b;font-weight:600;margin:0 4px 0 10px;}.whm-ro{font-size:12px;color:#334155;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;min-height:18px;white-space:pre-wrap;}.whm-export{margin-left:auto;margin-right:10px;background:#4361ee;color:#fff;border-color:#4361ee;}';
       document.head.appendChild(stLp);
     }
     // ✅ LPQUOTE: first open of a sub-typed inquiry — build the snapshot server-side, then re-render
@@ -415,7 +417,7 @@
         var sec = String(r.section || '');
         if (sec !== lastSec) {
           gi++; lastSec = sec;
-          h += '<tr class="whm-grp" data-g="lp' + gi + '"><td colspan="4" class="l">\uD83D\uDCCB ' + esc(sec || 'Services') + '</td>' +
+          h += '<tr class="whm-grp" data-g="lp' + gi + '"><td colspan="3" class="l">\uD83D\uDCCB ' + esc(sec || 'Services') + '</td>' +
             '<td colspan="' + SUP + '"></td>' +
             (showPrice ? '<td class="r" data-gsub="lp' + gi + '"></td><td></td>' : '') + '</tr>';
         }
@@ -425,7 +427,6 @@
         h += '<td class="l">' + (r.custom
           ? '<input class="whm-cell whm-in-desc" style="text-align:left" data-lpdesc="' + r.i + '" value="' + esc(get(fld + ' Desc')) + '" placeholder="Custom line item description" ' + ((canEditCommon || canEditCost) ? '' : 'disabled') + '>'
           : esc(r.description) + (r.notes ? ' <span class="whm-lpnote" title="' + esc(r.notes) + '">\u24D8</span>' : '')) + '</td>';
-        h += '<td class="l whm-qcol"><input class="whm-cell" style="text-align:left" data-field="' + esc(fld) + ' Qty" value="' + esc(get(fld + ' Qty')) + '" placeholder="qty / detail" ' + (canEditCommon ? '' : 'disabled') + '></td>';
         h += '<td>' + (r.unit ? '<span class="whm-unit">' + esc(r.unit) + '</span>' : '') + '</td>';
         for (var w2 = 1; w2 <= SUP; w2++) {
           h += '<td class="whm-col cost ' + (w2 === sel ? 'sel' : 'dim') + '" data-w="' + w2 + '">' +

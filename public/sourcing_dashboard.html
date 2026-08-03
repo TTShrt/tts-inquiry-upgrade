@@ -3194,14 +3194,27 @@ ${qDel}`)) return;
   </div>
 <script>
 // ══ Scroll fix: outer handles both vertical + horizontal ══
+// 2026-08-03: max-height is now computed dynamically from the outer's actual top
+// offset instead of a hard-coded 70px, so the horizontal scrollbar stays inside
+// the viewport even when the QLIST draft banner (or any future header change)
+// pushes content down. body has overflow:hidden, so a clipped scrollbar was
+// otherwise unreachable. Recomputed on resize and via window.__fitScrollOuter
+// (called by the banner script after insert/remove).
 (function() {
   const inner = document.getElementById('fixed-scroll-wrapper');
   if (!inner) return;
   const outer = document.createElement('div');
   outer.id = 'v-scroll-outer';
-  outer.style.cssText = 'overflow:auto; max-height:calc(100vh - 70px); width:100%; border:none;';
+  outer.style.cssText = 'overflow:auto; width:100%; border:none;';
+  const fit = function() {
+    const top = outer.getBoundingClientRect().top;
+    outer.style.maxHeight = Math.max(200, window.innerHeight - top - 4) + 'px';
+  };
+  window.__fitScrollOuter = fit;
+  window.addEventListener('resize', fit);
   inner.parentNode.insertBefore(outer, inner);
   outer.appendChild(inner);
+  fit();
   // Inner: no scroll, just expand to table width
   inner.style.setProperty('overflow', 'visible', 'important');
   inner.style.setProperty('max-height', 'none', 'important');
@@ -3230,12 +3243,16 @@ ${qDel}`)) return;
 (function () {
   var el = null;
   function render(n) {
-    if (!n || n < 1) { if (el) { el.remove(); el = null; } return; }
+    if (!n || n < 1) {
+      if (el) { el.remove(); el = null; if (window.__fitScrollOuter) window.__fitScrollOuter(); } // 2026-08-03: resize scroll outer after banner removal
+      return;
+    }
     if (!el) {
       el = document.createElement('div');
       el.id = 'qlistDraftBanner';
       el.style.cssText = 'background:#fffbeb;color:#92400e;border-bottom:1px solid #fde68a;padding:8px 16px;font-size:13px;font-weight:600;text-align:center;';
       document.body.insertBefore(el, document.body.firstChild);
+      if (window.__fitScrollOuter) window.__fitScrollOuter(); // 2026-08-03: resize scroll outer after banner insertion pushes content down
     }
     el.textContent = '\u26a0 ' + n + ' \u7b14\u6210\u672c\u5df2\u4fdd\u5b58\u4f46\u5c1a\u672a\u53d1\u9001\u7ed9 Sales\uff0c\u8bf7\u52fe\u9009 Send to Sales / ' + n + ' cost(s) saved but not yet sent to Sales';
   }

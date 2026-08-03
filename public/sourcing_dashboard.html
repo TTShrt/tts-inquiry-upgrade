@@ -3208,7 +3208,7 @@ ${qDel}`)) return;
   outer.style.cssText = 'overflow:auto; width:100%; border:none;';
   const fit = function() {
     const top = outer.getBoundingClientRect().top;
-    outer.style.maxHeight = Math.max(200, window.innerHeight - top - 4) + 'px';
+    outer.style.maxHeight = Math.max(200, window.innerHeight - top - 18) + 'px'; // 18 = 14px fixed proxy scrollbar + margin
   };
   window.__fitScrollOuter = fit;
   window.addEventListener('resize', fit);
@@ -3221,6 +3221,40 @@ ${qDel}`)) return;
   inner.style.setProperty('border', 'none', 'important');
   inner.style.setProperty('border-radius', '0', 'important');
   inner.style.setProperty('width', 'max-content', 'important');
+
+  // 2026-08-03 v3: fixed proxy scrollbar pinned to the viewport bottom.
+  // The outer's own scrollbar sits at its bottom edge, which can land a few px
+  // outside the viewport depending on zoom level / font loading / OS scaling.
+  // This proxy is position:fixed so it is ALWAYS visible regardless of geometry,
+  // and is two-way synced with the outer's horizontal scroll position.
+  const proxy = document.createElement('div');
+  proxy.id = 'h-scroll-proxy';
+  proxy.style.cssText = 'position:fixed;left:0;right:0;bottom:0;height:14px;overflow-x:auto;overflow-y:hidden;background:#e2e8f0;border-top:1px solid #cbd5e1;z-index:9998;display:none;';
+  const spacer = document.createElement('div');
+  spacer.style.height = '1px';
+  proxy.appendChild(spacer);
+  document.body.appendChild(proxy);
+  let syncing = false;
+  proxy.addEventListener('scroll', function() {
+    if (syncing) return; syncing = true;
+    outer.scrollLeft = proxy.scrollLeft;
+    syncing = false;
+  });
+  outer.addEventListener('scroll', function() {
+    if (syncing) return; syncing = true;
+    proxy.scrollLeft = outer.scrollLeft;
+    syncing = false;
+  });
+  const syncProxy = function() {
+    spacer.style.width = outer.scrollWidth + 'px';
+    const need = outer.scrollWidth > outer.clientWidth + 1;
+    proxy.style.display = need ? 'block' : 'none';
+    proxy.scrollLeft = outer.scrollLeft;
+  };
+  window.__syncScrollProxy = syncProxy;
+  window.addEventListener('resize', syncProxy);
+  if (window.ResizeObserver) { new ResizeObserver(syncProxy).observe(inner); } // fires when the table re-renders / width changes
+  syncProxy();
 })();
 </script>
 <style>
@@ -3228,10 +3262,10 @@ ${qDel}`)) return;
    Defining ::-webkit-scrollbar opts Chrome/Edge out of overlay scrollbars
    (which stay hidden until hover/scroll on some Windows machines), so the
    horizontal bar is permanently visible and easy to grab. */
-#v-scroll-outer::-webkit-scrollbar { height: 12px; width: 12px; }
-#v-scroll-outer::-webkit-scrollbar-track { background: #e2e8f0; }
-#v-scroll-outer::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 6px; }
-#v-scroll-outer::-webkit-scrollbar-thumb:hover { background: #64748b; }
+#v-scroll-outer::-webkit-scrollbar, #h-scroll-proxy::-webkit-scrollbar { height: 12px; width: 12px; }
+#v-scroll-outer::-webkit-scrollbar-track, #h-scroll-proxy::-webkit-scrollbar-track { background: #e2e8f0; }
+#v-scroll-outer::-webkit-scrollbar-thumb, #h-scroll-proxy::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 6px; }
+#v-scroll-outer::-webkit-scrollbar-thumb:hover, #h-scroll-proxy::-webkit-scrollbar-thumb:hover { background: #64748b; }
 /* Unify separator line */
 #summaryTable tr.row-truck-head td,
 #summaryTable tr.row-wh-head td {

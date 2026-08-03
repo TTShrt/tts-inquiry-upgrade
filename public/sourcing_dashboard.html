@@ -3224,6 +3224,14 @@ ${qDel}`)) return;
 })();
 </script>
 <style>
+/* 2026-08-03: force classic, always-visible scrollbars on #v-scroll-outer.
+   Defining ::-webkit-scrollbar opts Chrome/Edge out of overlay scrollbars
+   (which stay hidden until hover/scroll on some Windows machines), so the
+   horizontal bar is permanently visible and easy to grab. */
+#v-scroll-outer::-webkit-scrollbar { height: 12px; width: 12px; }
+#v-scroll-outer::-webkit-scrollbar-track { background: #e2e8f0; }
+#v-scroll-outer::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 6px; }
+#v-scroll-outer::-webkit-scrollbar-thumb:hover { background: #64748b; }
 /* Unify separator line */
 #summaryTable tr.row-truck-head td,
 #summaryTable tr.row-wh-head td {
@@ -3254,7 +3262,7 @@ ${qDel}`)) return;
       document.body.insertBefore(el, document.body.firstChild);
       if (window.__fitScrollOuter) window.__fitScrollOuter(); // 2026-08-03: resize scroll outer after banner insertion pushes content down
     }
-    el.textContent = '\u26a0 ' + n + ' \u7b14\u6210\u672c\u5df2\u4fdd\u5b58\u4f46\u5c1a\u672a\u53d1\u9001\u7ed9 Sales\uff0c\u8bf7\u52fe\u9009 Send to Sales / ' + n + ' cost(s) saved but not yet sent to Sales';
+    el.textContent = '\u26a0 ' + n + ' cost(s) saved but not yet sent to Sales \u2014 please tick "Send to Sales"'; // 2026-08-03: English-only per Lina (was bilingual CN/EN)
   }
   function poll() {
     fetch('/api/kpi', { credentials: 'same-origin' }).then(function (r) {

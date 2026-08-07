@@ -923,8 +923,20 @@ app.get('/api/kpi', async (req, res) => {
       return res.json({ error: 'DB not ready' });
     }
 
+    // ✅ KPIPROJ: fetch ONLY the fields the KPI math below actually reads (verified against all
+    // three role branches: sales/ops_view, sourcing, manager). Full docs carry dozens of WH/LP/
+    // supplier-cost fields and were costing ~130MB of RSS per dashboard load at 2737 docs.
+    const KPI_PROJECTION = {
+      'Quotation #': 1, 'External Quotation #': 1, 'Customer ID': 1, 'From': 1,
+      'Date': 1, createdAt: 1, 'GP': 1, 'Assigned Sales': 1, username: 1, 'Selected': 1,
+      truckingSalesConfirmed: 1, truckingManagerConfirmed: 1,
+      warehouseSalesConfirmed: 1, warehouseManagerConfirmed: 1,
+      truckingCostSent: 1, warehouseCostSent: 1,
+      truckingCostSaved: 1, warehouseCostSaved: 1
+    };
+
     // Get all main lines (no dash-suffix = main quotation)
-    const allDocs = await Inquiry.find({}).lean();
+    const allDocs = await Inquiry.find({}, KPI_PROJECTION).lean();
     console.log('[READ] /api/kpi rows=' + allDocs.length);   // ✅ MEMWATCH: full-collection load
 
     // Filter main lines only (e.g. 004790, not 004790-1)

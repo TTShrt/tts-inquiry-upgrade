@@ -1356,8 +1356,38 @@ app.get('/inquiries', async (req, res) => {
     let queryFilter = {};
     if (role === 'sourcing') queryFilter = { 'Submitted To Sourcing': 'true' };
     else if ((role === 'sales' || role === 'ops_view') && salesGroup) queryFilter = { salesGroup };
+
+    // ✅ WIN90: default view = last N days only (by _id timestamp — createdAt missing on all docs,
+    // verified V3). A non-empty q searches the FULL history instead (no date boundary), mirroring
+    // the Quotation List semantics: quotation-number-like input matches the whole base family by
+    // prefix; anything else matches To ZIP / Customer ID by prefix. Role filters above always
+    // remain in force (AND), so sales/ops still only ever see their own group.
+    const winQ = String(req.query.q || '').trim();
+    if (winQ) {
+      const winEsc = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const winS = winQ.toUpperCase().replace(/^TTSQT-?/, '');
+      const winM = winS.match(/^(\d{1,6})([A-Z])?(?:-([A-Z]|\d+))?$/);
+      // Always try ZIP + Customer ID by prefix; ALSO try the quotation family when the input
+      // parses as a quote number. 5-digit ZIPs (e.g. 98203) parse as quote numbers too, so
+      // exclusive branching would shadow ZIP search — a single $or covers both readings.
+      const winOr = [
+        { 'To ZIP': { $regex: '^' + winEsc(winQ) } },
+        { 'Customer ID': { $regex: '^' + winEsc(winQ), $options: 'i' } }
+      ];
+      if (winM) {
+        const winBase = String(winM[1]).padStart(6, '0').slice(-6);
+        winOr.push({ 'Quotation #': { $regex: '^' + winEsc(winBase) } });
+      }
+      queryFilter.$or = winOr;
+    } else {
+      const winDays = Math.min(Math.max(parseInt(req.query.days, 10) || 90, 1), 3650);
+      queryFilter._id = { $gte: new mongoose.Types.ObjectId(
+        Math.floor((Date.now() - winDays * 86400000) / 1000).toString(16).padStart(8, '0') + '0000000000000000'
+      ) };
+    }
+
     const inquiries = await Inquiry.find(queryFilter).lean();
-    console.log('[READ] /inquiries role=' + (role || '?') + ' rows=' + inquiries.length);   // ✅ MEMWATCH
+    console.log('[READ] /inquiries role=' + (role || '?') + ' rows=' + inquiries.length + (winQ ? ' q=1' : ''));   // ✅ MEMWATCH
 
     // ✅ manager sees all
     if (role === 'manager') {

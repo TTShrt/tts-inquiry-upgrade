@@ -140,7 +140,14 @@ const MONGO_URI =
   process.env.MONGO_URI;
 
 console.log('[BOOT] USE_MOCK=', USE_MOCK);
-console.log('[BOOT] MONGO_URI FULL =', MONGO_URI);
+// ✅ MEMWATCH: never log credentials — print host portion of the URI only
+console.log('[BOOT] MONGO_URI host =', String(MONGO_URI || '').split('@')[1] ? String(MONGO_URI).split('@')[1].split('/')[0] : '(not set)');
+
+// ✅ MEMWATCH: memory watermark every 60s — diagnose OOM restarts (gradual climb vs sudden spike)
+setInterval(() => {
+  const m = process.memoryUsage();
+  console.log('[MEM] rss=' + Math.round(m.rss / 1048576) + 'MB heapUsed=' + Math.round(m.heapUsed / 1048576) + 'MB');
+}, 60000);
 
 let conn = null;
 if (!USE_MOCK && MONGO_URI) {
@@ -918,6 +925,7 @@ app.get('/api/kpi', async (req, res) => {
 
     // Get all main lines (no dash-suffix = main quotation)
     const allDocs = await Inquiry.find({}).lean();
+    console.log('[READ] /api/kpi rows=' + allDocs.length);   // ✅ MEMWATCH: full-collection load
 
     // Filter main lines only (e.g. 004790, not 004790-1)
     const mainLines = allDocs.filter(d => {
@@ -1337,6 +1345,7 @@ app.get('/inquiries', async (req, res) => {
     if (role === 'sourcing') queryFilter = { 'Submitted To Sourcing': 'true' };
     else if ((role === 'sales' || role === 'ops_view') && salesGroup) queryFilter = { salesGroup };
     const inquiries = await Inquiry.find(queryFilter).lean();
+    console.log('[READ] /inquiries role=' + (role || '?') + ' rows=' + inquiries.length);   // ✅ MEMWATCH
 
     // ✅ manager sees all
     if (role === 'manager') {
@@ -3077,6 +3086,7 @@ app.use((req, res, next) => {
 
       const docs = await Inquiry.find(filter, QLIST_PROJECTION)
         .sort({ _id: -1 }).limit(QLIST_MAX_DOCS + 1).lean();
+      console.log('[READ] /api/quotation-list rows=' + docs.length);   // ✅ MEMWATCH
       const truncated = docs.length > QLIST_MAX_DOCS;
       if (truncated) docs.length = QLIST_MAX_DOCS;
 

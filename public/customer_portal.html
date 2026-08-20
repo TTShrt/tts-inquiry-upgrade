@@ -8,10 +8,11 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #f1f5f9; --card: #ffffff; --primary: #1a4f8a; --primary-light: #e8f0f9;
+      --bg: #f1f5f9; --card: #ffffff; --primary: #2E5FA3; --primary-dark: #264F88; --primary-darker: #1E3F6E; --primary-light: #EAF0F8;
+      --navy: #0A1B33;
       --text: #1e293b; --text-secondary: #64748b; --text-muted: #94a3b8;
-      --border: #e2e8f0; --success: #2eaa6e; --success-bg: #ecfdf5;
-      --warning: #f59e0b; --warning-bg: #fffbeb; --info: #1a4f8a; --info-bg: #e8f0f9;
+      --border: #e2e8f0; --success: #22A05C; --success-bg: #ecfdf5;
+      --warning: #f59e0b; --warning-bg: #fffbeb; --info: #2E5FA3; --info-bg: #EAF0F8;
       --danger: #ef4444; --danger-bg: #fef2f2;
     }
     body {
@@ -21,18 +22,19 @@
 
     /* ── Top Bar ── */
     .topbar {
-      background: var(--card); border-bottom: 1px solid var(--border);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04); padding: 10px 28px;
+      background: var(--navy); border-bottom: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15); padding: 10px 28px;
       display: flex; align-items: center; justify-content: space-between;
     }
     .topbar-logo { display: flex; align-items: center; gap: 12px; }
-    .topbar-logo img { height: 44px; width: auto; }
-    .topbar h1 { font-size: 1.1rem; font-weight: 600; }
-    .topbar h1 span { color: var(--primary); }
+    .topbar-logo img { height: 44px; width: auto; background: #fff; border-radius: 8px; padding: 3px 6px; }
+    .topbar h1 { font-size: 1.1rem; font-weight: 600; color: #fff; letter-spacing: 0.04em; }
+    .topbar h1 span { color: #9DBBE0; }
     .topbar-right { display: flex; align-items: center; gap: 12px; }
     .role-badge {
-      background: #dcfce7; color: #166534; font-size: 0.72rem;
-      font-weight: 600; padding: 4px 10px; border-radius: 20px; letter-spacing: 0.03em;
+      background: rgba(46,95,163,0.45); color: #C9DAF0; font-size: 0.72rem;
+      border: 1px solid rgba(255,255,255,0.18);
+      font-weight: 600; padding: 4px 10px; border-radius: 20px; letter-spacing: 0.06em;
     }
 
     /* ── Content ── */
@@ -73,7 +75,7 @@
     }
     input:focus, select:focus, textarea:focus {
       border-color: var(--primary); background: #fff;
-      box-shadow: 0 0 0 3px rgba(67,97,238,0.1);
+      box-shadow: 0 0 0 3px rgba(46,95,163,0.12);
     }
     textarea { resize: vertical; min-height: 80px; }
 
@@ -96,12 +98,12 @@
       background: #f8fafc; border: 1px solid var(--border);
       transition: all 0.15s;
     }
-    .wh-toggle:hover { background: var(--primary-light); border-color: #c7d2fe; color: var(--primary); }
+    .wh-toggle:hover { background: var(--primary-light); border-color: #C5D4E8; color: var(--primary); }
     .wh-toggle input[type="checkbox"] {
       width: 15px; height: 15px; padding: 0; accent-color: var(--primary);
     }
     .wh-block {
-      background: var(--primary-light); border: 1px solid #c7d2fe;
+      background: var(--primary-light); border: 1px solid #C5D4E8;
       border-radius: 10px; padding: 16px; margin-top: 12px;
     }
     .wh-services { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
@@ -112,10 +114,10 @@
       font-weight: 600; color: #fff; background: var(--primary);
       border: none; border-radius: 10px; cursor: pointer;
       transition: background 0.15s, box-shadow 0.15s;
-      box-shadow: 0 2px 8px rgba(67,97,238,0.25);
+      box-shadow: 0 2px 8px rgba(46,95,163,0.28);
     }
-    .btn-submit:hover { background: #3a56d4; box-shadow: 0 4px 14px rgba(67,97,238,0.35); }
-    .btn-submit:active { background: #2f48c0; }
+    .btn-submit:hover { background: var(--primary-dark); box-shadow: 0 4px 14px rgba(46,95,163,0.4); }
+    .btn-submit:active { background: var(--primary-darker); }
 
     /* ── Result Box ── */
     #resultBox {
@@ -152,7 +154,7 @@
     .wh-qty:focus { outline: none; border-color: var(--primary); }
     .wh-period { flex: 0 0 72px; height: 30px; font-size: 0.74rem; border: 1px solid var(--border); border-radius: 6px; padding: 0 4px; color: var(--text); background: #fff; font-family: inherit; }
     /* ── Warehouse green common-info block (mirrors quote modal green zone) ── */
-    .wh-common { background: #f0faf3; border: 1px solid #bbf0cd; box-shadow: inset 4px 0 0 #22c55e; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+    .wh-common { background: #f0faf3; border: 1px solid #BFE5D0; box-shadow: inset 4px 0 0 #22A05C; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
     .wh-common-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px 14px; }
     .wh-cf { display: flex; flex-direction: column; }
     .wh-cf input, .wh-cf textarea { height: 32px; font-size: 0.8rem; border: 1px solid var(--border); border-radius: 6px; padding: 0 8px; color: var(--text); font-family: inherit; background: #fff; }

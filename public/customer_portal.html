@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TTS — Rate Inquiry</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Condensed:wght@700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -16,7 +16,7 @@
       --danger: #ef4444; --danger-bg: #fef2f2;
     }
     body {
-      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--page-bg); color: var(--text); min-height: 100vh;
     }
 
@@ -28,7 +28,7 @@
     }
     .topbar-logo { display: flex; align-items: center; gap: 12px; }
     .topbar-logo img { height: 36px; width: auto; }
-    .topbar h1 { font-size: 0.92rem; font-weight: 700; color: #fff; letter-spacing: 0.1em; text-transform: uppercase; }
+    .topbar h1 { font-family: 'Roboto Condensed', sans-serif; font-size: 0.95rem; font-weight: 700; color: #fff; letter-spacing: 0.12em; text-transform: uppercase; }
     .topbar h1 span { color: #fff; }
     .topbar-right { display: flex; align-items: center; gap: 12px; }
     .role-badge {
@@ -38,22 +38,74 @@
     }
 
     /* ── Content ── */
-    .content { max-width: 760px; margin: 0 auto; padding: 28px 24px; }
+    .content { max-width: 1080px; margin: 0 auto; padding: 32px 24px; }
+
+    /* ── Split panel: brand side + form ── */
+    .panel {
+      display: flex; align-items: stretch; border-radius: 14px; overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25), 0 10px 32px rgba(0,0,0,0.22);
+    }
+    .brand-side {
+      flex: 0 0 310px; background: linear-gradient(165deg, #12335E 0%, #0A1B33 78%);
+      color: #fff; padding: 38px 30px; display: flex; flex-direction: column;
+    }
+    .brand-side .bs-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
+    .brand-side .bs-logo img { height: 42px; width: auto; }
+    .brand-side .bs-logo span {
+      font-family: 'Roboto Condensed', sans-serif; font-weight: 700; font-size: 0.9rem;
+      letter-spacing: 0.12em; line-height: 1.3;
+    }
+    .brand-side h3 {
+      font-family: 'Roboto Condensed', sans-serif; font-size: 1.5rem; font-weight: 700;
+      line-height: 1.2; text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 12px;
+    }
+    .brand-side .bs-sub { font-size: 0.84rem; color: #C7D6EA; line-height: 1.6; margin-bottom: 26px; }
+    .brand-side ul { list-style: none; display: flex; flex-direction: column; gap: 15px; margin-bottom: auto; }
+    .brand-side li { display: flex; gap: 10px; font-size: 0.83rem; color: #E6EEFB; line-height: 1.5; }
+    .brand-side li::before { content: "\2192"; color: #6E9BD9; font-weight: 700; flex: 0 0 auto; }
+    .brand-side .bs-contact {
+      border-top: 1px solid rgba(255,255,255,0.15); padding-top: 18px; margin-top: 28px;
+      font-size: 0.8rem; color: #C7D6EA; line-height: 1.8;
+    }
+    .brand-side .bs-contact a { color: #fff; text-decoration: none; font-weight: 500; }
+    @media (max-width: 920px) {
+      .panel { flex-direction: column; }
+      .brand-side { flex: none; padding: 26px 24px; }
+      .brand-side ul { gap: 9px; margin-bottom: 4px; }
+      .brand-side h3 br { display: none; }
+    }
 
     /* ── Card ── */
     .card {
-      background: var(--card); border-radius: 12px; padding: 28px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.25), 0 10px 32px rgba(0,0,0,0.22);
+      background: var(--card); border-radius: 0; padding: 32px 36px;
+      box-shadow: none; flex: 1; min-width: 0;
     }
+    @media (max-width: 920px) { .card { padding: 24px 20px; } }
     .card-header { margin-bottom: 24px; }
-    .card-header h2 { font-size: 1.15rem; font-weight: 700; color: var(--text); }
-    .card-header p { font-size: 0.82rem; color: var(--text-secondary); margin-top: 4px; }
+    .card-header::before {
+      content: ""; display: block; width: 44px; height: 4px;
+      background: var(--primary); border-radius: 2px; margin-bottom: 14px;
+    }
+    .card-header h2 {
+      font-family: 'Roboto Condensed', sans-serif; font-size: 1.55rem; font-weight: 700;
+      color: var(--text); text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.15;
+    }
+    .card-header p { font-size: 0.84rem; color: var(--text-secondary); margin-top: 6px; }
+    .card-header .trust { font-size: 0.76rem; color: var(--text-muted); margin-top: 10px; }
+    .card-header .trust a { color: var(--primary); text-decoration: none; font-weight: 500; }
 
     /* ── Section Divider ── */
+    form#rfqForm { counter-reset: sec; }
     .section-label {
-      font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
-      text-transform: uppercase; letter-spacing: 0.07em;
-      border-bottom: 1px solid var(--border); padding-bottom: 8px; margin: 20px 0 14px;
+      font-family: 'Roboto Condensed', sans-serif;
+      font-size: 0.76rem; font-weight: 700; color: var(--primary);
+      text-transform: uppercase; letter-spacing: 0.22em;
+      border-bottom: 1px solid var(--border); padding-bottom: 8px; margin: 24px 0 14px;
+    }
+    .section-label::before {
+      counter-increment: sec;
+      content: counter(sec, decimal-leading-zero) " / ";
+      color: #9DBBE0; font-weight: 700; letter-spacing: 0.12em;
     }
 
     /* ── Form Grid ── */
@@ -110,14 +162,16 @@
 
     /* ── Submit Button ── */
     .btn-submit {
-      width: 100%; padding: 12px; font-family: inherit; font-size: 0.9rem;
-      font-weight: 600; color: #fff; background: var(--primary);
+      width: 100%; padding: 14px; font-family: 'Roboto Condensed', sans-serif; font-size: 0.92rem;
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: #fff; background: var(--primary);
       border: none; border-radius: 10px; cursor: pointer;
       transition: background 0.15s, box-shadow 0.15s;
       box-shadow: 0 2px 8px rgba(46,95,163,0.28);
     }
     .btn-submit:hover { background: var(--primary-dark); box-shadow: 0 4px 14px rgba(46,95,163,0.4); }
     .btn-submit:active { background: var(--primary-darker); }
+    .btn-submit::after { content: "  \2192"; white-space: pre; transition: transform 0.15s; display: inline-block; }
+    .btn-submit:hover::after { transform: translateX(3px); }
 
     /* ── Result Box ── */
     #resultBox {
@@ -186,10 +240,30 @@
 
     <div id="resultBox"></div>
 
+    <div class="panel">
+      <aside class="brand-side">
+        <div class="bs-logo">
+          <img src="data:image/png;base64,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" alt="Total Solution Logo" />
+          <span>TOTAL<br>SOLUTION</span>
+        </div>
+        <h3>Let&rsquo;s move<br>your freight</h3>
+        <p class="bs-sub">Tell us about your shipment and our team will come back with a competitive quote.</p>
+        <ul>
+          <li>12 warehouses &middot; 1.8M sq ft across North America &amp; Asia</li>
+          <li>Container drayage at the Port of Houston &amp; rail ramps</li>
+          <li>Transloading, FTL / LTL and warehousing under one roof</li>
+        </ul>
+        <div class="bs-contact">
+          <a href="tel:+17137065720">(713) 706-5720</a><br>
+          <a href="mailto:info@totalsolutionus.com">info@totalsolutionus.com</a><br>
+          Houston, TX &middot; Mon&ndash;Fri 8am&ndash;6pm CT
+        </div>
+      </aside>
     <div class="card">
       <div class="card-header">
         <h2>Submit a Rate Inquiry</h2>
         <p>Fill in the details below and our team will get back to you shortly.</p>
+        <p class="trust">Response within 1 business day&nbsp;&nbsp;·&nbsp;&nbsp;<a href="tel:+17137065720">(713) 706-5720</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="mailto:info@totalsolutionus.com">info@totalsolutionus.com</a></p>
       </div>
 
       <form id="rfqForm">
@@ -439,6 +513,7 @@
 
       </form>
     </div>
+    </div><!-- /.panel -->
 
     <div class="footer">© Total Solution (TTS) — All rights reserved</div>
   </div>

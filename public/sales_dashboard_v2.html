@@ -1840,12 +1840,13 @@
         </select>
 
         <select class="border p-2" name="dryVanType" id="dryVanTypeSelect">
-          <option value="">Dry Van Type</option>
+          <option value="">Shipping Type</option>
           <option>HOTSHOT</option>
           <option>28'</option>
           <option>53'</option>
           <option>LTL</option>
           <option>SMALL PARCEL</option>
+          <option>FLATBED</option>
         </select>
 
         <select class="border p-2" name="legalOverWeight">
@@ -2144,7 +2145,7 @@
             // BASIC：1-17 是真实字段；18-26 是 NOTE；27 ACTION
             const BASIC_COLS = [
               '#', 'Date', 'Customer ID', 'Requested By', 'Inquiry Type', 'Container Size',
-              'Commodity', 'Packages', 'Flags', 'Dry Van Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop',
+              'Commodity', 'Packages', 'Flags', 'Shipping Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop',
               'From', 'To', 'QTY', 'Quotation #'
             ];
 
@@ -2931,7 +2932,7 @@
               '#', 'Date', 'Customer ID', 'Requested By',
               'Inquiry Type', 'Container Size',
               'Commodity', 'Packages', 'Flags',                // ✅ 新增
-              'Dry Van Type',
+              'Shipping Type',
               'Legal/Over Weight', 'Gross Weight', 'Live/Drop',
               'From', 'To', 'QTY', 'Quotation #'
             ];
@@ -2988,7 +2989,7 @@
               // 前 17 列
               const basicHeadFirst17 = [
                 '#', 'Date', 'Customer ID', 'Requested By', 'Inquiry Type', 'Container Size',
-                'Commodity', 'Packages', 'Flags', 'Dry Van Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop',
+                'Commodity', 'Packages', 'Flags', 'Shipping Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop',
                 'From', 'To', 'QTY', 'Quotation #'
               ];
               basicHeadFirst17.forEach(h => r1.appendChild(tdHeader(h)));

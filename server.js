@@ -115,13 +115,24 @@ function requireAnyRole(roles) {
 
 // ✅ #2: guard the sensitive role pages BEFORE express.static can serve them from /public.
 // Otherwise express.static (below) returns these HTML files directly and the role guards
-// further down never run. Only the manager & sourcing pages are guarded — the sales
-// dashboard is intentionally left to the existing SPA fallback at the bottom of this file
-// (it's served to every role as the default shell; its data is role-gated server-side).
+// further down never run. The manager & sourcing dashboards, plus all three role-home
+// landing pages, are guarded here. The sales dashboard (sales_dashboard_v2.html) is
+// intentionally left to the existing SPA fallback at the bottom of this file — it's served
+// to every role as the default shell; its data is role-gated server-side via signed cookies.
 app.get('/manager_dashboard.html', requireRole('manager'), (req, res) =>
   res.sendFile(path.join(__dirname, 'public', 'manager_dashboard.html')));
 app.get('/sourcing_dashboard.html', requireRole('sourcing'), (req, res) =>
   res.sendFile(path.join(__dirname, 'public', 'sourcing_dashboard.html')));
+
+// ✅ #2b: same guard treatment for the three role-home landing pages reached right after
+// /login. sales_home.html is shared by 'sales' and 'ops_view' (matches the /login redirect
+// logic above, which sends both roles there).
+app.get('/manager_home.html', requireRole('manager'), (req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'manager_home.html')));
+app.get('/sourcing_home.html', requireRole('sourcing'), (req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'sourcing_home.html')));
+app.get('/sales_home.html', requireAnyRole(['sales', 'ops_view']), (req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'sales_home.html')));
 
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: false,

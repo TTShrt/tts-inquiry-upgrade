@@ -1566,12 +1566,13 @@
         </select>
 
         <select class="border p-2" name="dryVanType" id="dryVanTypeSelect">
-          <option value="">Dry Van Type</option>
+          <option value="">Shipping Type</option>
           <option>HOTSHOT</option>
           <option>28'</option>
           <option>53'</option>
           <option>LTL</option>
           <option>SMALL PARCEL</option>
+          <option>FLATBED</option>
         </select>
 
         <select class="border p-2" name="legalOverWeight">
@@ -2490,7 +2491,7 @@
 
         const keys = Array.from(groupMap.keys()).sort((a, b) => naturalQuotationSort({ 'Quotation #': a }, { 'Quotation #': b }));
 
-        const BASIC_HEAD = ['#', 'Date', 'Customer ID', 'Requested By', 'Inquiry Type', 'Container Size', 'Commodity', 'Packages', 'Flags', 'Dry Van Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop', 'From', 'To', 'QTY', 'Quotation #'];
+        const BASIC_HEAD = ['#', 'Date', 'Customer ID', 'Requested By', 'Inquiry Type', 'Container Size', 'Commodity', 'Packages', 'Flags', 'Shipping Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop', 'From', 'To', 'QTY', 'Quotation #'];
         const TRUCK_HEADERS = ['', 'Base Rate', 'Price', 'GP', 'Adjusted Price', 'Adjusted GP', 'Chassis Cost', 'Chassis Price', 'Pre-Pull Cost', 'Pre-Pull Price', 'Yard Storage Cost', 'Yard Storage Price', 'Driver Waiting Cost', 'Driver Waiting Price', 'Over Weight Cost', 'Over Weight Price', 'Chassis Split Cost', 'Chassis Split Price', 'Toll Cost', 'Toll Price', 'Reefer Fee Cost', 'Reefer Fee Price', 'Bond Fee Cost', 'Bond Fee Price', 'Carrier', '', 'Action'];
         const WH_LEFT_HEADERS = ['', 'WH Order Proc', 'WH Order Proc Price', 'WH Inbound', 'WH Inbound Price', 'WH Sorting', 'WH Sorting Price', 'WH Palletizing', 'WH Palletizing Price', 'WH Pallet', 'WH Pallet Price', 'WH Storage', 'WH Storage Price', 'WH Outbound', 'WH Outbound Price', ''];
 

@@ -2427,23 +2427,58 @@
                   }
                 }
 
+                const pushPayload = {
+                  'Quotation #': quote,
+                  'Pushed To GF': 'true',
+                  'Pushed To GF At': new Date().toISOString()
+                };
+
                 const res = await fetch('/api/push-to-gofreight', {
                   method: 'POST',
                   credentials: 'same-origin',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    'Quotation #': quote,
-                    'Pushed To GF': 'true',
-                    'Pushed To GF At': new Date().toISOString()
-                  })
+                  body: JSON.stringify(pushPayload)
                 });
 
                 if (window.handleAuthError(res)) return;   // ✅ AUTH
-                const text = await res.text();
-                if (!res.ok) {
+                let text = await res.text();
+
+                // ✅ Self-healing: server says no GF Ref anywhere in this quotation family
+                // (can happen for letter-suffix sub-lines like 005370A where no bare parent
+                // record exists). Prompt right here, save onto THIS line, retry once.
+                let refMissing = false;
+                try { refMissing = !res.ok && JSON.parse(text).gfRefMissing === true; } catch (_) {}
+                if (refMissing) {
+                  const lateRef = prompt(
+                    'No GoFreight ref is saved yet for this quotation family.\n' +
+                    'Enter it now (the number in the GF page URL, e.g. .../quotation/entry/5447 → 5447):'
+                  );
+                  if (lateRef === null || !lateRef.trim()) {
+                    alert('Push cancelled — GF Ref is required. Nothing was sent to GoFreight.');
+                    return;
+                  }
+                  const saveRes = await postUpdate({ 'Quotation #': quote, 'Saved': 'true', 'GF Ref': lateRef.trim() });
+                  if (!saveRes.ok) {
+                    alert('❌ Failed to save GF Ref.');
+                    return;
+                  }
+                  const retryRes = await fetch('/api/push-to-gofreight', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pushPayload)
+                  });
+                  if (window.handleAuthError(retryRes)) return;   // ✅ AUTH
+                  text = await retryRes.text();
+                  if (!retryRes.ok) {
+                    alert('❌ Push to GoFreight failed: ' + text);
+                    return;
+                  }
+                } else if (!res.ok) {
                   alert('❌ Push to GoFreight failed: ' + text);
                   return;
                 }
+
                 if (text.trim() === 'Already pushed') {
                   alert('This line was already pushed to GoFreight.');
                 } else {

@@ -2335,7 +2335,8 @@ app.post('/api/push-to-gofreight', async (req, res) => {
   const quotationId = String(incoming['Quotation #'] || '').trim();
   const fullQuoteId = quotationId;
   const dashIdx = quotationId.indexOf('-');
-  const subId = dashIdx >= 0 ? quotationId.slice(dashIdx + 1) : '';
+  const letterMatch = quotationId.match(/^\d+([A-Za-z])$/);
+  const subId = dashIdx >= 0 ? quotationId.slice(dashIdx + 1) : (letterMatch ? letterMatch[1] : '');
 
   // ✅ Duplicate-push guard (per line — a sub-line and its parent push independently)
   const alreadyPushed = await Inquiry.findOne({
@@ -2444,7 +2445,18 @@ app.post('/api/push-to-gofreight', async (req, res) => {
   let quotationRef = null;
   try {
     let refSourceDoc = ownDoc;
-    const parentId = String(ownDoc['Parent Quotation #'] || '').trim();
+    // ✅ Two sub-line naming conventions exist in the data: "005369-1" (dash+digit) and
+    // "005370A" (bare trailing letter, no dash). 'Parent Quotation #' isn't always populated
+    // for the letter-suffix style, so fall back to deriving the parent from the ID pattern.
+    function deriveParentFromPattern(id) {
+      const dashIdx = id.indexOf('-');
+      if (dashIdx >= 0) return id.slice(0, dashIdx);
+      const m = id.match(/^(\d+)[A-Za-z]$/);
+      return m ? m[1] : '';
+    }
+
+    let parentId = String(ownDoc['Parent Quotation #'] || '').trim();
+    if (!parentId) parentId = deriveParentFromPattern(quotationId);
     if (parentId) {
       const parentDoc = await Inquiry.findOne({ 'Quotation #': parentId }).lean();
       if (parentDoc) refSourceDoc = parentDoc;

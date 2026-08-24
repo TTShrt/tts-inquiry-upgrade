@@ -4490,7 +4490,7 @@
 
             // ✅ 主单第一次推送时才需要问 GF Ref；子单靠 Parent Quotation # 自动继承，
             //    这里只做前端友好提醒，真正的归属判断在后端。
-            const isSubLine = quote.includes('-');
+            const isSubLine = quote.includes('-') || /^\d+[A-Za-z]$/.test(quote);
             let gfRefEntry = null;
             if (!isSubLine) {
               gfRefEntry = prompt(

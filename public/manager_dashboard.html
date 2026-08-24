@@ -2400,7 +2400,7 @@
                 return;
               }
 
-              const isSubLine = String(quote).includes('-');
+              const isSubLine = String(quote).includes('-') || /^\d+[A-Za-z]$/.test(String(quote));
               let gfRefEntry = null;
               if (!isSubLine) {
                 gfRefEntry = prompt(

@@ -3209,6 +3209,7 @@
                 pushGFBtn.classList.add('done');
                 pushGFBtn.title = 'Already pushed to GoFreight';
               }
+              pushGFBtn.dataset.hasGfRef = item['GF Ref'] ? '1' : '0';
 
               // 💾 Inquiry Save
               const saveBtn = document.createElement('button');
@@ -4491,14 +4492,18 @@
             // ✅ 主单第一次推送时才需要问 GF Ref；子单靠 Parent Quotation # 自动继承，
             //    这里只做前端友好提醒，真正的归属判断在后端。
             const isSubLine = quote.includes('-') || /^\d+[A-Za-z]$/.test(quote);
+            const hasGfRef = pushGFBtn.dataset.hasGfRef === '1';
             let gfRefEntry = null;
-            if (!isSubLine) {
+            if (!isSubLine && !hasGfRef) {
               gfRefEntry = prompt(
                 'Enter the GoFreight quotation ref for ' + quote + '\n' +
-                '(the number in the GF page URL, e.g. .../quotation/entry/5447 → 5447)\n' +
-                'Leave blank if it was already entered previously.'
+                '(the number in the GF page URL, e.g. .../quotation/entry/5447 → 5447)'
               );
               if (gfRefEntry === null) return;  // user cancelled
+              if (!gfRefEntry.trim()) {
+                alert('GF Ref is required — nothing was sent to GoFreight. Click 🚀 again and enter the ref.');
+                return;
+              }
             }
 
             if (!confirm('Push locked pricing for ' + quote + ' to GoFreight now?')) return;

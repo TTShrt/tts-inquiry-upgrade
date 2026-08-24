@@ -2401,14 +2401,18 @@
               }
 
               const isSubLine = String(quote).includes('-') || /^\d+[A-Za-z]$/.test(String(quote));
+              const hasGfRef = !!item['GF Ref'];
               let gfRefEntry = null;
-              if (!isSubLine) {
+              if (!isSubLine && !hasGfRef) {
                 gfRefEntry = prompt(
                   'Enter the GoFreight quotation ref for ' + quote + '\n' +
-                  '(the number in the GF page URL, e.g. .../quotation/entry/5447 → 5447)\n' +
-                  'Leave blank if it was already entered previously.'
+                  '(the number in the GF page URL, e.g. .../quotation/entry/5447 → 5447)'
                 );
                 if (gfRefEntry === null) return;  // user cancelled
+                if (!gfRefEntry.trim()) {
+                  alert('GF Ref is required — nothing was sent to GoFreight. Click 🚀 again and enter the ref.');
+                  return;
+                }
               }
 
               if (!confirm('Push locked pricing for ' + quote + ' to GoFreight now?')) return;

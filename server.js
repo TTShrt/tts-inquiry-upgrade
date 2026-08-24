@@ -2386,25 +2386,25 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     'Adjusted Price': {
       ref: '624',   // LTLRG-PUR
       desc: 'Drayage- Hauling Fee per Container',
-      unit: 'CNTR',
+      unit: 'CNT',   // GF unit enum uses 3-letter codes (CNT/DAY/HRS/SPL), NOT the UI labels
       remark: 'INCLUDING FSC'
     },
     'Chassis Price': {
       ref: '601',   // LTLRG-CHSS (generic — NOT LTLRG-BBICHSS, which is customer-specific)
       desc: 'FCL Drayage Surcharge- Chassis Fee Per Day',
-      unit: 'DAYS',
+      unit: 'DAY',
       remark: '(MIN. 2 DAYS)'
     },
     'Pre-Pull Price': {
       ref: '622',   // LTLRG-PP
       desc: 'Drayage Surcharge- Pre Pull',
-      unit: 'CNTR',
+      unit: 'CNT',
       remark: 'IF APPLICABLE'
     },
     'Yard Storage Price': {
       ref: '655',   // LTLRG-YD
       desc: 'Drayage Surcharge- Yard Storage',
-      unit: 'DAYS',
+      unit: 'DAY',
       remark: 'IF APPLICABLE'
     },
     'Driver Waiting Price': {
@@ -2416,13 +2416,13 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     'Over Weight Price': {
       ref: '618',   // LTLRG-OWFE (generic — location-specific variants exist, see chat log)
       desc: 'Drayage Surcharge- Overweight Fee',
-      unit: 'CNTR',
+      unit: 'CNT',
       remark: 'IF APPLICABLE'
     },
     'Chassis Split Price': {
       ref: '642',   // LTLRG-SPLIT
       desc: 'Drayage Surcharge- Chassis Split',
-      unit: 'SPLIT',
+      unit: 'SPL',
       remark: 'IF APPLICABLE'
     }
   };
@@ -2435,7 +2435,7 @@ app.post('/api/push-to-gofreight', async (req, res) => {
       chargeItems.push({
         billing_code_ref: config.ref,
         description: config.desc,
-        carrier_ref: 'TP0001',
+        // carrier_ref omitted on purpose — optional per spec; 'TP0001' was a bogus draft leftover
         unit: config.unit,
         currency_ref: '1',
         use_separate_rate: false,
@@ -2576,7 +2576,7 @@ app.post('/api/push-to-gofreight', async (req, res) => {
       },
       body: JSON.stringify({
         description: routeLabel,
-        location_ref: 'USLAX',   // ⚠️ TODO confirm: hardcoded from earlier draft, may need to be a Houston-area code
+        // location_ref omitted on purpose — optional per spec; 'USLAX' was a bogus draft leftover
         charge_items: chargeItems
       })
     });
@@ -2585,8 +2585,9 @@ app.post('/api/push-to-gofreight', async (req, res) => {
 
     if (!result || result.trim() === '') {
       console.error('❌ Empty response from GoFreight');
-      return res.status(gfRes.status).json({
+      return res.status(502).json({
         error: 'Empty response from GoFreight',
+        gfStatus: gfRes.status,
         raw: result
       });
     }
@@ -2603,13 +2604,16 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     }
 
     if (!gfRes.ok) {
-      return res.status(gfRes.status).json(resultJson);
+      // ✅ Do NOT mirror GF's status code: a 401/403 FROM GOFREIGHT would trip the
+      // frontend's handleAuthError (which watches for OUR session expiring) and kick
+      // the user to the login page. Wrap all GF-side failures as 502 instead.
+      return res.status(502).json({ gfStatus: gfRes.status, gfError: resultJson });
     }
 
     const patch = buildSafePatch(incoming);
     await Inquiry.updateOne({ 'Quotation #': quotationId }, { $set: patch });
 
-    res.status(gfRes.status).json(resultJson);
+    res.status(200).json(resultJson);
   } catch (err) {
     console.error('❌ Push to GoFreight failed:', err);
     res.status(500).json({ error: 'Server error during push', detail: err.message });

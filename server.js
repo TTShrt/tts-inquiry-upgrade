@@ -2005,6 +2005,12 @@ app.post('/inquiries/update', async (req, res) => {
       // Allow it for all roles so we don't hard-fail saves.
       if (field === 'Saved') return true;
 
+      // ✅ GF Ref: GoFreight's internal quotation ref (the number in the GF page URL) —
+      // required for pushing locked pricing to GF. Sales & Manager set it (they own the
+      // push action). BASIC scope, so it stays writable after the row is confirmed/locked,
+      // which is exactly when pushing happens.
+      if (field === 'GF Ref') return role === 'sales' || role === 'manager';
+
       if (role === 'sourcing') {
         // Sourcing updates COST + cost flags only.
         // Supplier CHOICE belongs to Sales: Sourcing fills the 5 supplier costs + supplier names,
@@ -2458,7 +2464,7 @@ app.post('/api/push-to-gofreight', async (req, res) => {
   let quotationRef = null;
   let gfRefMissingOn = quotationId;
   try {
-    function deriveParentFromPattern(id) {
+    function stripOneSuffix(id) {
       const dashIdx = id.indexOf('-');
       if (dashIdx >= 0) return id.slice(0, dashIdx);
       const m = id.match(/^(\d+)[A-Za-z]$/);
@@ -2467,8 +2473,10 @@ app.post('/api/push-to-gofreight', async (req, res) => {
 
     quotationRef = String(ownDoc['GF Ref'] || '').trim();
 
+    // Immediate parent: explicit field first, then one pattern strip
+    // (covers "005369-1"→"005369", "005370A"→"005370", "005370A-1"→"005370A")
     let parentId = String(ownDoc['Parent Quotation #'] || '').trim();
-    if (!parentId) parentId = deriveParentFromPattern(quotationId);
+    if (!parentId) parentId = stripOneSuffix(quotationId);
     if (parentId) gfRefMissingOn = parentId;
 
     if (!quotationRef && parentId) {
@@ -2476,14 +2484,23 @@ app.post('/api/push-to-gofreight', async (req, res) => {
       if (parentDoc) quotationRef = String(parentDoc['GF Ref'] || '').trim();
     }
 
+    // Family-wide search on the ULTIMATE base (strip suffixes repeatedly:
+    // "005370A-1" → "005370A" → "005370"), so a ref saved on ANY family member —
+    // bare base, letter line, dash line, or letter+dash line — is found from any sibling.
     if (!quotationRef) {
-      const familyBase = parentId || quotationId;
-      const safeBase = familyBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      let ultimateBase = quotationId;
+      for (let guard = 0; guard < 4; guard++) {
+        const next = stripOneSuffix(ultimateBase);
+        if (!next || next === ultimateBase) break;
+        ultimateBase = next;
+      }
+      const safeBase = ultimateBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const familyDoc = await Inquiry.findOne({
-        'Quotation #': { $regex: '^' + safeBase + '([A-Za-z]$|-)' },
+        'Quotation #': { $regex: '^' + safeBase + '([A-Za-z]|-|$)' },
         'GF Ref': { $nin: ['', null] }
       }).lean();
       if (familyDoc) quotationRef = String(familyDoc['GF Ref'] || '').trim();
+      if (!quotationRef) gfRefMissingOn = ultimateBase + ' (family)';
     }
 
     if (!quotationRef) {

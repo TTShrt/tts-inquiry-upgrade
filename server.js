@@ -2374,41 +2374,50 @@ app.post('/api/push-to-gofreight', async (req, res) => {
 
   // ✅ Confirmed against GF's live Billing Codes API (2026-08-24) — see chat log for lookup commands.
   // billing_code_ref values are GF's internal ref numbers, NOT the LTLRG-xxx display codes.
+  // remark values are the FIXED customer-facing boilerplate matching how Sales builds these
+  // blocks manually in GF (these print on the quotation) — NEVER map internal Note fields here.
   const freightMapping = {
     'Adjusted Price': {
       ref: '624',   // LTLRG-PUR
       desc: 'Drayage- Hauling Fee per Container',
-      unit: 'CNTR'
+      unit: 'CNTR',
+      remark: 'INCLUDING FSC'
     },
     'Chassis Price': {
       ref: '601',   // LTLRG-CHSS (generic — NOT LTLRG-BBICHSS, which is customer-specific)
       desc: 'FCL Drayage Surcharge- Chassis Fee Per Day',
-      unit: 'DAYS'
+      unit: 'DAYS',
+      remark: '(MIN. 2 DAYS)'
     },
     'Pre-Pull Price': {
       ref: '622',   // LTLRG-PP
       desc: 'Drayage Surcharge- Pre Pull',
-      unit: 'CNTR'
+      unit: 'CNTR',
+      remark: 'IF APPLICABLE'
     },
     'Yard Storage Price': {
       ref: '655',   // LTLRG-YD
       desc: 'Drayage Surcharge- Yard Storage',
-      unit: 'DAYS'
+      unit: 'DAYS',
+      remark: 'IF APPLICABLE'
     },
     'Driver Waiting Price': {
       ref: '653',   // LTLRG-WT
       desc: 'Drayage Surcharge- Driver Waiting Time at Warehouse/ Per Hour',
-      unit: 'HRS'
+      unit: 'HRS',
+      remark: 'IF APPLICABLE, BILLED IN 30 MINS INCREMENTS, MIN. 30 MINS'
     },
     'Over Weight Price': {
       ref: '618',   // LTLRG-OWFE (generic — location-specific variants exist, see chat log)
       desc: 'Drayage Surcharge- Overweight Fee',
-      unit: 'CNTR'
+      unit: 'CNTR',
+      remark: 'IF APPLICABLE'
     },
     'Chassis Split Price': {
       ref: '642',   // LTLRG-SPLIT
       desc: 'Drayage Surcharge- Chassis Split',
-      unit: 'SPLIT'
+      unit: 'SPLIT',
+      remark: 'IF APPLICABLE'
     }
   };
 
@@ -2428,7 +2437,7 @@ app.post('/api/push-to-gofreight', async (req, res) => {
           quantity: '1.0',
           rate: String(amount.toFixed(2)),
         },
-        remark: `Auto from TTS: ${field}`
+        remark: config.remark
       });
     }
   }
@@ -2440,14 +2449,15 @@ app.post('/api/push-to-gofreight', async (req, res) => {
   // ✅ Resolve the GF quotation ref from OUR OWN database — NOT from a GF lookup-by-quotation_no
   // call, because GoFreight's public API has no such endpoint (confirmed against the official
   // OpenAPI spec: only GET /quotations/{ref} exists, no list/search by quotation_no).
-  // Sub-lines (e.g. "005369-1") don't carry their own GF Ref — they share their parent's
-  // ("005369") via the existing 'Parent Quotation #' field.
+  //
+  // Ref lookup order (family-wide): the sub-line naming has TWO conventions — "005369-1"
+  // (dash) and "005370A" (trailing letter). The letter convention has NO bare parent record
+  // at all (the family starts at "005370A"), so relying on a parent doc alone dead-ends.
+  // Instead: check own doc → explicit/derived parent doc → then ANY family member
+  // (base, base+letter, base+dash-suffix) that has a GF Ref saved.
   let quotationRef = null;
+  let gfRefMissingOn = quotationId;
   try {
-    let refSourceDoc = ownDoc;
-    // ✅ Two sub-line naming conventions exist in the data: "005369-1" (dash+digit) and
-    // "005370A" (bare trailing letter, no dash). 'Parent Quotation #' isn't always populated
-    // for the letter-suffix style, so fall back to deriving the parent from the ID pattern.
     function deriveParentFromPattern(id) {
       const dashIdx = id.indexOf('-');
       if (dashIdx >= 0) return id.slice(0, dashIdx);
@@ -2455,17 +2465,31 @@ app.post('/api/push-to-gofreight', async (req, res) => {
       return m ? m[1] : '';
     }
 
+    quotationRef = String(ownDoc['GF Ref'] || '').trim();
+
     let parentId = String(ownDoc['Parent Quotation #'] || '').trim();
     if (!parentId) parentId = deriveParentFromPattern(quotationId);
-    if (parentId) {
+    if (parentId) gfRefMissingOn = parentId;
+
+    if (!quotationRef && parentId) {
       const parentDoc = await Inquiry.findOne({ 'Quotation #': parentId }).lean();
-      if (parentDoc) refSourceDoc = parentDoc;
+      if (parentDoc) quotationRef = String(parentDoc['GF Ref'] || '').trim();
     }
 
-    quotationRef = String(refSourceDoc['GF Ref'] || '').trim();
+    if (!quotationRef) {
+      const familyBase = parentId || quotationId;
+      const safeBase = familyBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const familyDoc = await Inquiry.findOne({
+        'Quotation #': { $regex: '^' + safeBase + '([A-Za-z]$|-)' },
+        'GF Ref': { $nin: ['', null] }
+      }).lean();
+      if (familyDoc) quotationRef = String(familyDoc['GF Ref'] || '').trim();
+    }
+
     if (!quotationRef) {
       return res.status(400).json({
-        error: 'GF Ref not set on ' + (parentId || quotationId) + '. Enter the GoFreight quotation ref (from its GF page URL) before pushing.'
+        gfRefMissing: true,
+        error: 'GF Ref not set on ' + gfRefMissingOn + '. Enter the GoFreight quotation ref (from its GF page URL) before pushing.'
       });
     }
   } catch (err) {
@@ -2473,7 +2497,21 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     return res.status(500).json({ error: 'Error resolving GF Ref from database' });
   }
 
-  const routeLabel = subId ? `Route ${subId}` : 'Destination charges';
+  // ✅ Charge-group title: mirror how Sales titles these blocks manually in GF —
+  // "From {origin} to {destination}". Destination prefers the free-text 'To' field,
+  // falling back to City/State/ZIP parts. If neither side is usable, fall back to
+  // the old Route-letter label so the block is still identifiable.
+  const fromTxt = String(ownDoc['From'] || '').trim();
+  let toTxt = String(ownDoc['To'] || '').trim();
+  if (!toTxt) {
+    toTxt = [
+      String(ownDoc['To City'] || '').trim(),
+      [String(ownDoc['To State'] || '').trim(), String(ownDoc['To ZIP'] || '').trim()].filter(Boolean).join(' ')
+    ].filter(Boolean).join(', ');
+  }
+  const routeLabel = (fromTxt && toTxt)
+    ? `From ${fromTxt} to ${toTxt}`
+    : (subId ? `Route ${subId}` : 'Destination charges');
 
   function buildSafePatch(payload) {
     const patch = {};

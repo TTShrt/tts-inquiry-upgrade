@@ -1142,6 +1142,7 @@ app.post('/inquiries', async (req, res) => {
       'Source': raw['Source'] || raw.source || 'internal',
       'Assigned Sales': raw['Assigned Sales'] || raw.assignedSales || (String(req.cookies.role || '').toLowerCase() === 'sales' ? (req.cookies.username || '') : ''),
       'External Quotation #': raw['External Quotation #'] || raw.externalQuotation || '',
+      'GF Ref': raw['GF Ref'] || raw.gfRef || '',
 
       // ===== Workflow =====
       // Internal system-created inquiries (Sales/Manager) go to Sourcing immediately.
@@ -2326,56 +2327,97 @@ app.post('/api/push-to-gofreight', async (req, res) => {
   const apiKey = process.env.GOFREIGHT_API_KEY;
   const baseUrl = process.env.GOFREIGHT_API_BASE || 'https://api.core.gofreight.co';
 
-  if (!inquiry || !inquiry['Quotation #'] || !inquiry['Customer ID']) {
-    return res.status(400).json({ error: 'Missing Quotation # or Customer ID' });
+  if (!inquiry || !inquiry['Quotation #']) {
+    return res.status(400).json({ error: 'Missing Quotation #' });
   }
 
+  const incoming = inquiry;
+  const quotationId = String(incoming['Quotation #'] || '').trim();
+  const fullQuoteId = quotationId;
+  const dashIdx = quotationId.indexOf('-');
+  const subId = dashIdx >= 0 ? quotationId.slice(dashIdx + 1) : '';
+
+  // ✅ Duplicate-push guard (per line — a sub-line and its parent push independently)
+  const alreadyPushed = await Inquiry.findOne({
+    'Quotation #': fullQuoteId,
+    'Pushed To GF': 'true'
+  });
+  if (alreadyPushed) {
+    return res.status(200).send('Already pushed');
+  }
+
+  // ✅ Fetch the authoritative document from OUR OWN database. Price amounts are read from
+  // this saved doc (not from req.body) so we only ever push what's actually confirmed/locked
+  // in the system, never an in-progress unsaved edit the frontend happened to send.
+  const ownDoc = await Inquiry.findOne({ 'Quotation #': quotationId }).lean();
+  if (!ownDoc) {
+    return res.status(404).json({ error: 'Inquiry not found in database: ' + quotationId });
+  }
+  if (!ownDoc['Customer ID']) {
+    return res.status(400).json({ error: quotationId + ' has no Customer ID on file.' });
+  }
+
+  // ✅ GF push cutoff: quotations before 2026-08-24 were already entered into GoFreight
+  // manually by Sales — never auto-push them (would create duplicate/conflicting charge
+  // groups). Derived from the document's _id timestamp, not the 'Date' field, because
+  // 'Date' is a locale-formatted string ("8/24/2026") that sorts wrong as text, and
+  // createdAt is missing on historical docs (same reasoning as the WIN90 filter above).
+  const GF_PUSH_CUTOFF = new Date('2026-08-24T00:00:00.000Z');
+  const docCreatedAt = ownDoc._id && typeof ownDoc._id.getTimestamp === 'function'
+    ? ownDoc._id.getTimestamp() : null;
+  if (docCreatedAt && docCreatedAt < GF_PUSH_CUTOFF) {
+    return res.status(400).json({
+      error: quotationId + ' predates the GoFreight push cutoff (2026-08-24). This quotation was already entered into GoFreight manually — do not sync it.'
+    });
+  }
+
+  // ✅ Confirmed against GF's live Billing Codes API (2026-08-24) — see chat log for lookup commands.
+  // billing_code_ref values are GF's internal ref numbers, NOT the LTLRG-xxx display codes.
   const freightMapping = {
     'Adjusted Price': {
-      code: '40601',
-      desc: 'Drayage - Hauling Fee per Container',
+      ref: '624',   // LTLRG-PUR
+      desc: 'Drayage- Hauling Fee per Container',
       unit: 'CNTR'
     },
     'Chassis Price': {
-      code: '40601',
-      desc: 'FCL Drayage Surcharge - Chassis Fee Per Day',
+      ref: '601',   // LTLRG-CHSS (generic — NOT LTLRG-BBICHSS, which is customer-specific)
+      desc: 'FCL Drayage Surcharge- Chassis Fee Per Day',
       unit: 'DAYS'
     },
     'Pre-Pull Price': {
-      code: '40601',
-      desc: 'Drayage Surcharge - Pre Pull',
+      ref: '622',   // LTLRG-PP
+      desc: 'Drayage Surcharge- Pre Pull',
       unit: 'CNTR'
     },
     'Yard Storage Price': {
-      code: '40601',
-      desc: 'Drayage Surcharge - Yard Storage',
+      ref: '655',   // LTLRG-YD
+      desc: 'Drayage Surcharge- Yard Storage',
       unit: 'DAYS'
     },
     'Driver Waiting Price': {
-      code: '40601',
-      desc: 'Drayage Surcharge - Driver Waiting Time at Warehouse/ Per Hour',
+      ref: '653',   // LTLRG-WT
+      desc: 'Drayage Surcharge- Driver Waiting Time at Warehouse/ Per Hour',
       unit: 'HRS'
     },
     'Over Weight Price': {
-      code: '40601',
-      desc: 'Drayage Surcharge - Overweight Fee',
+      ref: '618',   // LTLRG-OWFE (generic — location-specific variants exist, see chat log)
+      desc: 'Drayage Surcharge- Overweight Fee',
       unit: 'CNTR'
     },
     'Chassis Split Price': {
-      code: '40601',
-      desc: 'Drayage Surcharge - Chassis Split',
+      ref: '642',   // LTLRG-SPLIT
+      desc: 'Drayage Surcharge- Chassis Split',
       unit: 'SPLIT'
     }
   };
 
-
   const chargeItems = [];
 
   for (const [field, config] of Object.entries(freightMapping)) {
-    const amount = parseFloat(inquiry[field]);
+    const amount = parseFloat(ownDoc[field]);
     if (!isNaN(amount) && amount > 0) {
       chargeItems.push({
-        billing_code_ref: config.code,
+        billing_code_ref: config.ref,
         description: config.desc,
         carrier_ref: 'TP0001',
         unit: config.unit,
@@ -2390,115 +2432,69 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     }
   }
 
-  // ✅ Normalize Quotation # input:
-  // - Users enter only 6 digits like "000001"
-  // - Allow accidental inputs like "1", "000001-1", "000001-A", "TTSQT-000001"
-  // - GoFreight query always uses "TTSQT-000001"
-  function normalizeMainId(raw) {
-    const s = String(raw || '').trim().toUpperCase();
-
-    // remove optional prefix
-    let t = s.replace(/^TTSQT-?/, '');
-
-    // remove sub part: /1 or -1 or -A
-    t = t.split('/')[0];
-    t = t.split('-')[0];
-
-    // keep digits only
-    t = t.replace(/\D/g, '');
-
-    if (!t) return '';
-    return t.padStart(6, '0').slice(-6);
+  if (chargeItems.length === 0) {
+    return res.status(400).json({ error: 'No locked price fields found on ' + quotationId + ' — nothing to push.' });
   }
 
-  const { base } = parseQuoteId(inquiry['Quotation #']);
-  const quotationNo = base ? `TTSQT-${base}` : null;
-
-  function parseQuoteId(raw) {
-    const s0 = String(raw || '').trim().toUpperCase();
-    if (!s0) return { base: '', line: '', option: '' };
-
-    // allow accidental "TTSQT-"
-    const s = s0.replace(/^TTSQT-?/, '');
-
-    // Match:
-    // 000001
-    // 000001A
-    // 000001A-1
-    // 000001A-A
-    const m = s.match(/^(\d{1,6})([A-Z])?(?:-([A-Z]|\d+))?$/);
-    if (!m) {
-      // fallback: extract digits as base
-      const digits = (s.match(/\d+/g) || []).join('');
-      const base = digits ? digits.padStart(6, '0').slice(-6) : '';
-      return { base, line: base, option: '' };
-    }
-
-    const base = String(m[1] || '').padStart(6, '0').slice(-6);
-    const lineSuffix = m[2] || '';                 // A/B/C
-    const optionSuffix = m[3] || '';               // 1/2 or A/B
-
-    const line = base + lineSuffix;                // 000001A (or 000001)
-    const option = optionSuffix ? `${line}-${optionSuffix}` : ''; // 000001A-1 / 000001A-A
-
-    return { base, line, option };
-  }
-
+  // ✅ Resolve the GF quotation ref from OUR OWN database — NOT from a GF lookup-by-quotation_no
+  // call, because GoFreight's public API has no such endpoint (confirmed against the official
+  // OpenAPI spec: only GET /quotations/{ref} exists, no list/search by quotation_no).
+  // Sub-lines (e.g. "005369-1") don't carry their own GF Ref — they share their parent's
+  // ("005369") via the existing 'Parent Quotation #' field.
   let quotationRef = null;
   try {
-    const url = `${baseUrl}/api/v1/quotations?quotation_no=${quotationNo}`;
-    const refRes = await fetch(url, {
-      method: 'GET',
-      headers: { 'x-api-key': apiKey }
-    });
+    let refSourceDoc = ownDoc;
+    const parentId = String(ownDoc['Parent Quotation #'] || '').trim();
+    if (parentId) {
+      const parentDoc = await Inquiry.findOne({ 'Quotation #': parentId }).lean();
+      if (parentDoc) refSourceDoc = parentDoc;
+    }
 
-    const rawText = await refRes.text();
-    console.log('[DEBUG] refRes.status =', refRes.status);
-    console.log('[DEBUG] Raw text from GF:', rawText);
-
-    let refJson;
-    try {
-      refJson = JSON.parse(rawText);
-    } catch (err) {
-      console.error('❌ JSON parse error:', err);
-      return res.status(500).json({
-        error: 'Invalid JSON returned from GoFreight',
-        raw: rawText.slice(0, 1000)
+    quotationRef = String(refSourceDoc['GF Ref'] || '').trim();
+    if (!quotationRef) {
+      return res.status(400).json({
+        error: 'GF Ref not set on ' + (parentId || quotationId) + '. Enter the GoFreight quotation ref (from its GF page URL) before pushing.'
       });
     }
-
-    quotationRef = Array.isArray(refJson) && refJson.length > 0 ? refJson[0].ref : null;
-
-    if (!quotationRef) {
-      console.error('❌ Cannot find quotation ref for:', quotationNo);
-      return res.status(400).json({ error: 'Quotation not found on GoFreight', raw: rawText });
-    }
-
-    console.log('[DEBUG] GoFreight quotation ref =', quotationRef);
   } catch (err) {
-    console.error('❌ Failed to get quotation ref from GoFreight:', err);
-    return res.status(500).json({ error: 'Error fetching quotation ref' });
-  }
-
-  const alreadyPushed = await Inquiry.findOne({
-    'Quotation #': fullQuoteId,
-    'Pushed To GF': 'true'
-  });
-  if (alreadyPushed) {
-    return res.status(200).send('Already pushed');
-  }
-
-  if (!quotationNo) {
-    return res.status(400).json({ error: 'Invalid Quotation #' });
+    console.error('❌ Failed to resolve GF Ref from database:', err);
+    return res.status(500).json({ error: 'Error resolving GF Ref from database' });
   }
 
   const routeLabel = subId ? `Route ${subId}` : 'Destination charges';
-  const payload = {
-    description: routeLabel,
-    location_ref: 'USLAX',
-    charge_items: chargeItems
-  };
 
+  function buildSafePatch(payload) {
+    const patch = {};
+
+    for (const [k, v] of Object.entries(payload || {})) {
+
+      // ❌ 不允许改主键
+      if (k === '_id' || k === 'Quotation #' || k === 'Quotation # ') continue;
+
+      // ✅ boolean 一定允许
+      if (typeof v === 'boolean') {
+        patch[k] = v;
+        continue;
+      }
+
+      // ✅ number 一定允许（包括 0）
+      if (typeof v === 'number') {
+        patch[k] = v;
+        continue;
+      }
+
+      // ✅ string —— 允许空字符串写入
+      if (typeof v === 'string') {
+        patch[k] = v;
+        continue;
+      }
+
+      // 其他类型也允许写入
+      patch[k] = v;
+    }
+
+    return patch;
+  }
 
   try {
     console.log('[DEBUG] quotationRef:', quotationRef);
@@ -2508,16 +2504,15 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     const gfRes = await fetch(`${baseUrl}/api/v1/quotations/${quotationRef}/charge-groups`, {
       method: 'POST',
       headers: {
-        'x-api-key': apiKey,
+        'X-GATEWAY-TOKEN': apiKey,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         description: routeLabel,
-        location_ref: 'USLAX',
+        location_ref: 'USLAX',   // ⚠️ TODO confirm: hardcoded from earlier draft, may need to be a Houston-area code
         charge_items: chargeItems
       })
     });
-
 
     const result = await gfRes.text();
 
@@ -2540,6 +2535,10 @@ app.post('/api/push-to-gofreight', async (req, res) => {
       });
     }
 
+    if (!gfRes.ok) {
+      return res.status(gfRes.status).json(resultJson);
+    }
+
     const patch = buildSafePatch(incoming);
     await Inquiry.updateOne({ 'Quotation #': quotationId }, { $set: patch });
 
@@ -2549,6 +2548,7 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     res.status(500).json({ error: 'Server error during push', detail: err.message });
   }
 });
+
 
 app.post('/duplicate_inquiry', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();

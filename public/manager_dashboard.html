@@ -2370,6 +2370,94 @@
         wrap.appendChild(editBtn);
         wrap.appendChild(saveBtn);
         wrap.appendChild(chk);
+
+        // 🚀 Push locked price to GoFreight — TRUCK/drayage scope only (WH price fields
+        // don't map to any GF drayage billing code). Shown once the row is confirmed
+        // (mirrors the sales dashboard's "locked row" gating) and only for quotations
+        // dated 2026-08-24 or later (server enforces this too — see push-to-gofreight).
+        if (scope === 'TRUCK') {
+          const _gfDateParts = String(item['Date'] || '').split('/');
+          const _gfItemDate = _gfDateParts.length === 3
+            ? new Date(Date.UTC(+_gfDateParts[2], +_gfDateParts[0] - 1, +_gfDateParts[1]))
+            : null;
+          const _gfEligible = _gfItemDate && _gfItemDate >= new Date('2026-08-24T00:00:00.000Z');
+          const _gfLocked = mgrConfirmed || salesConfirmed;
+
+          if (_gfEligible && _gfLocked) {
+            const pushGFBtn = document.createElement('button');
+            pushGFBtn.type = 'button';
+            pushGFBtn.className = 'action-button';
+            pushGFBtn.textContent = '🚀';
+            pushGFBtn.title = 'Push to GoFreight';
+            if (String(item['Pushed To GF'] || '').toLowerCase() === 'true') {
+              pushGFBtn.classList.add('done');
+              pushGFBtn.title = 'Already pushed to GoFreight';
+            }
+
+            pushGFBtn.onclick = async () => {
+              if (pushGFBtn.classList.contains('done')) {
+                alert('This line was already pushed to GoFreight.');
+                return;
+              }
+
+              const isSubLine = String(quote).includes('-');
+              let gfRefEntry = null;
+              if (!isSubLine) {
+                gfRefEntry = prompt(
+                  'Enter the GoFreight quotation ref for ' + quote + '\n' +
+                  '(the number in the GF page URL, e.g. .../quotation/entry/5447 → 5447)\n' +
+                  'Leave blank if it was already entered previously.'
+                );
+                if (gfRefEntry === null) return;  // user cancelled
+              }
+
+              if (!confirm('Push locked pricing for ' + quote + ' to GoFreight now?')) return;
+
+              pushGFBtn.disabled = true;
+              try {
+                if (gfRefEntry && gfRefEntry.trim()) {
+                  const refRes = await postUpdate({ 'Quotation #': quote, 'Saved': 'true', 'GF Ref': gfRefEntry.trim() });
+                  if (!refRes.ok) {
+                    alert('❌ Failed to save GF Ref.');
+                    return;
+                  }
+                }
+
+                const res = await fetch('/api/push-to-gofreight', {
+                  method: 'POST',
+                  credentials: 'same-origin',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    'Quotation #': quote,
+                    'Pushed To GF': 'true',
+                    'Pushed To GF At': new Date().toISOString()
+                  })
+                });
+
+                if (window.handleAuthError(res)) return;   // ✅ AUTH
+                const text = await res.text();
+                if (!res.ok) {
+                  alert('❌ Push to GoFreight failed: ' + text);
+                  return;
+                }
+                if (text.trim() === 'Already pushed') {
+                  alert('This line was already pushed to GoFreight.');
+                } else {
+                  pushGFBtn.classList.add('done');
+                  pushGFBtn.title = 'Already pushed to GoFreight';
+                }
+              } catch (err) {
+                console.error('Push to GoFreight failed:', err);
+                alert('❌ Network error: ' + err.message);
+              } finally {
+                pushGFBtn.disabled = false;
+              }
+            };
+
+            wrap.appendChild(pushGFBtn);
+          }
+        }
+
         td.appendChild(wrap);
         return td;
       }

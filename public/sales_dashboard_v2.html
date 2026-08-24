@@ -3190,6 +3190,26 @@
               exportBtn.dataset.quote = quote;
               exportBtn.onclick = () => window.open('/quotation_print.html?q=' + encodeURIComponent(quote), '_blank');
 
+              // 🚀 Push locked price to GoFreight
+              // ✅ Cutoff: quotations before 2026-08-24 were already entered into GF manually
+              // by Sales — never show/offer the push button for them (server enforces this too).
+              const _gfDateParts = String(item['Date'] || '').split('/');
+              const _gfItemDate = _gfDateParts.length === 3
+                ? new Date(Date.UTC(+_gfDateParts[2], +_gfDateParts[0] - 1, +_gfDateParts[1]))
+                : null;
+              const _gfEligible = _gfItemDate && _gfItemDate >= new Date('2026-08-24T00:00:00.000Z');
+
+              const pushGFBtn = document.createElement('button');
+              pushGFBtn.type = 'button';
+              pushGFBtn.textContent = '🚀';
+              pushGFBtn.title = 'Push to GoFreight';
+              pushGFBtn.className = 'btn-push-gf action-button';
+              pushGFBtn.dataset.quote = quote;
+              if (String(item['Pushed To GF'] || '').toLowerCase() === 'true') {
+                pushGFBtn.classList.add('done');
+                pushGFBtn.title = 'Already pushed to GoFreight';
+              }
+
               // 💾 Inquiry Save
               const saveBtn = document.createElement('button');
               saveBtn.type = 'button';
@@ -3208,9 +3228,11 @@
                 wrapBasic.appendChild(editBtn);
                 wrapBasic.appendChild(saveBtn);
                 if (!viewOnly) wrapBasic.appendChild(exportBtn);   // ✅ EXPORT (sales only; ops_view has no export permission)
+                if (!viewOnly && _gfEligible) wrapBasic.appendChild(pushGFBtn);   // 🚀 PUSH TO GF (sales only, 2026-08-24+)
               } else {
                 inquiryActionTd.innerHTML = lockBadgeHTML();
                 if (!viewOnly) wrapBasic.appendChild(exportBtn);   // ✅ EXPORT: read-only export stays available on locked rows
+                if (!viewOnly && _gfEligible) wrapBasic.appendChild(pushGFBtn);   // 🚀 PUSH TO GF: locked rows are the normal case for pushing
               }
 
               if (wrapBasic.childNodes.length) inquiryActionTd.appendChild(wrapBasic);
@@ -4444,11 +4466,12 @@
           const editBtn = e.target.closest('button.btn-edit-inquiry');
           const saveBtn = e.target.closest('button.btn-save-inquiry');
           const submitSourcingBtn = e.target.closest('button.btn-submit-sourcing');
+          const pushGFBtn = e.target.closest('button.btn-push-gf');
 
-          if (!editBtn && !saveBtn && !submitSourcingBtn) return;
+          if (!editBtn && !saveBtn && !submitSourcingBtn && !pushGFBtn) return;
 
           // ✅ 用哪个按钮点的，就用哪个按钮找 quote
-          const activeBtn = editBtn || saveBtn || submitSourcingBtn;
+          const activeBtn = editBtn || saveBtn || submitSourcingBtn || pushGFBtn;
           const quote = activeBtn?.dataset?.quote;
           if (!quote) return;
 
@@ -4457,6 +4480,79 @@
           if (!tr) return;
 
           const fields = tr.querySelectorAll('.inq-field');
+
+          // --- 点击 PUSH TO GOFREIGHT ---
+          if (pushGFBtn) {
+            if (pushGFBtn.classList.contains('done')) {
+              alert('This line was already pushed to GoFreight.');
+              return;
+            }
+
+            // ✅ 主单第一次推送时才需要问 GF Ref；子单靠 Parent Quotation # 自动继承，
+            //    这里只做前端友好提醒，真正的归属判断在后端。
+            const isSubLine = quote.includes('-');
+            let gfRefEntry = null;
+            if (!isSubLine) {
+              gfRefEntry = prompt(
+                'Enter the GoFreight quotation ref for ' + quote + '\n' +
+                '(the number in the GF page URL, e.g. .../quotation/entry/5447 → 5447)\n' +
+                'Leave blank if it was already entered previously.'
+              );
+              if (gfRefEntry === null) return;  // user cancelled
+            }
+
+            if (!confirm('Push locked pricing for ' + quote + ' to GoFreight now?')) return;
+
+            setWorking(pushGFBtn, true);
+            try {
+              if (gfRefEntry && gfRefEntry.trim()) {
+                const refRes = await fetch('/inquiries/update', {
+                  method: 'POST',
+                  credentials: 'same-origin',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 'Quotation #': quote, 'Saved': 'true', 'GF Ref': gfRefEntry.trim() })
+                });
+                if (window.handleAuthError(refRes)) return;   // ✅ AUTH
+                if (!refRes.ok) {
+                  alert('❌ Failed to save GF Ref: ' + await refRes.text());
+                  return;
+                }
+              }
+
+              const pushPayload = {
+                'Quotation #': quote,
+                'Pushed To GF': 'true',
+                'Pushed To GF At': new Date().toISOString()
+              };
+
+              const res = await fetch('/api/push-to-gofreight', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(pushPayload)
+              });
+
+              if (window.handleAuthError(res)) return;   // ✅ AUTH
+              const text = await res.text();
+              if (!res.ok) {
+                alert('❌ Push to GoFreight failed: ' + text);
+                return;
+              }
+              if (text.trim() === 'Already pushed') {
+                alert('This line was already pushed to GoFreight.');
+              } else {
+                flashDone(pushGFBtn);
+                pushGFBtn.classList.add('done');
+                pushGFBtn.title = 'Already pushed to GoFreight';
+              }
+            } catch (err) {
+              console.error('Push to GoFreight failed:', err);
+              alert('❌ Network error: ' + err.message);
+            } finally {
+              setWorking(pushGFBtn, false);
+            }
+            return;
+          }
 
           // --- 点击 SUBMIT TO SOURCING (customer portal only) ---
           if (submitSourcingBtn) {

@@ -2045,6 +2045,23 @@
         return { ok: true, data: j };
       }
 
+      // ✅ FIX (LP-Quote blind spot): the row-level WH "Price Save"/"Confirm" buttons only ever
+      // checked the old fixed bucket fields (Order Processing Price, Inbound Price, ...). Quotes
+      // built from a TTS List Price template (via the Warehouse modal) store their real pricing
+      // in dynamic 'LP n Price' fields instead — those buckets stay empty on purpose. That made
+      // this guard always see "everything empty" for any LP-Quote row, even one the modal shows
+      // has real Cost/Price/GP, and permanently block Save/Confirm on it. This checks the cached
+      // doc for any non-empty 'LP n Price' as an alternate, equally valid sign the row is priced.
+      function hasLpPricing(quote) {
+        try {
+          const cached = (filteredData || []).find(
+            x => String(x['Quotation #'] || '').trim() === String(quote || '').trim()
+          );
+          if (!cached) return false;
+          return Object.keys(cached).some(k => /^LP \d+ Price$/.test(k) && String(cached[k] ?? '').trim() !== '');
+        } catch (e) { return false; }
+      }
+
       async function saveFields(quote, fields, scope) {
         const payload = { 'Quotation #': quote, 'Saved': 'true' };
         if (scope === 'TRUCK') payload['truckingPriceSaved'] = 'true';
@@ -2077,7 +2094,9 @@
         // ✅ FIX: refuse flag-only saves. If every collected field is empty (inputs may
         // have been wiped by a table reload or a duplicated row), do NOT save — this used
         // to persist truckingPriceSaved/warehousePriceSaved with no price data.
-        const hasValue = fields.some(f => map.has(f) && String(map.get(f)).trim() !== '');
+        // ✅ FIX (LP-Quote blind spot): a WH row priced via the List-Price modal counts too.
+        const hasValue = fields.some(f => map.has(f) && String(map.get(f)).trim() !== '') ||
+          (scope === 'WH' && hasLpPricing(quote));
         if (!hasValue) {
           alert('⚠️ Nothing to save — all price fields are empty. Please enter the price and try again.');
           return { ok: false, data: null };
@@ -2104,7 +2123,9 @@
         fields.forEach(f => { if (map.has(f)) payload[f] = map.get(f); });
 
         // ✅ FIX: refuse flag-only confirm-saves (same guard as saveFields)
-        const hasValue = fields.some(f => map.has(f) && String(map.get(f)).trim() !== '');
+        // ✅ FIX (LP-Quote blind spot): a WH row priced via the List-Price modal counts too.
+        const hasValue = fields.some(f => map.has(f) && String(map.get(f)).trim() !== '') ||
+          (scope === 'WH' && hasLpPricing(quote));
         if (!hasValue) {
           alert('⚠️ Nothing to save — all price fields are empty. Please enter the price and try again.');
           return { ok: false, data: null };

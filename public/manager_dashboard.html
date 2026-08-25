@@ -3052,6 +3052,17 @@
       }
 
       document.addEventListener('DOMContentLoaded', async () => {
+        // ✅ FIX: decide Form-vs-List BEFORE the (slow, 800+ row) loadInquiries() fetch below,
+        // not after. This used to run at the bottom of this handler, so the form — which has
+        // no default "hidden" CSS rule — sat visible on screen for however long the fetch took.
+        // Deciding it here, before any network call, removes that flash entirely.
+        if (localStorage.getItem('openForm') === '1') {
+          localStorage.removeItem('openForm');
+          window.setMode('inquiry');
+        } else {
+          window.setMode('summary');
+        }
+
         setupNoteModal();
         const ok = await getCurrentUser();
         if (!ok) return;
@@ -3121,14 +3132,7 @@
         });
 
 
-        // Default: show the summary list — unless the user arrived via Home's "New Inquiry"
-        // quick action, which sets localStorage.openForm (one-shot flag, cleared after use). ✅ NAV
-        if (localStorage.getItem('openForm') === '1') {
-          localStorage.removeItem('openForm');
-          window.setMode('inquiry');
-        } else {
-          window.setMode('summary');
-        }
+        // (Form-vs-List mode is now decided at the top of this handler, before loadInquiries().)
 
         // Toggle Inquiry / Summary
         document.getElementById('toggleInquiry')?.addEventListener('click', () => {
@@ -3476,6 +3480,12 @@ whChecklistSync(document);   // ✅ SUBTYPE: hide the retired checklist on load
 (function () {
   var q = new URLSearchParams(window.location.search).get('q');
   if (!q) return;
+  // ✅ FIX: a leftover Home "New Inquiry" one-shot flag (localStorage.openForm) — or, on the
+  // Sales page, its unconditional form-first default — was overriding this deep link and
+  // leaving the person stuck on the blank Form while the search ran invisibly behind it.
+  // Since arriving via ?q= always means "show me this quotation", force List/Summary mode
+  // and clear the stale flag so it can never re-hijack a future deep link either.
+  localStorage.removeItem('openForm');
   window.addEventListener('load', function () {
     var tries = 0;
     var timer = setInterval(function () {
@@ -3486,6 +3496,7 @@ whChecklistSync(document);   // ✅ SUBTYPE: hide the retired checklist on load
         clearInterval(timer);
         box.value = q;
         btn.click();
+        if (typeof window.setMode === 'function') window.setMode('summary');
       } else if (tries > 40) {   // give up after ~10s; page still works normally
         clearInterval(timer);
       }

@@ -4067,6 +4067,14 @@
 
 
         document.addEventListener('DOMContentLoaded', async () => {
+          // ✅ FIX: decide the default mode BEFORE the (slow, 800+ row) loadInquiries() call
+          // below, not after. This used to run at the bottom of this handler, which meant that
+          // on a slow load it could fire AFTER a deep link (?q=...) had already switched to
+          // List mode — silently flipping the page back to the blank Form. Deciding it here,
+          // before any network call, removes that race entirely.
+          window.setMode?.('inquiry');            // ✅ 默认隐藏 Summary
+          if (localStorage.getItem('openForm') === '1') localStorage.removeItem('openForm');   // ✅ NAV: consume Home's one-shot flag (sales already defaults to the form)
+
           // 1) user
           await window.getCurrentUser();
 
@@ -4116,8 +4124,7 @@
             console.warn('socket disabled', e);
           }
 
-          window.setMode?.('inquiry');            // ✅ 默认隐藏 Summary
-          if (localStorage.getItem('openForm') === '1') localStorage.removeItem('openForm');   // ✅ NAV: consume Home's one-shot flag (sales already defaults to the form)
+          // (Default mode is now set at the top of this handler, before loadInquiries().)
           document.getElementById('fixed-scroll-wrapper')?.scrollTo(0, 0); // 可选
 
           document.body.classList.add('inquiry-only');
@@ -4794,6 +4801,11 @@ whChecklistSync(document);   // ✅ SUBTYPE: hide the retired checklist on load
 (function () {
   var q = new URLSearchParams(window.location.search).get('q');
   if (!q) return;
+  // ✅ FIX: this page always defaults to Form mode on load (see "sales already defaults to
+  // the form" above), so the deep link's search used to run invisibly behind the blank form.
+  // Arriving via ?q= always means "show me this quotation" — force List/Summary mode after
+  // searching, and clear any stale Home "New Inquiry" flag so it can't fight this either.
+  localStorage.removeItem('openForm');
   window.addEventListener('load', function () {
     var tries = 0;
     var timer = setInterval(function () {
@@ -4804,6 +4816,7 @@ whChecklistSync(document);   // ✅ SUBTYPE: hide the retired checklist on load
         clearInterval(timer);
         box.value = q;
         btn.click();
+        if (typeof window.setMode === 'function') window.setMode('summary');
       } else if (tries > 40) {   // give up after ~10s; page still works normally
         clearInterval(timer);
       }

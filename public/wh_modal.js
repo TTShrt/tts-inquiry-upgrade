@@ -579,6 +579,20 @@
         if (touchedPrice) payload['warehousePriceSaved'] = 'true';
       }
       for (var k in fields) payload[k] = fields[k];
+      // ✅ FIX (intentional clear): the server's /inquiries/update silently drops any field
+      // sent as '' unless it's listed in __clearFields (a guard against autosave/checkbox
+      // races accidentally wiping a saved value). manager_dashboard.html and
+      // sales_dashboard_v2.html already send this signal; this modal never did, so clearing
+      // a Price/Cost/Desc field here and hitting Save looked like it worked (no error) but the
+      // old value silently stuck in the DB. Flag any field the user emptied that was
+      // previously non-empty, exactly like those two dashboards do.
+      var clears = [];
+      for (var ck in fields) {
+        if (String(fields[ck] == null ? '' : fields[ck]).trim() === '' && String(item[ck] == null ? '' : item[ck]).trim() !== '') {
+          clears.push(ck);
+        }
+      }
+      if (clears.length) payload.__clearFields = clears;
       try {
         var res = await fetch('/inquiries/update', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -713,7 +727,7 @@
         // commit everything in draft at once
         rebuildServiceTypes();
         if (Object.keys(draft).length === 0) { flashSaved('\u2713 nothing to save'); return; }
-        postUpdate(draft).then(function (ok) { if (ok) { flashSaved('\u2713 saved'); onSaved(); close(); } });
+        postUpdate(draft).then(function (ok) { if (ok) { flashSaved('\u2713 saved'); onSaved(); } });
       }
     });
     document.addEventListener('keydown', function esckey(ev) { if (ev.key === 'Escape') { close(); document.removeEventListener('keydown', esckey); } });

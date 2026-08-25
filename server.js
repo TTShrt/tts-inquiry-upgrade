@@ -593,6 +593,65 @@ function lpRowCount(doc) {
 }
 const WH_SUPPLIER_COUNT = 5;
 
+// ═══════════════════════════════ ✅ DELGROUP fields ═══════════════════════════════
+// Field lists used ONLY by /api/delete-quotation-group to decide whether a line is
+// "empty" (no cost, no price entered). Deliberately duplicated (not imported) from
+// /inquiries/update's local TRUCK_COST_FIELDS/TRUCK_PRICE_FIELDS so that route's
+// scope is never touched. WH side reuses the existing WH_ALL_BUCKETS/WH_TEMPLATE_BUCKETS
+// module-level constants above so the two stay in sync automatically.
+const DELQ_TRUCK_FIELDS = [
+  'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
+  'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee',
+  'Adjusted Price', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
+  'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price',
+  'Price'
+];
+
+function delqEmptyVal(v) {
+  return v === undefined || v === null || String(v).trim() === '';
+}
+
+function delqTruckLineEmpty(doc) {
+  return DELQ_TRUCK_FIELDS.every(f => delqEmptyVal(doc[f]));
+}
+
+function delqWhLineEmpty(doc) {
+  for (const b of WH_ALL_BUCKETS) {
+    if (!delqEmptyVal(doc[b]) || !delqEmptyVal(doc[b + ' Price'])) return false;
+  }
+  for (const b of WH_TEMPLATE_BUCKETS) {
+    for (let s = 1; s <= WH_SUPPLIER_COUNT; s++) {
+      if (!delqEmptyVal(doc[b + ' Cost S' + s])) return false;
+    }
+  }
+  // ✅ LPQUOTE: dynamic List-Price rows also count as cost/price
+  try {
+    const lpArr = JSON.parse(String(doc['LP Rows'] || '[]'));
+    if (Array.isArray(lpArr)) {
+      for (const r of lpArr) {
+        if (!delqEmptyVal(doc['LP ' + r.i + ' Cost'])) return false;
+        if (!delqEmptyVal(doc['LP ' + r.i + ' Price'])) return false;
+        for (let s = 1; s <= WH_SUPPLIER_COUNT; s++) {
+          if (!delqEmptyVal(doc['LP ' + r.i + ' Cost S' + s])) return false;
+        }
+      }
+    }
+  } catch (eLP) { /* malformed LP Rows treated as no LP data */ }
+  return true;
+}
+
+// A line (main or sub) is deletable only when it has NO cost/price anywhere (truck or WH side —
+// a doc could in theory carry either) AND is not already locked by the existing cost-sent/confirmed rule.
+function delqLineEmpty(doc) {
+  return delqTruckLineEmpty(doc) && delqWhLineEmpty(doc);
+}
+function delqLineLocked(doc) {
+  return isTruthy(doc['truckingCostSent']) || isTruthy(doc['warehouseCostSent']) ||
+         isTruthy(doc['truckingSalesConfirmed']) || isTruthy(doc['truckingManagerConfirmed']) ||
+         isTruthy(doc['warehouseSalesConfirmed']) || isTruthy(doc['warehouseManagerConfirmed']);
+}
+// ═══════════════════════════════ DELGROUP fields end ═══════════════════════════════
+
 // Ensure new WH fields exist with sane defaults (idempotent; safe on old docs).
 function applyWarehouseDefaults(doc) {
   setIfEmpty(doc, 'Selected Supplier', '1');
@@ -3415,6 +3474,87 @@ app.use((req, res, next) => {
       return res.status(500).json({ error: 'Server error updating GF flag.' });
     }
   });
+
+  // ═══════════════════════════════ ✅ DELGROUP ═══════════════════════════════
+  // POST /api/delete-quotation-group — deletes an ENTIRE inquiry (main line + every
+  // truck/WH sub-line under it), used to clean up spam/junk submissions coming from the
+  // customer portal. Manager + Sales only (Sourcing keeps using /delete_inquiry for
+  // single Carrier sub-rows — untouched). Every line in the group must have NO cost and
+  // NO price entered anywhere, and must not already be locked (cost sent / confirmed) —
+  // otherwise the whole group is refused and the person is told which line blocked it.
+  app.post('/api/delete-quotation-group', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    try {
+      const role = String(req.cookies?.role || '').toLowerCase();
+      const username = String(req.cookies?.username || '').trim();
+      const salesGroup = String(req.cookies?.salesGroup || '').trim();
+      if (!role) return res.status(401).json({ success: false, message: 'Session expired. Please log in again.' });
+      if (role !== 'manager' && role !== 'sales') {
+        return res.status(403).json({ success: false, message: role === 'ops_view' ? 'OPS view-only cannot modify data.' : 'Not authorized to delete quotations.' });
+      }
+      if (!conn || conn.readyState !== 1 || !Inquiry) {
+        return res.status(503).json({ success: false, message: 'Database not ready. Please retry.' });
+      }
+
+      const p = qlistParse(String((req.body || {}).base || ''));
+      if (!p || p.line !== p.base || p.option) {
+        return res.status(400).json({ success: false, message: 'Invalid base quotation number.' });
+      }
+      const base = p.base;
+
+      // Prefilter by regex (index-friendly), then confirm membership with the same
+      // qlistParse logic the list view uses, so "the group" means exactly the same
+      // thing here as what's shown on screen. Also picks up sub-lines via Parent Quotation #
+      // for docs that don't parse cleanly under the base+suffix scheme.
+      const candidates = await Inquiry.find({
+        $or: [
+          { 'Quotation #': { $regex: '^' + qlistEsc(base) } },
+          { 'Parent Quotation #': base }
+        ]
+      }).lean();
+
+      const docs = candidates.filter(d => {
+        const parsed = qlistParse(d['Quotation #']);
+        return (parsed && parsed.base === base) || String(d['Parent Quotation #'] || '').trim() === base;
+      });
+
+      if (!docs.length) {
+        return res.status(404).json({ success: false, message: 'Quotation ' + base + ' not found.' });
+      }
+
+      if (role === 'sales') {
+        const myGroups = groupList(salesGroup);
+        const owned = docs.every(d => {
+          const g = String(d.salesGroup || '').trim();
+          if (g) return myGroups.includes(g);
+          return (d['Assigned Sales'] || d.username) === username;
+        });
+        if (!owned) {
+          return res.status(403).json({ success: false, message: 'This quotation belongs to another sales group.' });
+        }
+      }
+
+      const blocked = docs.filter(d => delqLineLocked(d) || !delqLineEmpty(d));
+      if (blocked.length) {
+        const names = blocked.map(d => String(d['Quotation #'] || '').trim()).join(', ');
+        return res.status(409).json({
+          success: false,
+          message: '无法删除：以下行已填写成本或价格，无法删除 / Cannot delete — cost or price already entered on: ' + names
+        });
+      }
+
+      const ids = docs.map(d => d['Quotation #']);
+      const result = await Inquiry.deleteMany({ 'Quotation #': { $in: ids } });
+
+      console.log('[DELGROUP] base=' + base + ' lines=' + ids.length + ' deleted=' + result.deletedCount + ' by=' + username + '/' + role);
+      io.emit('inquiryUpdated', { quotationId: base });
+      return res.json({ success: true, deleted: result.deletedCount });
+    } catch (err) {
+      console.error('❌ DELGROUP error:', err);
+      return res.status(500).json({ success: false, message: 'Server error while deleting quotation.' });
+    }
+  });
+  // ═══════════════════════════════ DELGROUP end ═══════════════════════════════
 })();
 // ═══════════════════════════════ ✅ QLIST end ═══════════════════════════════
 

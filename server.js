@@ -258,6 +258,16 @@ const users = [
   },
 
   // ==============================
+  // 🟤 Cross-team (TEAM2 + TEAM3)
+  // ==============================
+  {
+    username: 'Aurora Peng',
+    password: 'aurorapTTS@082026',
+    role: 'sales',
+    salesGroup: 'TEAM2,TEAM3'
+  },
+
+  // ==============================
   // 🟠 Sourcing
   // ==============================
   {
@@ -275,8 +285,16 @@ const USER_EMAILS = {
   'Lina Lee': 'linal@totalsolutionus.com',
   'Adam Chen': 'salescn@totalsolutionus.com',
   'Ellen Lin': 'sqcn@totalsolutionus.com',
-  'Niurka Guzman': 'salesus@totalsolutionus.com'
+  'Niurka Guzman': 'salesus@totalsolutionus.com',
+  'Aurora Peng': 'sa@totalsolutionus.com'
 };
+// ✅ Multi-group support: salesGroup may be a comma list (e.g. 'TEAM2,TEAM3' for cross-team
+// users like Aurora Peng). Single-group users parse to a one-element list — their behavior
+// through every filter below is IDENTICAL to before.
+function groupList(sg) {
+  return String(sg || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
 function emailFor(username, salesGroup) {
   return USER_EMAILS[String(username || '')] || '';
 }
@@ -938,7 +956,7 @@ app.get('/api/kpi', async (req, res) => {
     // three role branches: sales/ops_view, sourcing, manager). Full docs carry dozens of WH/LP/
     // supplier-cost fields and were costing ~130MB of RSS per dashboard load at 2737 docs.
     const KPI_PROJECTION = {
-      'Quotation #': 1, 'External Quotation #': 1, 'Customer ID': 1, 'From': 1,
+      'Quotation #': 1, 'External Quotation #': 1, 'Customer ID': 1, 'From': 1, salesGroup: 1,
       'Date': 1, createdAt: 1, 'GP': 1, 'Assigned Sales': 1, username: 1, 'Selected': 1,
       truckingSalesConfirmed: 1, truckingManagerConfirmed: 1,
       warehouseSalesConfirmed: 1, warehouseManagerConfirmed: 1,
@@ -972,8 +990,13 @@ app.get('/api/kpi', async (req, res) => {
     let docs = mainLines;
     if (role === 'sales' || role === 'ops_view') {
       if (salesGroup) {
-        const groupUsers = users.filter(u => u.salesGroup === salesGroup).map(u => u.username);
-        docs = mainLines.filter(d => groupUsers.includes(d['Assigned Sales'] || d.username));
+        const myGroups = groupList(salesGroup);
+        const groupUsers = users.filter(u => groupList(u.salesGroup).some(g => myGroups.includes(g))).map(u => u.username);
+        docs = mainLines.filter(d => {
+          const docGroup = String(d.salesGroup || '').trim();
+          if (docGroup) return myGroups.includes(docGroup);          // stamped docs: authoritative
+          return groupUsers.includes(d['Assigned Sales'] || d.username); // legacy unstamped docs
+        });
       } else {
         docs = mainLines.filter(d => (d['Assigned Sales'] || d.username) === username);
       }
@@ -1123,11 +1146,25 @@ app.post('/inquiries', async (req, res) => {
 
     // ✅ final salesGroup priority:
     // cookie (sales/opm submit) > body (if provided) > inherited(parent) > ''
-    const finalSalesGroup =
-      String(req.cookies?.salesGroup || '').trim() ||
-      String(raw.salesGroup || raw['salesGroup'] || '').trim() ||
-      inheritedGroup ||
-      '';
+    // Multi-group creators (cookie like 'TEAM2,TEAM3' — e.g. Aurora Peng) are the exception:
+    // the comma list must NEVER be stamped onto a document (it would match no single team's
+    // filter). They must pick ONE of their teams per inquiry; the body value is only honored
+    // when it's one of their own groups.
+    const _cookieGroups = groupList(req.cookies?.salesGroup);
+    const _bodyGroup = String(raw.salesGroup || raw['salesGroup'] || '').trim();
+    let finalSalesGroup;
+    if (_cookieGroups.length > 1) {
+      finalSalesGroup = (_cookieGroups.includes(_bodyGroup) ? _bodyGroup : '') || inheritedGroup || '';
+      if (!finalSalesGroup) {
+        return res.status(400).json({ success: false, message: 'Please select which team this inquiry belongs to (' + _cookieGroups.join(' / ') + ').' });
+      }
+    } else {
+      finalSalesGroup =
+        (_cookieGroups[0] || '') ||
+        _bodyGroup ||
+        inheritedGroup ||
+        '';
+    }
 
     // 構建保存的資料（保留你原有的 raw 映射邏輯）
     const data = {
@@ -1367,7 +1404,7 @@ app.get('/inquiries', async (req, res) => {
     // simply become no-ops on the already-narrowed set, so results are identical.
     let queryFilter = {};
     if (role === 'sourcing') queryFilter = { 'Submitted To Sourcing': 'true' };
-    else if ((role === 'sales' || role === 'ops_view') && salesGroup) queryFilter = { salesGroup };
+    else if ((role === 'sales' || role === 'ops_view') && salesGroup) queryFilter = { salesGroup: { $in: groupList(salesGroup) } };
 
     // ✅ WIN90: default view = last N days only (by _id timestamp — createdAt missing on all docs,
     // verified V3). A non-empty q searches the FULL history instead (no date boundary), mirroring
@@ -1413,7 +1450,8 @@ app.get('/inquiries', async (req, res) => {
 
     // ✅ sales/ops_view: filter by salesGroup + mask unsent costs
     if ((role === 'sales' || role === 'ops_view') && salesGroup) {
-      const filtered = inquiries.filter(it => String(it.salesGroup || '').trim() === salesGroup);
+      const _myGroups = groupList(salesGroup);
+      const filtered = inquiries.filter(it => _myGroups.includes(String(it.salesGroup || '').trim()));
 
       // ✅ Strip cost data AND auto-calculated prices that Sourcing hasn't "sent" yet
       const truckCostFields = [
@@ -1509,7 +1547,7 @@ app.get('/api/quotation-print', async (req, res) => {
     const doc = await Inquiry.findOne({ 'Quotation #': q }).lean();
     if (!doc) return res.status(404).json({ error: 'Quotation ' + q + ' not found.' });
 
-    if (role === 'sales' && String(doc.salesGroup || '').trim() !== salesGroup) {
+    if (role === 'sales' && !groupList(salesGroup).includes(String(doc.salesGroup || '').trim())) {
       return res.status(403).json({ error: 'This quotation belongs to another sales group.' });
     }
 
@@ -1666,7 +1704,7 @@ app.post('/api/list-price-quotes', async (req, res) => {
     if (baseQ) {
       const baseRec = await conn.collection('list_price_quotes').findOne({ quoteNo: baseQ });
       if (!baseRec) return res.status(404).json({ error: 'Base record ' + baseQ + ' not found.' });
-      if (auth.role === 'sales' && String(baseRec.salesGroup || '').trim() !== auth.salesGroup) {
+      if (auth.role === 'sales' && !groupList(auth.salesGroup).some(g => groupList(baseRec.salesGroup).includes(g))) {
         return res.status(403).json({ error: 'This record belongs to another sales group.' });
       }
       const root = baseQ.replace(/-Updated-\d+$/i, '');
@@ -1735,7 +1773,7 @@ app.get('/api/list-price-quote-detail', async (req, res) => {
     if (!no) return res.status(400).json({ error: 'Missing quotation number.' });
     const rec = await conn.collection('list_price_quotes').findOne({ quoteNo: no });
     if (!rec) return res.status(404).json({ error: 'Record ' + no + ' not found.' });
-    if (auth.role === 'sales' && String(rec.salesGroup || '').trim() !== auth.salesGroup) {
+    if (auth.role === 'sales' && !groupList(auth.salesGroup).some(g => groupList(rec.salesGroup).includes(g))) {
       return res.status(403).json({ error: 'This record belongs to another sales group.' });
     }
     return res.json({ record: rec });
@@ -1752,7 +1790,7 @@ app.get('/api/list-price-quotes', async (req, res) => {
     const auth = lpAuth(req, res); if (!auth) return;
     const qStr = String(req.query.q || '').trim();   // ✅ LPSEARCH
     const limit = Math.min(parseInt(req.query.limit, 10) || (qStr ? 50 : 10), qStr ? 50 : 20);
-    const filter = (auth.role === 'sales') ? { salesGroup: auth.salesGroup } : {};   // manager & OPS: all groups
+    const filter = (auth.role === 'sales') ? { salesGroup: { $in: [...groupList(auth.salesGroup), auth.salesGroup] } } : {};   // manager & OPS: all groups
     if (qStr) {
       const rx = new RegExp(qStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       filter.$or = [{ quoteNo: rx }, { 'customer.company': rx }, { gfQuoteNo: rx }];
@@ -2613,6 +2651,11 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     const patch = buildSafePatch(incoming);
     await Inquiry.updateOne({ 'Quotation #': quotationId }, { $set: patch });
 
+    // ✅ Broadcast like every other save path does — without this, any socket-triggered
+    // table re-render (including the GF Ref save moments earlier) redraws the rocket
+    // from pre-push data and it shows colored again even though the push succeeded.
+    io.emit('inquiryUpdated', { quotationId });
+
     res.status(200).json(resultJson);
   } catch (err) {
     console.error('❌ Push to GoFreight failed:', err);
@@ -3190,7 +3233,7 @@ app.use((req, res, next) => {
       );
 
       const filter = { _id: { $gte: boundary } };
-      if ((role === 'sales' || role === 'ops_view') && salesGroup) filter.salesGroup = salesGroup;
+      if ((role === 'sales' || role === 'ops_view') && salesGroup) filter.salesGroup = { $in: groupList(salesGroup) };
 
       const qRaw = String(req.query.q || '').trim();
       if (qRaw) {
@@ -3354,7 +3397,7 @@ app.use((req, res, next) => {
 
       const doc = await Inquiry.findOne({ 'Quotation #': p.base }, { salesGroup: 1 }).lean();
       if (!doc) return res.status(404).json({ error: 'Quotation ' + p.base + ' not found.' });
-      if (role === 'sales' && String(doc.salesGroup || '').trim() !== salesGroup) {
+      if (role === 'sales' && !groupList(salesGroup).includes(String(doc.salesGroup || '').trim())) {
         return res.status(403).json({ error: 'This quotation belongs to another sales group.' });
       }
 

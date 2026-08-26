@@ -1591,6 +1591,15 @@
       background: #f1f5f9 !important;
       border-color: #cbd5e1 !important;
     }
+    /* ✅ ROCKET FIX: the rule above sets font-size:0 on all action buttons (its purpose is to
+       hide stray text since the other buttons are SVG icons). The 🚀 push-to-GF button is a
+       TEXT character, so font-size:0 made it render as an empty box. Restore its font size —
+       higher specificity (.btn-push-gf) than the rule above, affects only the rocket. */
+    .action-button.btn-push-gf,
+    #summaryTable td:last-child .action-button.btn-push-gf {
+      font-size: 14px !important;
+      line-height: 1 !important;
+    }
     .action-button svg,
     #summaryTable td:last-child .action-button svg {
       width: 13px !important;
@@ -2741,9 +2750,7 @@
             if (_gfEligible && locked) {
               const pushGFBtn = document.createElement('button');
               pushGFBtn.type = 'button';
-              // ✅ ASCII-safe escape for the rocket (U+1F680): the raw emoji character was
-              // getting corrupted somewhere in the commit/deploy pipeline, leaving an empty button.
-              pushGFBtn.textContent = '\uD83D\uDE80';
+              pushGFBtn.textContent = '🚀';
               pushGFBtn.title = 'Push to GoFreight';
               pushGFBtn.className = 'btn-push-gf action-button';
               pushGFBtn.dataset.quote = quote;

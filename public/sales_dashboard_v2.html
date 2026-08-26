@@ -2741,7 +2741,9 @@
             if (_gfEligible && locked) {
               const pushGFBtn = document.createElement('button');
               pushGFBtn.type = 'button';
-              pushGFBtn.textContent = '🚀';
+              // ✅ ASCII-safe escape for the rocket (U+1F680): the raw emoji character was
+              // getting corrupted somewhere in the commit/deploy pipeline, leaving an empty button.
+              pushGFBtn.textContent = '\uD83D\uDE80';
               pushGFBtn.title = 'Push to GoFreight';
               pushGFBtn.className = 'btn-push-gf action-button';
               pushGFBtn.dataset.quote = quote;

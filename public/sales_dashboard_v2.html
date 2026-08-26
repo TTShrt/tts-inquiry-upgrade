@@ -2723,6 +2723,32 @@
             wrap.appendChild(saveBtn);
             wrap.appendChild(chk);
             wrap.appendChild(addBtn);
+
+            // 🚀 Push locked price to GoFreight — moved here from the inquiry header row to
+            // match the Manager dashboard: same position (TRUCK pricing row, next to the
+            // confirm checkbox) and same gating (2026-08-24+ AND the line is confirmed).
+            // Same class + dataset as before, so the existing document-level delegated
+            // click handler ('button.btn-push-gf') keeps working unchanged.
+            const _gfDateParts = String(item['Date'] || '').split('/');
+            const _gfItemDate = _gfDateParts.length === 3
+              ? new Date(Date.UTC(+_gfDateParts[2], +_gfDateParts[0] - 1, +_gfDateParts[1]))
+              : null;
+            const _gfEligible = _gfItemDate && _gfItemDate >= new Date('2026-08-24T00:00:00.000Z');
+            if (_gfEligible && locked) {
+              const pushGFBtn = document.createElement('button');
+              pushGFBtn.type = 'button';
+              pushGFBtn.textContent = '🚀';
+              pushGFBtn.title = 'Push to GoFreight';
+              pushGFBtn.className = 'btn-push-gf action-button';
+              pushGFBtn.dataset.quote = quote;
+              if (String(item['Pushed To GF'] || '').toLowerCase() === 'true') {
+                pushGFBtn.classList.add('done');
+                pushGFBtn.title = 'Already pushed to GoFreight';
+              }
+              pushGFBtn.dataset.hasGfRef = item['GF Ref'] ? '1' : '0';
+              wrap.appendChild(pushGFBtn);
+            }
+
             td.appendChild(wrap);
             return td;
           }
@@ -3211,26 +3237,8 @@
               exportBtn.dataset.quote = quote;
               exportBtn.onclick = () => window.open('/quotation_print.html?q=' + encodeURIComponent(quote), '_blank');
 
-              // 🚀 Push locked price to GoFreight
-              // ✅ Cutoff: quotations before 2026-08-24 were already entered into GF manually
-              // by Sales — never show/offer the push button for them (server enforces this too).
-              const _gfDateParts = String(item['Date'] || '').split('/');
-              const _gfItemDate = _gfDateParts.length === 3
-                ? new Date(Date.UTC(+_gfDateParts[2], +_gfDateParts[0] - 1, +_gfDateParts[1]))
-                : null;
-              const _gfEligible = _gfItemDate && _gfItemDate >= new Date('2026-08-24T00:00:00.000Z');
-
-              const pushGFBtn = document.createElement('button');
-              pushGFBtn.type = 'button';
-              pushGFBtn.textContent = '🚀';
-              pushGFBtn.title = 'Push to GoFreight';
-              pushGFBtn.className = 'btn-push-gf action-button';
-              pushGFBtn.dataset.quote = quote;
-              if (String(item['Pushed To GF'] || '').toLowerCase() === 'true') {
-                pushGFBtn.classList.add('done');
-                pushGFBtn.title = 'Already pushed to GoFreight';
-              }
-              pushGFBtn.dataset.hasGfRef = item['GF Ref'] ? '1' : '0';
+              // 🚀 Push to GoFreight — MOVED to actionCellTruck (the TRUCK pricing row) to
+              // match the Manager dashboard's position and confirm-gating. See actionCellTruck.
 
               // 💾 Inquiry Save
               const saveBtn = document.createElement('button');
@@ -3250,11 +3258,9 @@
                 wrapBasic.appendChild(editBtn);
                 wrapBasic.appendChild(saveBtn);
                 if (!viewOnly) wrapBasic.appendChild(exportBtn);   // ✅ EXPORT (sales only; ops_view has no export permission)
-                if (!viewOnly && _gfEligible) wrapBasic.appendChild(pushGFBtn);   // 🚀 PUSH TO GF (sales only, 2026-08-24+)
               } else {
                 inquiryActionTd.innerHTML = lockBadgeHTML();
                 if (!viewOnly) wrapBasic.appendChild(exportBtn);   // ✅ EXPORT: read-only export stays available on locked rows
-                if (!viewOnly && _gfEligible) wrapBasic.appendChild(pushGFBtn);   // 🚀 PUSH TO GF: locked rows are the normal case for pushing
               }
 
               if (wrapBasic.childNodes.length) inquiryActionTd.appendChild(wrapBasic);

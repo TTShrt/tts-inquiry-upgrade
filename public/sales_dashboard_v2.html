@@ -1024,9 +1024,13 @@
       position: sticky !important;
       right: 0 !important;
       z-index: 9999 !important;
-      width: 110px !important;
-      min-width: 110px !important;
-      max-width: 110px !important;
+      /* ✅ 110px → 160px: the TRUCK action row now holds 5 items (edit/save/confirm/add/🚀
+         push-to-GF). Effective sizes in this column: buttons 26px (rule below) + 6px gaps +
+         cell padding ≈ 155px — at 110px the 5th (rocket) was pushed past the sticky cell's
+         edge and clipped by the scroll wrapper, i.e. rendered but invisible. */
+      width: 160px !important;
+      min-width: 160px !important;
+      max-width: 160px !important;
       text-align: center !important;
       padding-left: 6px !important;
       padding-right: 6px !important;

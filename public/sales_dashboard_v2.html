@@ -1024,13 +1024,12 @@
       position: sticky !important;
       right: 0 !important;
       z-index: 9999 !important;
-      /* ✅ 110px → 160px: the TRUCK action row now holds 5 items (edit/save/confirm/add/🚀
-         push-to-GF). Effective sizes in this column: buttons 26px (rule below) + 6px gaps +
-         cell padding ≈ 155px — at 110px the 5th (rocket) was pushed past the sticky cell's
-         edge and clipped by the scroll wrapper, i.e. rendered but invisible. */
-      width: 160px !important;
-      min-width: 160px !important;
-      max-width: 160px !important;
+      /* ✅ ACTION column width: TRUCK rows hold at most 4 items (edit/save/confirm/🚀
+         push-to-GF; the disabled "Add Option" placeholder was removed — Sourcing-only action).
+         4 × 26px buttons + 6px gaps + cell padding ≈ 124px. */
+      width: 130px !important;
+      min-width: 130px !important;
+      max-width: 130px !important;
       text-align: center !important;
       padding-left: 6px !important;
       padding-right: 6px !important;
@@ -2724,18 +2723,12 @@
             };
 
 
-            const addBtn = document.createElement('button');
-            addBtn.className = 'action-button';
-            addBtn.innerHTML = iconSVG('add');
-            addBtn.title = 'Add Truck Option (Sourcing only)';
-            addBtn.disabled = true;
-            addBtn.style.opacity = '0.3';
-            addBtn.style.cursor = 'not-allowed';
+            // (Removed: the permanently-disabled "Add Truck Option (Sourcing only)" placeholder —
+            //  adding option rows is a Sourcing-dashboard action; on Sales it was dead UI.)
 
             wrap.appendChild(editBtn);
             wrap.appendChild(saveBtn);
             wrap.appendChild(chk);
-            wrap.appendChild(addBtn);
 
             // 🚀 Push locked price to GoFreight — moved here from the inquiry header row to
             // match the Manager dashboard: same position (TRUCK pricing row, next to the
@@ -2871,18 +2864,12 @@
               });
             };
 
-            const addBtn = document.createElement('button');
-            addBtn.className = 'action-button';
-            addBtn.innerHTML = iconSVG('add');
-            addBtn.title = 'Add Warehouse Option (Sourcing only)';
-            addBtn.disabled = true;
-            addBtn.style.opacity = '0.3';
-            addBtn.style.cursor = 'not-allowed';
+            // (Removed: the permanently-disabled "Add Warehouse Option (Sourcing only)" placeholder —
+            //  adding option rows is a Sourcing-dashboard action; on Sales it was dead UI.)
 
             wrap.appendChild(editBtn);
             wrap.appendChild(saveBtn);
             wrap.appendChild(chk);
-            wrap.appendChild(addBtn);
             td.appendChild(wrap);
             return td;
           }

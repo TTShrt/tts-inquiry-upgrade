@@ -1597,7 +1597,7 @@
 /* ---- Truck-val: two-line architecture (v3 — mockup layout) ---- */
 .row-truck-val { display: flex !important; flex-wrap: wrap; gap: 6px 10px !important; align-items: center !important; padding: 7px 14px !important; }
 .row-truck-val .truck-line1 { flex: 1 1 640px; display: flex; align-items: center; gap: 10px; min-width: 0; }
-.row-truck-val .truck-line1 .rate-group { margin-left: auto; }
+.row-truck-val .truck-line1 .rate-group { margin-left: 12px; }
 .row-truck-val .truck-line1 .cell-action { margin-left: 12px; }
 .row-truck-val .truck-line2 { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .row-truck-val .truck-line2 .charges-wrap { flex: 1 1 auto; }
@@ -1625,26 +1625,34 @@
 .rate-group {
   display: flex; align-items: stretch; gap: 0;
   border: 1px solid #e2e8f0; border-radius: 8px; background: #fbfcfe; overflow: hidden;
-  flex: 0 0 auto;
+  flex: 1 1 auto;   /* v7: stretch across the space between carrier and actions (mockup) */
+  min-width: 420px;
 }
 .rate-group .cell {
   border: none !important; border-right: 1px solid #eef2f7 !important; border-radius: 0 !important;
-  background: transparent !important; min-width: 64px; text-align: right;
+  background: transparent !important; flex: 1 1 0; text-align: center;
   padding: 3px 8px !important;
 }
+.rate-group .cell::before { text-align: center; }
 .rate-group .cell:last-child { border-right: none !important; }
 .rate-group .cell.is-empty { color: #cbd5e1; }
 
 /* fused charge pair: title + cost + price in one chip; wrap can never split it */
-.charges-wrap { display: flex; flex-wrap: wrap; gap: 5px 6px; }
+/* v7: uniform-width grid so wrapped rows align in columns (mockup) */
+.row-truck-val .truck-line2 { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 5px 6px; }
+.charges-wrap { display: contents; }   /* pairs become grid items directly */
+.row-truck-val .truck-line2 .vendor-note-preview { grid-column: 1 / -1; }
 .charge-pair {
   display: flex; align-items: center; gap: 6px;
   border: 1px solid #e2e8f0; border-radius: 6px; background: #fbfcfe; padding: 2px 7px;
 }
 .charge-pair .pair-title {
   font-size: 8px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
-  color: #64748b; flex: 0 0 auto; max-width: 72px; line-height: 1.1;
+  color: #64748b; flex: 0 0 78px; width: 78px; line-height: 1.1;
 }
+.charge-pair { width: 100%; box-sizing: border-box; }
+.charge-pair .pair-price { flex: 1 1 auto; }
+.charge-pair .pair-price input { width: 100%; min-width: 60px; }
 .charge-pair .cell {
   border: none !important; background: transparent !important; padding: 0 !important;
   min-width: 0;

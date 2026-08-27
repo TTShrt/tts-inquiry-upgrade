@@ -1836,6 +1836,22 @@
   font-size: 11.5px; color: #334155;
 }
 
+
+/* ---- Group spine: one continuous left line tying a quotation group together (mockup) ---- */
+.row-truck-head, .row-wh-head, .row-truck-val, .row-wh-val { position: relative; }
+.row-truck-head::before, .row-wh-head::before {
+  content: ""; position: absolute; left: 7px; top: -2px; bottom: -10px;
+  width: 2px; background: #cbd5e1; border-radius: 1px;
+}
+.row-truck-val::after, .row-wh-val::after {
+  content: ""; position: absolute; left: -7px; top: -10px; bottom: -10px;
+  width: 2px; background: #cbd5e1; border-radius: 1px;
+}
+/* last row of the group: stop the spine at the row's own end */
+#summaryBody > div:has(+ .row-sep)::after,
+#summaryBody > div:has(+ .row-basic-head)::after,
+#summaryBody > div:last-child::after { bottom: 4px; }
+
   </style>
 </head>
 

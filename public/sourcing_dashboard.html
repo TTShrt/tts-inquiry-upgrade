@@ -1589,6 +1589,22 @@
 .row-sep { display: block !important; height: 14px; background: #fff !important; border-top: 1px solid #e2e8f0; border-radius: 0 0 10px 10px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(15,23,42,.05); }
 .row-sep .cell { display: none; }
 
+
+/* ---- Group spine: one continuous left line tying a quotation group together (mockup) ---- */
+.row-truck-head, .row-wh-head, .row-truck-val, .row-wh-val { position: relative; }
+.row-truck-head::before, .row-wh-head::before {
+  content: ""; position: absolute; left: 7px; top: -2px; bottom: -10px;
+  width: 2px; background: #cbd5e1; border-radius: 1px;
+}
+.row-truck-val::after, .row-wh-val::after {
+  content: ""; position: absolute; left: -7px; top: -10px; bottom: -10px;
+  width: 2px; background: #cbd5e1; border-radius: 1px;
+}
+/* last row of the group: stop the spine at the row's own end */
+#summaryBody > div:has(+ .row-sep)::after,
+#summaryBody > div:has(+ .row-basic-head)::after,
+#summaryBody > div:last-child::after { bottom: 4px; }
+
   </style>
 </head>
 

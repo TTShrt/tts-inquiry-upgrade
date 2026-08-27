@@ -1605,6 +1605,11 @@
 #summaryBody > div:has(+ .row-basic-head)::after,
 #summaryBody > div:last-child::after { bottom: 4px; }
 
+
+/* ---- note previews: breathing room between the label and the content ---- */
+#summaryTable .note-preview { gap: 10px; }
+#summaryTable .note-preview::before { flex: 0 0 auto; margin-bottom: 0 !important; }
+
   </style>
 </head>
 

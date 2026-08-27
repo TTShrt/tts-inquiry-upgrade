@@ -1294,6 +1294,12 @@
       opacity: 0.3 !important;
       cursor: not-allowed !important;
     }
+    /* ✅ GF: pushed rockets go gray (own line pushed, or a sibling carrier option of the
+       same route was pushed). Unchecking the confirm box resets the flag and restores color. */
+    .action-button.btn-push-gf.done {
+      filter: grayscale(1) !important;
+      opacity: 0.45 !important;
+    }
     .action-button-row {
       display: inline-flex !important;
       align-items: center !important;
@@ -2187,6 +2193,18 @@
         }
       }
 
+      // ✅ GF GROUP: lines of the same route (same quotation base before the '-N' carrier
+      // suffix, e.g. 005385B and 005385B-1) quote alternative carriers for ONE route — only
+      // one of them should ever be pushed to GF. Once any line in the group is pushed, ALL
+      // the group's rockets go gray; unchecking (unlock-for-edit) resets the flag group-wide.
+      function gfGroupPushedLines(quote) {
+        const base = String(quote || '').split('-')[0].trim();
+        return (filteredData || []).filter(x => {
+          const q = String(x['Quotation #'] || '').trim();
+          return q.split('-')[0] === base && String(x['Pushed To GF'] || '').toLowerCase() === 'true';
+        });
+      }
+
       function actionCell(item, quote, scope) {
         const td = document.createElement('td');
         td.className = 'border px-2 text-center';
@@ -2371,6 +2389,18 @@
               chk.disabled = false;   // ✅ FIX (in-flight guard): re-enable on failure
               return;
             }
+            // ✅ GF GROUP: unlock-for-edit also resets the route group's push flags, so the
+            // 🚀 rockets come back active once the row is re-confirmed. (Re-pushing appends a
+            // NEW charge group in GF — the old block must be deleted manually on the GF page.)
+            if (scope === 'TRUCK') {
+              try {
+                for (const p of gfGroupPushedLines(quote)) {
+                  const pq = String(p['Quotation #'] || '').trim();
+                  const rr = await postUpdate({ 'Quotation #': pq, 'Saved': 'true', 'Pushed To GF': 'false' });
+                  if (rr.ok) p['Pushed To GF'] = 'false';   // keep local cache in sync
+                }
+              } catch (eGF) { console.warn('GF push-flag reset failed:', eGF); }
+            }
             // ✅ FIX (local refresh): re-render this row from the response doc — the
             //    unchecked/unlocked state appears ~1s after the click, no full reload
             await refreshRowFromDoc(r.data && r.data.data);
@@ -2407,17 +2437,21 @@
           if (_gfEligible && _gfLocked) {
             const pushGFBtn = document.createElement('button');
             pushGFBtn.type = 'button';
-            pushGFBtn.className = 'action-button';
+            pushGFBtn.className = 'action-button btn-push-gf';
             pushGFBtn.textContent = '🚀';
             pushGFBtn.title = 'Push to GoFreight';
             if (String(item['Pushed To GF'] || '').toLowerCase() === 'true') {
               pushGFBtn.classList.add('done');
               pushGFBtn.title = 'Already pushed to GoFreight';
+            } else if (gfGroupPushedLines(quote).length) {
+              // ✅ GF GROUP: a sibling carrier option of this route was already pushed
+              pushGFBtn.classList.add('done');
+              pushGFBtn.title = 'Another carrier option of this route was already pushed to GoFreight. Uncheck to edit & re-push.';
             }
 
             pushGFBtn.onclick = async () => {
               if (pushGFBtn.classList.contains('done')) {
-                alert('This line was already pushed to GoFreight.');
+                alert(pushGFBtn.title || 'This line was already pushed to GoFreight.');
                 return;
               }
 

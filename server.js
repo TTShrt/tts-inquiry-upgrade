@@ -2108,6 +2108,12 @@ app.post('/inquiries/update', async (req, res) => {
       // which is exactly when pushing happens.
       if (field === 'GF Ref') return role === 'sales' || role === 'manager';
 
+      // ✅ Pushed To GF: Sales & Manager may RESET this flag (the unlock-for-edit flow clears
+      // it so the route can be re-pushed after a price change). Setting it to 'true' remains
+      // exclusive to /api/push-to-gofreight (only after GF actually accepts the charge group) —
+      // enforced by a value guard in the update loop below.
+      if (field === 'Pushed To GF') return role === 'sales' || role === 'manager';
+
       if (role === 'sourcing') {
         // Sourcing updates COST + cost flags only.
         // Supplier CHOICE belongs to Sales: Sourcing fills the 5 supplier costs + supplier names,
@@ -2284,6 +2290,14 @@ app.post('/inquiries/update', async (req, res) => {
           blocked.push({ field: k, reason: 'cannot-confirm-while-draft' });
           continue;
         }
+      }
+
+      // ✅ Pushed To GF value guard: through THIS endpoint the flag may only be RESET.
+      // Marking a line as pushed stays exclusive to /api/push-to-gofreight (which sets it
+      // only after GoFreight actually accepted the charge group).
+      if (k === 'Pushed To GF' && String(v) !== 'false') {
+        blocked.push({ field: k, reason: 'only-reset-to-false-allowed' });
+        continue;
       }
 
       // ✅ 防止前端空字串把已有值覆盖成空（特别是 autosave / checkbox）
@@ -2549,6 +2563,11 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     return res.status(400).json({ error: 'No locked price fields found on ' + quotationId + ' — nothing to push.' });
   }
 
+  // ✅ ORDER FIX: GoFreight renders charge lines newest-first (last item in the array ends up
+  // at the TOP of the charge group). Sending in natural order (Hauling → Chassis → ... → Split)
+  // therefore displayed reversed. Reverse before sending so GF shows Hauling Fee first.
+  chargeItems.reverse();
+
   // ✅ Resolve the GF quotation ref from OUR OWN database — NOT from a GF lookup-by-quotation_no
   // call, because GoFreight's public API has no such endpoint (confirmed against the official
   // OpenAPI spec: only GET /quotations/{ref} exists, no list/search by quotation_no).
@@ -2801,6 +2820,13 @@ app.post('/duplicate_inquiry', async (req, res) => {
     duplicated['truckingManagerConfirmed'] = 'false';
     duplicated['warehouseSalesConfirmed'] = 'false';
     duplicated['warehouseManagerConfirmed'] = 'false';
+
+    // ✅ GF FIX: never inherit the source inquiry's GoFreight linkage. Before this, a
+    // duplicated inquiry silently carried the source's 'GF Ref', so its first 🚀 push
+    // skipped the ref prompt and sent pricing into the WRONG GF quotation (the source's).
+    duplicated['GF Ref'] = '';
+    duplicated['Pushed To GF'] = 'false';
+    duplicated['Pushed To GF At'] = '';
 
     applyTruckingUnits(duplicated);
     applyWarehouseUnits(duplicated);

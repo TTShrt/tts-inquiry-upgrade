@@ -1599,6 +1599,12 @@
       font-size: 14px !important;
       line-height: 1 !important;
     }
+    /* ✅ GF: pushed rockets go gray (own line pushed, or a sibling carrier option of the
+       same route was pushed). Unchecking the confirm box resets the flag and restores color. */
+    .action-button.btn-push-gf.done {
+      filter: grayscale(1) !important;
+      opacity: 0.45 !important;
+    }
     .action-button svg,
     #summaryTable td:last-child .action-button svg {
       width: 13px !important;
@@ -2623,6 +2629,18 @@
               });
           }
 
+          // ✅ GF GROUP: lines of the same route (same quotation base before the '-N' carrier
+          // suffix, e.g. 005385B and 005385B-1) quote alternative carriers for ONE route — only
+          // one of them should ever be pushed to GF. Once any line in the group is pushed, ALL
+          // the group's rockets go gray; unchecking (unlock-for-edit) resets the flag group-wide.
+          function gfGroupPushedLines(quote) {
+            const base = String(quote || '').split('-')[0].trim();
+            return (window.filteredData || []).filter(x => {
+              const q = String(x['Quotation #'] || '').trim();
+              return q.split('-')[0] === base && String(x['Pushed To GF'] || '').toLowerCase() === 'true';
+            });
+          }
+
           function actionCellTruck(item, quote, role) {
             const td = document.createElement('td');
             td.className = 'border px-2 text-center';
@@ -2708,6 +2726,28 @@
               } else {
                 const ok = await setConfirm(quote, 'truckingSalesConfirmed', false);
                 if (!ok) { chk.checked = true; return; }
+                // ✅ GF GROUP: unlock-for-edit also resets the route group's push flags, so the
+                // 🚀 rockets come back active once the row is re-confirmed. (Re-pushing appends a
+                // NEW charge group in GF — the old block must be deleted manually on the GF page.)
+                try {
+                  const resetLines = gfGroupPushedLines(quote);
+                  for (const p of resetLines) {
+                    const pq = String(p['Quotation #'] || '').trim();
+                    const rr = await postUpdate({ 'Quotation #': pq, 'Saved': 'true', 'Pushed To GF': 'false' });
+                    if (rr && rr.ok) p['Pushed To GF'] = 'false';   // keep local cache in sync
+                  }
+                  if (resetLines.length) {
+                    // Sibling rockets were rendered gray from the old cache; repaint from the
+                    // updated cache so they un-gray immediately. setConfirm doesn't touch the
+                    // cache, so sync this row's own flag first or the repaint would re-check it.
+                    const self = (window.filteredData || []).find(
+                      x => String(x['Quotation #'] || '').trim() === String(quote || '').trim()
+                    );
+                    if (self) self['truckingSalesConfirmed'] = 'false';
+                    // Same protection as the socket path: never repaint over an in-progress edit.
+                    if (!window._dirtyEditing && typeof window.renderPage === 'function') window.renderPage();
+                  }
+                } catch (eGF) { console.warn('GF push-flag reset failed:', eGF); }
               }
 
               // ✅ Update row color immediately
@@ -2750,6 +2790,10 @@
               if (String(item['Pushed To GF'] || '').toLowerCase() === 'true') {
                 pushGFBtn.classList.add('done');
                 pushGFBtn.title = 'Already pushed to GoFreight';
+              } else if (gfGroupPushedLines(quote).length) {
+                // ✅ GF GROUP: a sibling carrier option of this route was already pushed
+                pushGFBtn.classList.add('done');
+                pushGFBtn.title = 'Another carrier option of this route was already pushed to GoFreight. Uncheck to edit & re-push.';
               }
               pushGFBtn.dataset.hasGfRef = item['GF Ref'] ? '1' : '0';
               wrap.appendChild(pushGFBtn);
@@ -4519,7 +4563,7 @@
           // --- 点击 PUSH TO GOFREIGHT ---
           if (pushGFBtn) {
             if (pushGFBtn.classList.contains('done')) {
-              alert('This line was already pushed to GoFreight.');
+              alert(pushGFBtn.title || 'This line was already pushed to GoFreight.');
               return;
             }
 

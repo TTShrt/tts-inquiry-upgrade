@@ -1591,46 +1591,66 @@
 .row-basic-val .cell:last-child    { margin-left: auto; }
 .row-basic-val .cell:last-child::before { content: "Action"; }
 
-/* ---- Truck-val chips ---- */
+/* ---- Truck-val: grouped chips (v2 — mockup-style pairing) ---- */
+.row-truck-val, .row-wh-val { gap: 8px 12px !important; align-items: stretch !important; }
 .row-truck-val .cell, .row-wh-val .cell {
   border: 1px solid #e2e8f0 !important; border-radius: 7px;
   padding: 5px 9px !important; background: #fbfcfe; font-size: 12px !important;
-  min-width: 74px;
 }
-.row-truck-val .cell:nth-child(1), .row-wh-val .cell:nth-child(1) {
-  border: none !important; background: transparent !important; min-width: 84px;
+.row-truck-val .cell-tag, .row-wh-val .cell:nth-child(1) {
+  border: none !important; background: transparent !important;
   font-weight: 700; font-size: 11px !important; color: #334155; align-self: center; padding-left: 0 !important;
+  min-width: 0;
 }
-.row-truck-val .cell:nth-child(1)::before, .row-wh-val .cell:nth-child(1)::before { content: none; }
+.row-truck-val .cell-tag:empty { display: none; }
+.sub-row .cell-tag { min-width: 84px !important; }
 .row-truck-val .cell input, .row-wh-val .cell input {
   width: 72px; border: 1px solid #cbd5e1; border-radius: 5px; padding: 3px 6px;
   font-size: 11.5px; text-align: right; background: #fff;
 }
-.row-truck-val .cell:nth-child(2)::before  { content: "Base Rate"; }
-.row-truck-val .cell:nth-child(3)::before  { content: "Price"; }
-.row-truck-val .cell:nth-child(4)::before  { content: "GP"; }
-.row-truck-val .cell:nth-child(5)::before  { content: "Adj. Price"; }
-.row-truck-val .cell:nth-child(6)::before  { content: "Adj. GP"; }
-.row-truck-val .cell:nth-child(7)::before  { content: "Chassis Cost"; }
-.row-truck-val .cell:nth-child(8)::before  { content: "Chassis Price"; }
-.row-truck-val .cell:nth-child(9)::before  { content: "Pre-Pull Cost"; }
-.row-truck-val .cell:nth-child(10)::before { content: "Pre-Pull Price"; }
-.row-truck-val .cell:nth-child(11)::before { content: "Yard Stor. Cost"; }
-.row-truck-val .cell:nth-child(12)::before { content: "Yard Stor. Price"; }
-.row-truck-val .cell:nth-child(13)::before { content: "Drv Wait Cost"; }
-.row-truck-val .cell:nth-child(14)::before { content: "Drv Wait Price"; }
-.row-truck-val .cell:nth-child(15)::before { content: "Overweight Cost"; }
-.row-truck-val .cell:nth-child(16)::before { content: "Overweight Price"; }
-.row-truck-val .cell:nth-child(17)::before { content: "Ch. Split Cost"; }
-.row-truck-val .cell:nth-child(18)::before { content: "Ch. Split Price"; }
-.row-truck-val .cell:nth-child(19)::before { content: "Toll Cost"; }
-.row-truck-val .cell:nth-child(20)::before { content: "Toll Price"; }
-.row-truck-val .cell:nth-child(21)::before { content: "Reefer Cost"; }
-.row-truck-val .cell:nth-child(22)::before { content: "Reefer Price"; }
-.row-truck-val .cell:nth-child(23)::before { content: "Bond Cost"; }
-.row-truck-val .cell:nth-child(24)::before { content: "Bond Price"; }
-.row-truck-val .cell:nth-child(25)::before { content: "Carrier"; }
-.row-truck-val .cell:nth-child(25) input   { width: 160px; text-align: center; }
+
+/* labels come from data-label now — robust against cell order */
+.row-truck-val .cell[data-label]::before { content: attr(data-label); }
+
+/* rate summary group: one bordered strip holding the five figures */
+.rate-group {
+  display: flex; align-items: stretch; gap: 0;
+  border: 1px solid #e2e8f0; border-radius: 8px; background: #fbfcfe; overflow: hidden;
+}
+.rate-group .cell {
+  border: none !important; border-right: 1px solid #eef2f7 !important; border-radius: 0 !important;
+  background: transparent !important; min-width: 78px; text-align: right;
+}
+.rate-group .cell:last-child { border-right: none !important; }
+.rate-group .cell.is-empty { color: #cbd5e1; }
+
+/* fused charge pair: title + cost + price in one chip; wrap can never split it */
+.charges-wrap { display: flex; flex-wrap: wrap; gap: 8px 10px; flex: 1 1 100%; }
+.charge-pair {
+  display: flex; align-items: center; gap: 7px;
+  border: 1px solid #e2e8f0; border-radius: 7px; background: #fbfcfe; padding: 4px 9px;
+}
+.charge-pair .pair-title {
+  font-size: 8.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: #64748b; width: 74px; flex: 0 0 auto;
+}
+.charge-pair .cell {
+  border: none !important; background: transparent !important; padding: 0 !important;
+  min-width: 0;
+}
+.charge-pair .cell::before {
+  content: attr(data-sub); display: block; font-size: 7.5px; color: #cbd5e1;
+  text-transform: uppercase; font-weight: 700; margin-bottom: 1px;
+}
+.charge-pair .pair-cost { min-width: 44px; text-align: right; font-size: 11.5px !important; }
+.charge-pair .pair-cost.is-empty { color: #cbd5e1; }
+.charge-pair .pair-cost.is-empty::after { content: "—"; }
+.charge-pair .cell input { width: 56px; }
+.charge-pair .pair-price.is-empty input { border-style: dashed; background: transparent; }
+.charge-pair.pair-empty { opacity: .55; }
+.charge-pair.pair-empty:hover, .charge-pair.pair-empty:focus-within { opacity: 1; }
+
+.row-truck-val .cell-carrier input { width: 160px; text-align: center; }
 .row-truck-val .vendor-note-preview        { flex: 1 1 220px; min-width: 180px; }
 .row-truck-val .vendor-note-preview::before{ content: "Vendor Note"; }
 .row-truck-val .cell-action, .row-wh-val .cell-action {
@@ -2958,23 +2978,30 @@
         const baseExt = String((parentDoc && parentDoc['External Quotation #']) || item['External Quotation #'] || '').trim();
         const suffixNum = String(quote || '').match(/-\d+$/)?.[0] || '';
         const displayQuote = (isSub && baseExt) ? (baseExt + suffixNum) : (isSub ? quote : '');
-        tr.appendChild(tdCell(displayQuote, isSub ? 'text-center font-semibold' : ''));
-        tr.appendChild(tdCell(fmt2(item['Base Rate'])));
+        tr.appendChild(tdCell(displayQuote, 'cell-tag' + (isSub ? ' text-center font-semibold' : '')));
+
+        // ✅ CARD LAYOUT v2: rate summary group — same elements/listeners, now wrapped
+        //    in one labeled container so the five figures read as a unit (mockup style).
+        const rateGroup = document.createElement('div'); rateGroup.className = 'rate-group';
+        const lbl = (el, label) => { el.dataset.label = label; if (!String(el.textContent).trim() && !el.querySelector('input')) el.classList.add('is-empty'); return el; };
+        rateGroup.appendChild(lbl(tdCell(fmt2(item['Base Rate'])), 'Base Rate'));
         // ✅ FIX: Use frontend fallback when server hasn't persisted Price/GP
         // Sub-rows may not have Inquiry Type; inherit from parent
         const itemForCalc = (!item['Inquiry Type'] && parentDoc) ? Object.assign({}, item, { 'Inquiry Type': parentDoc['Inquiry Type'] }) : item;
         const { price: calcPrice, gp: calcGP } = getTruckPriceGP(itemForCalc);
-        tr.appendChild(tdCell(calcPrice > 0 ? calcPrice.toFixed(2) : '—'));
+        rateGroup.appendChild(lbl(tdCell(calcPrice > 0 ? calcPrice.toFixed(2) : '—'), 'Price'));
         const gpPercent = (calcGP !== null && Number.isFinite(calcGP)) ? (calcGP * 100).toFixed(2) + '%' : '—';
         const tdGP = tdCell(gpPercent);
         applyGPColor(tdGP, calcGP);
-        tr.appendChild(tdGP);
+        rateGroup.appendChild(lbl(tdGP, 'GP'));
 
         const adj = makeInput(item['Adjusted Price'] || '', 'Adjusted Price', quote, locked, 'TRUCK');
-        const tdAdj = document.createElement('div'); tdAdj.className = 'cell'; tdAdj.appendChild(adj); tr.appendChild(tdAdj);   // ✅ CARD LAYOUT
+        const tdAdj = document.createElement('div'); tdAdj.className = 'cell'; tdAdj.appendChild(adj);
+        rateGroup.appendChild(lbl(tdAdj, 'Adj. Price'));
         const tdAdjGP = tdCell(calcAdjGPpct(adj.value, item['Base Rate']), 'text-right');
         applyGPColor(tdAdjGP, calcAdjGPval(adj.value, item['Base Rate']));
-        tr.appendChild(tdAdjGP);
+        rateGroup.appendChild(lbl(tdAdjGP, 'Adj. GP'));
+        tr.appendChild(rateGroup);
 
         // live update Adjusted GP while typing Adjusted Price
         adj.addEventListener('input', () => {
@@ -2982,17 +3009,28 @@
           applyGPColor(tdAdjGP, calcAdjGPval(adj.value, item['Base Rate']));
         });
 
-
-
+        // ✅ CARD LAYOUT v2: each charge type = ONE fused pair chip (Cost | Price),
+        //    so a wrap can never split a pair and empty types stay compact.
+        const chargesWrap = document.createElement('div'); chargesWrap.className = 'charges-wrap';
         const pairs = [['Chassis', 'Chassis Price'], ['Pre-Pull', 'Pre-Pull Price'], ['Yard Storage', 'Yard Storage Price'], ['Driver Waiting', 'Driver Waiting Price'], ['Over Weight', 'Over Weight Price'], ['Chassis Split', 'Chassis Split Price'], ['Toll', 'Toll Price'], ['Reefer Fee', 'Reefer Fee Price'], ['Bond Fee', 'Bond Fee Price']];
         pairs.forEach(([cF, pF]) => {
-          tr.appendChild(tdCell(fmt2(item[cF])));
+          const pairBox = document.createElement('div'); pairBox.className = 'charge-pair';
+          const title = document.createElement('span'); title.className = 'pair-title'; title.textContent = cF;
+          pairBox.appendChild(title);
+          const costCell = tdCell(fmt2(item[cF]), 'pair-cost'); costCell.dataset.sub = 'Cost';
+          if (!String(costCell.textContent).trim()) costCell.classList.add('is-empty');
+          pairBox.appendChild(costCell);
           const pi = makeInput(item[pF] || '', pF, quote, locked, 'TRUCK');
-          const tdP = document.createElement('div'); tdP.className = 'cell'; tdP.appendChild(pi); tr.appendChild(tdP);   // ✅ CARD LAYOUT
+          const tdP = document.createElement('div'); tdP.className = 'cell pair-price'; tdP.dataset.sub = 'Price'; tdP.appendChild(pi);
+          if (!String(pi.value).trim()) tdP.classList.add('is-empty');
+          pairBox.appendChild(tdP);
+          if (!String(costCell.textContent).trim() && !String(pi.value).trim()) pairBox.classList.add('pair-empty');
+          chargesWrap.appendChild(pairBox);
         });
+        tr.appendChild(chargesWrap);
 
         const car = makeInput(item['Carrier'] || '', 'Carrier', quote, locked, 'TRUCK');
-        const tdCar = document.createElement('div'); tdCar.className = 'cell'; tdCar.appendChild(car); tr.appendChild(tdCar);   // ✅ CARD LAYOUT
+        const tdCar = document.createElement('div'); tdCar.className = 'cell cell-carrier'; tdCar.dataset.label = 'Carrier'; tdCar.appendChild(car); tr.appendChild(tdCar);   // ✅ CARD LAYOUT
 
         // ✅ Vendor Note (Column 26) — Manager view only (read-only)
         const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();

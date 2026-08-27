@@ -446,7 +446,13 @@
     }
 
 
-    /* ===== Status colors (Sourcing) ===== */
+    /* ===== Status colors (Sourcing) =====
+       Note: new-inquiry / row-sent / row-confirmed below used to also have a plain
+       ".class td" rule here, but real rows always carry both the state class AND
+       row-truck-val/row-wh-val together, so the more specific compound-class rules
+       further down (search "把状态色限制在 value 行") always win in practice — those
+       plain rules were dead weight and have been removed. Only cost-saved's rule
+       survives here because it has no compound-class equivalent below. */
 
     /* 0) Default value rows: white */
     #summaryTable tr.row-truck-val td,
@@ -455,26 +461,11 @@
       background: #ffffff !important;
     }
 
-    /* 1) NEW inquiry: whole row light yellow */
-    #summaryTable tr.new-inquiry td {
-      background: #fff7d6 !important;
-    }
-
-    /* 2) COST saved (but not sent): input cells blue (row stays white) */
+    /* 2) COST saved (but not sent): input cells amber (row stays white) —
+       new palette step 2 of 4: green(new) → amber(cost saved) → blue(sent) → deep blue(confirmed) */
     #summaryTable tr.cost-saved td input {
-      background: #dbeafe !important;
-      border-color: #bfdbfe !important;
-    }
-
-
-    /* 3) COST sent by Sourcing: whole row light blue */
-    #summaryTable tr.row-sent td {
-      background: #e0f2fe !important;
-    }
-
-    /* 4) Confirmed by Sales or Manager: whole row deeper blue */
-    #summaryTable tr.row-confirmed td {
-      background: #cfe8ff !important;
+      background: #fef3c7 !important;
+      border-color: #f1d6a8 !important;
     }
 
     /* 5) Freeze # and ACTION always gray (override any row state) */
@@ -895,27 +886,28 @@
       font-weight: 500 !important;
     }
 
-    /* 2) 把“状态色”限制在 value 行（只对 row-*-val 生效） */
+    /* 2) 把"状态色"限制在 value 行（只对 row-*-val 生效） —
+       new palette: green(new) → amber(cost-saved, see above) → blue(sent) → deep blue(confirmed) */
     #summaryTable tr.new-inquiry.row-truck-val td,
     #summaryTable tr.new-inquiry.row-wh-val td {
-      background: #fff7d6 !important;
+      background: #f0fdf4 !important;
     }
 
     #summaryTable tr.new-inquiry.row-truck-val td input,
     #summaryTable tr.new-inquiry.row-wh-val td input {
-      background: #fff7d6 !important;
-      border-color: #f1d6a8 !important;
+      background: #f0fdf4 !important;
+      border-color: #86efac !important;
     }
 
     #summaryTable tr.row-sent.row-truck-val td,
     #summaryTable tr.row-sent.row-wh-val td {
-      background: #eaf4ff !important;
+      background: #eff6ff !important;
     }
 
     #summaryTable tr.row-sent.row-truck-val td input,
     #summaryTable tr.row-sent.row-wh-val td input {
-      background: #eaf4ff !important;
-      border-color: #cfe3ff !important;
+      background: #eff6ff !important;
+      border-color: #93c5fd !important;
     }
 
     #summaryTable tr.row-confirmed.row-truck-val td,
@@ -1254,24 +1246,6 @@
       background: #f1f5f9 !important;
     }
 
-    /* ── Row states: softer colors ── */
-    #summaryTable tr.new-inquiry.row-truck-val td,
-    #summaryTable tr.new-inquiry.row-wh-val td {
-      background: #fefce8 !important;
-    }
-
-    #summaryTable tr.cost-saved td {
-      background: #f0f9ff !important;
-    }
-
-    #summaryTable tr.row-sent td {
-      background: #eff6ff !important;
-    }
-
-    #summaryTable tr.row-confirmed td {
-      background: #f0fdf4 !important;
-    }
-
     /* ── Row separator ── */
     .row-sep td {
       background: #f1f5f9 !important;
@@ -1283,23 +1257,14 @@
       background: #fafbfc !important;
     }
 
-    /* Keep sticky columns neutral on all row states */
-    #summaryTable tr.new-inquiry td:first-child,
-    #summaryTable tr.new-inquiry td:last-child,
-    #summaryTable tr.cost-saved td:first-child,
-    #summaryTable tr.cost-saved td:last-child,
-    #summaryTable tr.row-sent td:first-child,
-    #summaryTable tr.row-sent td:last-child,
-    #summaryTable tr.row-confirmed td:first-child,
-    #summaryTable tr.row-confirmed td:last-child,
-    #summaryTable tr.sub-row td:first-child,
-    #summaryTable tr.sub-row td:last-child,
-    #summaryTable tr.row-sep td:first-child,
-    #summaryTable tr.row-sep td:last-child,
-    #summaryTable tr:hover td:first-child,
-    #summaryTable tr:hover td:last-child {
-      background: #f8fafc !important;
-    }
+    /* NOTE: sticky-column neutrality for all these states (new-inquiry / cost-saved /
+       row-sent / row-confirmed / sub-row / row-sep / hover) is already handled once,
+       consistently, by the "ONE TRUE STICKY STYLE" block above (--sticky-gray). A
+       duplicate copy of that selector list used to live here with a different color
+       (#f8fafc instead of --sticky-gray's #e5e7eb) and — being later in the cascade
+       with equal specificity — silently won, contradicting that block's own "keep
+       only this" comment. Removed rather than fixed in place, since the block above
+       already covers every one of these classes. */
 
     /* ── Inputs: cleaner ── */
 
@@ -1413,6 +1378,216 @@
       overflow-x: auto !important;
       border-radius: 0 !important;
     }
+
+/* ============================================================================
+   ✅ CARD LAYOUT (ported from manager_dashboard v13 final) — appended last.
+   Legacy tr/td-qualified rules self-deactivate on the new div rows.
+   Sourcing role: Base Rate + 9 costs EDITABLE, price column read-only "—",
+   checkbox = Send to Sales, states: new-inquiry/cost-saved/row-sent/row-confirmed.
+   ========================================================================== */
+#summaryTable { display: block !important; background: #f6f7f9 !important; padding: 10px 12px 40px; }
+#summaryBody  { display: block; }
+#summaryTable .cell { box-sizing: border-box; }
+#summaryTable .cell::before {
+  display: block; font-size: 8.5px; font-weight: 700; letter-spacing: .03em;
+  color: #64748b; text-transform: uppercase; margin-bottom: 2px; white-space: nowrap;
+}
+
+/* ---- Card head: dark columnar header + grid-aligned value row (21 cols) ---- */
+:root { --basic-grid-src: 30px 66px 84px 92px 74px 62px minmax(90px,1.1fr) 42px 64px 62px 62px 62px 56px minmax(84px,1fr) minmax(94px,1.2fr) 38px 72px minmax(120px,1.2fr) minmax(120px,1.2fr) 0px 66px; }
+#summaryBody .row-basic-head { display: none !important; }
+#summaryBody .row-basic-head:first-of-type {
+  display: grid !important; grid-template-columns: var(--basic-grid-src);
+  gap: 0 10px; align-items: center;
+  background: #1e293b !important; border-radius: 8px; padding: 7px 14px; margin: 4px 0 6px;
+  position: sticky; top: 0; z-index: 60; box-shadow: 0 2px 6px rgba(15,23,42,.25);
+}
+.row-basic-head .cell {
+  background: transparent !important; border: none !important;
+  color: #cbd5e1 !important; font-size: 8.5px !important; font-weight: 700 !important;
+  letter-spacing: .05em; text-transform: uppercase; text-align: left !important;
+  padding: 0 !important; overflow: hidden; white-space: nowrap;
+}
+.row-basic-val {
+  display: grid !important; grid-template-columns: var(--basic-grid-src);
+  gap: 0 10px; align-items: center;
+  background: #fff !important; border: 1px solid #e2e8f0;
+  border-bottom: 1px dashed #e2e8f0; border-radius: 10px 10px 0 0; padding: 8px 14px;
+}
+.row-basic-val .cell::before { content: none !important; }
+.row-basic-val .cell {
+  border: none !important; padding: 0 !important; font-size: 11.5px !important; color: #0f172a;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left !important;
+  background: transparent !important;
+}
+.row-basic-val .note-preview {
+  border: 1px solid #e2e8f0 !important; border-radius: 7px;
+  padding: 4px 10px !important; background: #fbfcfe !important; overflow: hidden;
+  min-height: 26px; display: flex; align-items: center;
+}
+#summaryTable .note-preview { cursor: pointer; }
+#summaryTable .note-preview .note-line {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  font-size: 11.5px; color: #334155; min-height: 15px; width: 100%;
+}
+#summaryTable .note-preview .note-line:empty::before { content: "Add note…"; color: #b6c2d0; font-style: italic; }
+.row-basic-val .cell:last-child { overflow: visible; white-space: nowrap; }
+
+/* ---- Section titles (r3/r5 collapsed) ---- */
+.row-truck-head .cell:not(:first-child), .row-wh-head .cell:not(:first-child) { display: none !important; }
+.row-truck-head, .row-wh-head {
+  display: flex !important; align-items: center;
+  background: #fff !important; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;
+  padding: 8px 14px 2px;
+}
+.row-truck-head .cell:first-child, .row-wh-head .cell:first-child {
+  background: transparent !important; border: none !important;
+  font-size: 11px !important; font-weight: 700 !important; color: #334155 !important;
+}
+.row-truck-head .cell:first-child::after { content: "  ·  TRUCKING"; color: #94a3b8; font-weight: 600; }
+.row-wh-head .cell:first-child::after   { content: "  ·  WAREHOUSE"; color: #94a3b8; font-weight: 600; }
+
+/* ---- Carrier line = rounded mini-card, border colour by state ---- */
+.row-truck-val, .row-wh-val {
+  display: flex !important; flex-wrap: wrap; gap: 6px 10px !important; align-items: center !important;
+  background: #fff; border: 1.5px solid #e2e8f0 !important; border-radius: 10px !important;
+  margin: 8px 14px !important; padding: 7px 12px !important;
+}
+.row-truck-val.new-inquiry,   .row-wh-val.new-inquiry   { border-color: #86efac !important; background: #ffffff !important; }
+.row-truck-val.cost-saved,    .row-wh-val.cost-saved    { border-color: #fcd34d !important; }
+.row-truck-val.row-editing,   .row-wh-val.row-editing   { border-color: #f59e0b !important; }
+.row-truck-val.row-sent,      .row-wh-val.row-sent      { border-color: #93c5fd !important; background: #eff6ff !important; }
+.row-truck-val.row-confirmed, .row-wh-val.row-confirmed { border-color: #60a5fa !important; background: #cfe8ff !important; }
+.row-truck-val .truck-line1 { flex: 1 1 640px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.row-truck-val .truck-line1 .rate-group { margin-left: 12px; }
+.row-truck-val .truck-line2 { flex: 1 1 100%; display: grid !important; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: 5px 6px; }
+.charges-wrap { display: contents; }
+.row-truck-val .truck-line2 .vendor-note-preview { grid-column: 1 / -1; }
+
+.row-truck-val .cell-tag, .row-wh-val .cell-tag {
+  border: none !important; background: transparent !important;
+  font-weight: 700; font-size: 11px !important; color: #334155; align-self: center; padding-left: 0 !important;
+  min-width: 0; display: flex; align-items: center;
+}
+.sub-row .cell-tag { min-width: 84px !important; }
+
+.status-pill {
+  display: inline-block; margin-left: 6px; margin-right: 8px; padding: 2px 8px; border-radius: 10px;
+  font-size: 8.5px; font-weight: 800; letter-spacing: .05em; vertical-align: middle;
+}
+.status-pill[data-state="NEW"]       { background: #dcfce7; color: #15803d; }
+.status-pill[data-state="DRAFT"]     { background: #f1f5f9; color: #64748b; }
+.status-pill[data-state="SAVED"]     { background: #fef3c7; color: #92400e; }
+.status-pill[data-state="SENT"]      { background: #dbeafe; color: #1d4ed8; }
+.status-pill[data-state="CONFIRMED"] { background: #bfdbfe; color: #1e40af; }
+
+.confirm-inline {
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  font-size: 10.5px; font-weight: 600; color: #475569; flex: 0 0 auto; user-select: none;
+}
+.confirm-inline input { width: 14px; height: 14px; cursor: pointer; }
+
+/* ---- Rate strip: BASE editable, rest read-only dashes ---- */
+.rate-group {
+  display: flex; align-items: stretch; gap: 0;
+  border: 1px solid #e2e8f0; border-radius: 8px; background: #fbfcfe; overflow: hidden;
+  flex: 1 1 auto; min-width: 420px;
+}
+.rate-group .cell {
+  border: none !important; border-right: 1px solid #eef2f7 !important; border-radius: 0 !important;
+  background: transparent !important; flex: 1 1 0; text-align: center; padding: 3px 8px !important;
+}
+.rate-group .cell:last-child { border-right: none !important; }
+.rate-group .cell.is-empty { color: #cbd5e1; }
+.row-truck-val .cell[data-label]::before { content: attr(data-label); text-align: center; }
+#summaryTable .rate-group .cell input {
+  width: 90% !important; height: auto !important; border: 1px solid #cbd5e1 !important;
+  border-radius: 5px !important; padding: 2px 6px !important; font-size: 11px !important;
+  text-align: right !important; background: #fff !important;
+}
+.new-inquiry .rate-group    { border-color: #bbf7d0; }
+.cost-saved .rate-group     { border-color: #fde68a; }
+.row-sent .rate-group       { border-color: #bfdbfe; }
+.row-confirmed .rate-group  { border-color: #93c5fd; background: #f0f7ff; }
+
+/* ---- Charge pair: title + Cost INPUT + Price dash ---- */
+.charge-pair {
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid #e2e8f0; border-radius: 6px; background: #fbfcfe; padding: 3px 8px;
+  width: 100%; box-sizing: border-box; overflow: hidden;
+}
+.new-inquiry .charge-pair     { border-color: #bbf7d0; background: #fff; }
+.cost-saved .charge-pair      { border-color: #fde68a; background: #fffdf5; }
+.row-sent .charge-pair        { border-color: #bfdbfe; background: #fff; }
+.row-confirmed .charge-pair   { border-color: #93c5fd; background: #f0f7ff; }
+.charge-pair .pair-title {
+  font-size: 8px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: #64748b; flex: 0 0 70px; width: 70px; line-height: 1.1; align-self: center;
+}
+.charge-pair .cell {
+  display: inline-flex !important; align-items: center; gap: 5px; flex-shrink: 0 !important;
+  border: none !important; background: transparent !important; padding: 0 !important; min-width: 0;
+}
+.charge-pair .cell::before { display: inline !important; margin-bottom: 0 !important; font-size: 8px !important; }
+.charge-pair .pair-cost::before {
+  content: "Cost"; padding-right: 9px;
+  background: radial-gradient(circle 2px at right 3px top 45%, #ef4444 97%, transparent 100%) no-repeat;
+}
+.charge-pair .pair-price::before { content: "Price"; }
+#summaryTable .charge-pair .pair-cost input {
+  width: 48px !important; box-sizing: border-box !important; height: auto !important;
+  padding: 2px 6px !important; font-size: 11px !important; text-align: right !important;
+  border: 1px solid #cbd5e1 !important; border-radius: 5px !important; background: #fff !important;
+}
+#summaryTable .charge-pair .pair-cost.is-empty input { border-style: dashed !important; background: transparent !important; }
+.charge-pair .pair-price { margin-left: 8px; }
+.charge-pair .pair-val {
+  display: inline-block; width: 48px; box-sizing: border-box; text-align: center;
+  border: 1px dashed #e2e8f0; border-radius: 5px; padding: 2px 6px;
+  font-size: 11px; color: #cbd5e1; background: transparent;
+}
+.charge-pair .pair-val:empty::before { content: "—"; }
+.charge-pair.pair-empty { opacity: .55; }
+.charge-pair.pair-empty:hover, .charge-pair.pair-empty:focus-within { opacity: 1; }
+
+#summaryTable .row-truck-val .cell-carrier { border: none !important; background: transparent !important; padding: 0 !important; flex: 0 0 auto; }
+#summaryTable .row-truck-val .cell-carrier::before { content: none !important; }
+#summaryTable .row-truck-val .cell-carrier input {
+  width: 190px !important; text-align: left !important; padding: 5px 10px !important;
+  font-size: 12px !important; font-weight: 600; height: auto !important;
+  border: 1.5px solid #93c5fd !important; border-radius: 8px !important; background: #fff !important;
+}
+.new-inquiry .cell-carrier input { border-color: #86efac !important; }
+.row-confirmed .cell-carrier input { border-color: #60a5fa !important; }
+
+.row-truck-val .vendor-note-preview { flex: 1 1 200px; min-width: 160px; align-self: stretch; min-height: 26px; display: flex; align-items: center; border: 1px solid #e2e8f0 !important; border-radius: 7px; padding: 4px 10px !important; background: #fbfcfe; }
+.row-truck-val .vendor-note-preview::before { content: "Notes to Sales / Carrier info"; }
+.row-truck-val .vendor-note-preview:not([data-full-note=""])[data-full-note] { background: #fffbeb; border-color: #fde68a !important; }
+
+/* ---- Action cluster ---- */
+.row-truck-val .cell-action, .row-wh-val .cell-action {
+  margin-left: 12px; border: none !important; background: transparent !important;
+  align-self: center; min-width: 0; padding: 0 !important;
+}
+.row-truck-val .cell-action::before, .row-wh-val .cell-action::before { content: none; }
+
+/* ---- WH line ---- */
+.row-wh-val .cell { border: 1px solid #e2e8f0 !important; border-radius: 7px; padding: 5px 9px !important; background: #fbfcfe; font-size: 12px !important; }
+.row-wh-val .cell-wh-summary { flex: 2 1 340px; background: #fff !important; }
+.row-wh-val .cell-wh-summary::before { content: "Warehouse — Cost"; }
+.row-wh-val .cell-wh-vendor-spacer { display: none !important; }
+.row-wh-val .note-preview { flex: 1 1 220px; min-width: 180px; min-height: 26px; display: flex; align-items: center; }
+/* Truck Inquiry Note moved to the card head — hidden here (wiring intact; delete to restore) */
+.row-wh-val .note-preview[data-which="TRUCK INQUIRY NOTE"] { display: none !important; }
+.row-wh-val .vendor-note-preview::before { content: "Vendor Note (WH)"; }
+.row-wh-val .cell-tag::before { content: none !important; }
+
+/* ---- Sub-rows + separator ---- */
+.sub-row .cell-tag { padding-left: 18px !important; position: relative; }
+.sub-row .cell-tag::after { content: ""; position: absolute; left: 4px; top: 50%; width: 10px; height: 1px; background: #cbd5e1; }
+.row-sep { display: block !important; height: 14px; background: #fff !important; border-top: 1px solid #e2e8f0; border-radius: 0 0 10px 10px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(15,23,42,.05); }
+.row-sep .cell { display: none; }
+
   </style>
 </head>
 
@@ -1437,40 +1612,11 @@
 
   <div id="fixed-scroll-wrapper" class="scroll-container">
     <div style="width: 100%;">
-      <table class="bg-white text-xs" id="summaryTable">
-        <thead class="bg-gray-200" style="background-color:#e0f2fe; position: sticky; top: 0; z-index: 10;">
-          <tr>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-          </tr>
-        </thead>
-        <tbody id="summaryBody"></tbody>
-      </table>
+      <!-- ✅ CARD LAYOUT: container converted from <table> to <div> (skeleton thead dropped;
+           ids kept — all JS targets them unchanged) -->
+      <div class="bg-white text-xs" id="summaryTable">
+        <div id="summaryBody"></div>
+      </div>
 
       <div id="noteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
         <div class="bg-white rounded-lg shadow-lg w-96 p-4">
@@ -1633,8 +1779,8 @@
           }
 
         function tdCell(text = '', cls = '') {
-          const td = document.createElement('td');
-          td.className = `border px-1 text-xs ${cls}`;
+          const td = document.createElement('div');   // ✅ CARD LAYOUT: was <td>
+          td.className = `cell border px-1 text-xs ${cls}`;
           td.textContent = text ?? '';
           return td;
         }
@@ -1905,9 +2051,9 @@
 
         function unlockRow(quote, scope) {
           // ✅ 给该 scope 行加 editing class（让输入框变白）
-          const rowSel = scope === 'TRUCK' ? 'tr.row-truck-val' : 'tr.row-wh-val';
+          const rowSel = scope === 'TRUCK' ? '.row-truck-val' : '.row-wh-val';   // ✅ CARD LAYOUT: tag-agnostic
           document.querySelectorAll(rowSel).forEach(r => {
-            const qCell = r.querySelector('td:first-child');
+            const qCell = r.querySelector('.cell:first-child');   // ✅ CARD LAYOUT: tag-agnostic
             // 子行 td:first-child 是 quote；主行是空，所以用 data-quote 的 input 来判断更稳
             const hit = Array.from(r.querySelectorAll(`input[data-scope="${scope}"]`))
               .some(el => el.getAttribute('data-quote') === quote);
@@ -1924,7 +2070,7 @@
 
 
         function lockRow(quote, scope) {
-          const rowSel = scope === 'TRUCK' ? 'tr.row-truck-val' : 'tr.row-wh-val';
+          const rowSel = scope === 'TRUCK' ? '.row-truck-val' : '.row-wh-val';   // ✅ CARD LAYOUT: tag-agnostic
           document.querySelectorAll(rowSel).forEach(r => {
             const hit = Array.from(r.querySelectorAll(`input[data-scope="${scope}"]`))
               .some(el => el.getAttribute('data-quote') === quote);
@@ -1940,7 +2086,7 @@
         }
 
         function findRowByQuoteScope(quote, scope) {
-          const rowSel = scope === 'TRUCK' ? 'tr.row-truck-val' : 'tr.row-wh-val';
+          const rowSel = scope === 'TRUCK' ? '.row-truck-val' : '.row-wh-val';   // ✅ CARD LAYOUT: tag-agnostic
           const rows = Array.from(document.querySelectorAll(rowSel));
           const q = String(quote || '').trim();
 
@@ -2058,8 +2204,8 @@
         }
 
         function actionCellTruck(item, quote, mainKey, groupLocked) {
-          const td = document.createElement('td');
-          td.className = 'border px-2 text-center';
+          const td = document.createElement('div');   // ✅ CARD LAYOUT: was <td>
+          td.className = 'cell cell-action border px-2 text-center';
 
           const costSentField = 'truckingCostSent';
           const costSavedField = 'truckingCostSaved';
@@ -2270,8 +2416,8 @@ ${qDel}`)) return;
         }
 
         function actionCellWH(item, quote, mainKey, groupLocked) {
-          const td = document.createElement('td');
-          td.className = 'border px-2 text-center';
+          const td = document.createElement('div');   // ✅ CARD LAYOUT: was <td>
+          td.className = 'cell cell-action border px-2 text-center';
 
           const costSentField = 'warehouseCostSent';
           const costSavedField = 'warehouseCostSaved';
@@ -2600,7 +2746,7 @@ ${qDel}`)) return;
             whSubs.sort((a, b) => whLetter(a['Quotation #']).localeCompare(whLetter(b['Quotation #'])));
 
             // ========= BASIC header =========
-            const r1 = document.createElement('tr');
+            const r1 = document.createElement('div');   // ✅ CARD LAYOUT
             r1.className = 'row-basic-head';
             BASIC_HEAD.forEach(h => r1.appendChild(tdHeader(h)));
 
@@ -2608,13 +2754,16 @@ ${qDel}`)) return;
             noteHead.colSpan = 8;          // ✅ 18~25
             noteHead.classList.add('text-left');
             r1.appendChild(noteHead);
+            const truckNoteHead = tdHeader('TRUCK NOTE');   // ✅ v13-parity: second note column
+            truckNoteHead.classList.add('text-left');
+            r1.appendChild(truckNoteHead);
 
             r1.appendChild(tdHeader(''));          // ✅ 第26空白
             r1.appendChild(tdHeader('ACTION'));    // ✅ 第27
             tbody.appendChild(r1);
 
             // ========= BASIC values =========
-            const r2 = document.createElement('tr');
+            const r2 = document.createElement('div');   // ✅ CARD LAYOUT
             r2.className = 'row-basic-val';
 
             const vals = [
@@ -2665,8 +2814,12 @@ ${qDel}`)) return;
 
             const noteTd = tdCell('', 'note-preview');
             noteTd.colSpan = 8;
-            noteTd.dataset.fullNote = fullGeneralNote;
+            // ✅ v13-parity: editable — editor opens with ONLY the Note body (customer-info
+            //    line stays preview-only and must never be saved into 'Note').
+            noteTd.dataset.fullNote = noteBody;
             noteTd.dataset.which = 'GENERAL NOTE';
+            noteTd.dataset.field = 'Note';
+            noteTd.dataset.quote = String(key).trim();
             noteTd.style.textAlign = 'left';
 
             const line = document.createElement('div');
@@ -2676,12 +2829,25 @@ ${qDel}`)) return;
 
             r2.appendChild(noteTd);
 
+            // ✅ v13-parity: Truck Inquiry Note in the card head, editable (same wiring
+            //    as the WH-row cell, which is now hidden via CSS).
+            const truckNoteVal = String(main['Truck Inquiry Note'] || '').trim();
+            const truckNoteTd = tdCell('', 'note-preview');
+            truckNoteTd.dataset.fullNote = truckNoteVal;
+            truckNoteTd.dataset.which = 'TRUCK INQUIRY NOTE';
+            truckNoteTd.dataset.field = 'Truck Inquiry Note';
+            truckNoteTd.dataset.quote = String(key).trim();
+            truckNoteTd.style.textAlign = 'left';
+            const tLine = document.createElement('div'); tLine.className = 'note-line'; tLine.textContent = truckNoteVal.replace(/\s+/g, ' ').trim();
+            truckNoteTd.appendChild(tLine);
+            r2.appendChild(truckNoteTd);
+
             r2.appendChild(tdCell(''));                  // ✅ 第26空白
             const lockTd = tdCell('', 'text-center'); lockTd.innerHTML = lockBadgeHTML(); r2.appendChild(lockTd); // ✅ 第27
             tbody.appendChild(r2);
 
             // ========= TRUCK header =========
-            const r3 = document.createElement('tr');
+            const r3 = document.createElement('div');   // ✅ CARD LAYOUT
             r3.className = 'row-truck-head';
             TRUCK_HEADERS.forEach((h, i) => {
               if (i === 0) r3.appendChild(tdHeader(key, 'text-center'));
@@ -2696,7 +2862,7 @@ ${qDel}`)) return;
             });
 
             // ========= WH header =========
-            const r5 = document.createElement('tr');
+            const r5 = document.createElement('div');   // ✅ CARD LAYOUT
             r5.className = 'row-wh-head';
 
             WH_LEFT_HEADERS.forEach((h, i) => {
@@ -2725,10 +2891,9 @@ ${qDel}`)) return;
             whSubs.forEach(sub => tbody.appendChild(renderWhRow(sub, sub['Quotation #'], true, key)));
 
             // 分隔行
-            const sep = document.createElement('tr');
+            const sep = document.createElement('div');   // ✅ CARD LAYOUT
             sep.className = 'row-sep';
-            const tdSep = document.createElement('td');
-            tdSep.colSpan = TOTAL_COLS;
+            const tdSep = document.createElement('div'); tdSep.className = 'cell';
             sep.appendChild(tdSep);
             tbody.appendChild(sep);
           });
@@ -2745,7 +2910,7 @@ ${qDel}`)) return;
           const displayQ = (isSub && baseExt)
             ? (baseExt + displaySuffix)
             : (isSub ? (q.replace(/-\d+$/, displaySuffix)) : q);
-          const r4 = document.createElement('tr');
+          const r4 = document.createElement('div');   // ✅ CARD LAYOUT
           r4.className = 'row-truck-val';
           if (isSub) r4.classList.add('sub-row');
 
@@ -2766,22 +2931,53 @@ ${qDel}`)) return;
           const lockedTruck = lockState(item, 'TRUCK');
 
 
-          r4.appendChild(tdCell(displayQ, 'text-center'));
+          r4.appendChild(tdCell(displayQ, 'cell-tag text-center'));
 
+          // ✅ v13-parity: status pill (display-only, mirrors classes assigned above)
+          {
+            const pillCell = r4.firstElementChild;
+            const pill = document.createElement('span'); pill.className = 'status-pill';
+            const st = confirmed ? 'CONFIRMED' : (costSent ? 'SENT' : (costSaved ? 'SAVED' : (isNew ? 'NEW' : 'DRAFT')));
+            pill.textContent = st; pill.dataset.state = st;
+            pillCell.appendChild(pill);
+          }
 
+          // ✅ CARD LAYOUT: two-line structure — line1: send-to-sales + carrier + rate strip + actions; line2: cost chips + vendor note
+          const line1 = document.createElement('div'); line1.className = 'truck-line1';
+          const line2 = document.createElement('div'); line2.className = 'truck-line2';
+          r4.appendChild(line1); r4.appendChild(line2);
+
+          const rateGroup = document.createElement('div'); rateGroup.className = 'rate-group';
           const brInp = makeInput(item['Base Rate'] || '', 'Base Rate', quote, lockedTruck, 'TRUCK');
-          const tdBr = document.createElement('td'); tdBr.appendChild(brInp); r4.appendChild(tdBr);
+          const tdBr = document.createElement('div'); tdBr.className = 'cell'; tdBr.dataset.label = 'BASE'; tdBr.appendChild(brInp);
+          rateGroup.appendChild(tdBr);
+          [['PRICE'], ['GP'], ['ADJ.PRICE'], ['ADJ.GP']].forEach(([lab]) => {
+            const d = tdCell('—'); d.dataset.label = lab; d.classList.add('is-empty');
+            rateGroup.appendChild(d);
+          });
 
-          r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—')); r4.appendChild(tdCell('—'));
-
+          const chargesWrap = document.createElement('div'); chargesWrap.className = 'charges-wrap';
           ['Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee'].forEach(cF => {
+            const pairBox = document.createElement('div'); pairBox.className = 'charge-pair';
+            const title = document.createElement('span'); title.className = 'pair-title'; title.textContent = cF;
+            pairBox.appendChild(title);
             const ci = makeInput(item[cF] ?? '', cF, quote, lockedTruck, 'TRUCK');
-            const tc = document.createElement('td'); tc.appendChild(ci); r4.appendChild(tc);
-            r4.appendChild(tdCell('—'));
+            const costCell = document.createElement('div'); costCell.className = 'cell pair-cost'; costCell.dataset.sub = 'Cost'; costCell.appendChild(ci);
+            if (!String(ci.value).trim()) costCell.classList.add('is-empty');
+            pairBox.appendChild(costCell);
+            const priceCell = document.createElement('div'); priceCell.className = 'cell pair-price'; priceCell.dataset.sub = 'Price';
+            const pv = document.createElement('span'); pv.className = 'pair-val'; pv.textContent = '';
+            priceCell.appendChild(pv); priceCell.classList.add('is-empty');
+            pairBox.appendChild(priceCell);
+            if (!String(ci.value).trim()) pairBox.classList.add('pair-empty');
+            chargesWrap.appendChild(pairBox);
           });
 
           const carrierInp = makeInput(item['Carrier'] || '', 'Carrier', quote, lockedTruck, 'TRUCK', true);
-          const tdCar = document.createElement('td'); tdCar.appendChild(carrierInp); r4.appendChild(tdCar);
+          const tdCar = document.createElement('div'); tdCar.className = 'cell cell-carrier'; tdCar.appendChild(carrierInp);
+          line1.appendChild(tdCar);
+          line1.appendChild(rateGroup);
+          line2.appendChild(chargesWrap);
 
           // ✅ Vendor Note (Column 26) — only Sourcing can edit/save
           const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();
@@ -2798,9 +2994,19 @@ ${qDel}`)) return;
           tNote.dataset.quote = quote;
           tNote.dataset.field = 'Vendor Note';
 
-          r4.appendChild(tNote);
+          line2.appendChild(tNote);
 
-          r4.appendChild(actionCellTruck(item, quote, mainKey, false));
+          const actEl = actionCellTruck(item, quote, mainKey, false);
+          // ✅ relocate Send-to-Sales checkbox (same element — listeners survive the move)
+          const sendChk = actEl.querySelector('input[type="checkbox"]');
+          if (sendChk) {
+            const chkWrap = document.createElement('label');
+            chkWrap.className = 'confirm-inline';
+            chkWrap.appendChild(sendChk);
+            chkWrap.appendChild(document.createTextNode('Send to Sales'));
+            line1.insertBefore(chkWrap, tdCar);
+          }
+          line1.appendChild(actEl);
           return r4;
         }
 
@@ -2811,7 +3017,7 @@ ${qDel}`)) return;
           const suffix = String(quote || '').match(/-[A-Z]$/i)?.[0] || '';
           const displayQ = (isSub && baseExt) ? (baseExt + suffix) : (isSub ? q : '');
 
-          const r6 = document.createElement('tr');
+          const r6 = document.createElement('div');   // ✅ CARD LAYOUT
           r6.className = 'row-wh-val';
           if (isSub) r6.classList.add('sub-row');
 
@@ -2834,16 +3040,22 @@ ${qDel}`)) return;
           const lockedWH = lockState(item, 'WH');
 
           // ✅ FIX: First column — quotation # (was missing, causing column shift)
-          r6.appendChild(tdCell(displayQ, 'text-center'));
+          r6.appendChild(tdCell(displayQ, 'cell-tag text-center'));
+          {
+            const pillCell = r6.firstElementChild;
+            const pill = document.createElement('span'); pill.className = 'status-pill';
+            const st = confirmed ? 'CONFIRMED' : (costSent ? 'SENT' : (costSaved ? 'SAVED' : (isNew ? 'NEW' : 'DRAFT')));
+            pill.textContent = st; pill.dataset.state = st;
+            pillCell.appendChild(pill);
+          }
 
           // ===== WH summary (3 numbers) + Details button -> shared modal =====
           // Replaces the old 14 inline cost/price cells. One colSpan=14 cell keeps the 27-col grid intact.
           {
             const t = (window.WHModal ? WHModal.totals(item) : { cost: 0, price: 0, gp: null });
             const money = v => '$' + Math.round(v || 0).toLocaleString();
-            const tdSum = document.createElement('td');
-            tdSum.colSpan = 14;
-            tdSum.className = 'wh-summary-cell';
+            const tdSum = document.createElement('div');   // ✅ CARD LAYOUT: was <td colSpan=14>
+            tdSum.className = 'cell cell-wh-summary wh-summary-cell';
 
             const box = document.createElement('div');
             box.className = 'wh-summary-box';
@@ -2890,11 +3102,11 @@ ${qDel}`)) return;
             r6.appendChild(tdSum);
           }
 
-          // ✅ (WH) Column 16: Vendor — removed (vestigial, unused). Blank placeholder keeps 27-col grid.
-          r6.appendChild(tdCell(''));
+          // ✅ (WH) Column 16: Vendor — removed (vestigial, unused). Hidden spacer in card layout.
+          r6.appendChild(tdCell('', 'cell-wh-vendor-spacer'));
 
-          // ✅ (WH) Column 17: blank placeholder (保持留白)
-          r6.appendChild(tdCell(''));
+          // ✅ (WH) Column 17: hidden spacer in card layout
+          r6.appendChild(tdCell('', 'cell-wh-vendor-spacer'));
 
           // ===== TRUCK INQUIRY NOTE (was: warehouse requirement summary) =====
           // Warehouse details live in the Warehouse cost/price columns — no longer duplicated here.
@@ -3049,6 +3261,7 @@ ${qDel}`)) return;
               'Saved': 'true',
               [activeField]: input.value || ''
             };
+            if (String(input.value || '').trim() === '') payload.__clearFields = [activeField];   // ✅ empty saves must be declared or the server silently drops them
 
             const r = await postUpdate(payload);
             if (!r.ok) {
@@ -3079,7 +3292,7 @@ ${qDel}`)) return;
           });
 
           document.addEventListener('click', (e) => {
-            const td = e.target.closest('#summaryTable td.note-preview');
+            const td = e.target.closest('#summaryTable .note-preview');   // ✅ CARD LAYOUT: tag-agnostic
             if (!td) return;
             openModal(td);
           });

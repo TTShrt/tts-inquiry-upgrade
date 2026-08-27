@@ -1693,6 +1693,96 @@
 .row-truck-val.row-confirmed, .row-wh-val.row-confirmed { background: #cfe8ff !important; }
 .row-truck-val.row-confirmed .cell, .row-wh-val.row-confirmed .cell { background: #e7f3ff !important; }
 
+/* ---- v4: match mockup exactly ---- */
+
+/* Dark column header appears ONCE (first card) and sticks to the top */
+#summaryBody .row-basic-head { display: none !important; }
+#summaryBody .row-basic-head:first-of-type {
+  display: grid !important;
+  position: sticky; top: 0; z-index: 60;
+  border-radius: 8px; margin-bottom: 6px;
+  box-shadow: 0 2px 6px rgba(15,23,42,.25);
+}
+.row-basic-val { border-top: 1px solid #e2e8f0 !important; border-radius: 10px 10px 0 0; }
+
+/* Left status bar on each carrier line */
+.row-truck-val, .row-wh-val { border-left-width: 4px !important; }
+.row-truck-val.new-empty,     .row-wh-val.new-empty     { border-left-color: #22c55e !important; }
+.row-truck-val.cost-received, .row-wh-val.cost-received { border-left-color: #f59e0b !important; }
+.row-truck-val.editing-row,   .row-wh-val.editing-row   { border-left-color: #f59e0b !important; }
+.row-truck-val.saved-price,   .row-wh-val.saved-price   { border-left-color: #60a5fa !important; }
+.row-truck-val.row-confirmed, .row-wh-val.row-confirmed { border-left-color: #2563eb !important; }
+
+/* Status pill */
+.status-pill {
+  display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 10px;
+  font-size: 8.5px; font-weight: 800; letter-spacing: .05em; vertical-align: middle;
+}
+.status-pill[data-state="NEW"]       { background: #dcfce7; color: #15803d; }
+.status-pill[data-state="COST IN"]   { background: #fef3c7; color: #92400e; }
+.status-pill[data-state="SAVED"]     { background: #dbeafe; color: #1d4ed8; }
+.status-pill[data-state="CONFIRMED"] { background: #bfdbfe; color: #1e40af; }
+
+/* Inline Confirm checkbox */
+.confirm-inline {
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  font-size: 10.5px; font-weight: 600; color: #475569; flex: 0 0 auto; user-select: none;
+}
+.confirm-inline input { width: 14px; height: 14px; cursor: pointer; }
+
+/* Cost shown as dashed mini-box (mockup look; still read-only text) */
+.charge-pair .pair-cost {
+  border: 1px dashed #cbd5e1 !important; border-radius: 4px;
+  padding: 1px 6px !important; min-width: 40px;
+}
+
+/* Vendor note label wording per mockup */
+.row-truck-val .vendor-note-preview::before { content: "Notes from Carrier" !important; }
+
+/* ---- v5: per-line rounded state cards (mockup detail parity) ---- */
+
+/* each carrier line = standalone rounded mini-card, border colour follows state */
+.row-truck-val, .row-wh-val {
+  border: 1.5px solid #e2e8f0 !important; border-radius: 10px !important;
+  margin: 8px 14px !important; padding: 8px 12px !important;
+}
+.row-truck-val.new-empty,     .row-wh-val.new-empty     { border-color: #86efac !important; background: #ffffff !important; }
+.row-truck-val.cost-received, .row-wh-val.cost-received { border-color: #fcd34d !important; }
+.row-truck-val.editing-row,   .row-wh-val.editing-row   { border-color: #f59e0b !important; }
+.row-truck-val.saved-price,   .row-wh-val.saved-price   { border-color: #93c5fd !important; background: #ffffff !important; }
+.row-truck-val.row-confirmed, .row-wh-val.row-confirmed { border-color: #60a5fa !important; }
+
+/* chips inherit the line's state colour */
+.new-empty .charge-pair       { border-color: #bbf7d0; background: #fff; }
+.saved-price .charge-pair     { border-color: #bfdbfe; background: #fff; }
+.row-confirmed .charge-pair   { border-color: #93c5fd; background: #f0f7ff; }
+.editing-row .charge-pair, .cost-received .charge-pair { border-color: #fde68a; background: #fffdf5; }
+.new-empty .rate-group        { border-color: #bbf7d0; }
+.saved-price .rate-group      { border-color: #bfdbfe; }
+.row-confirmed .rate-group    { border-color: #93c5fd; background: #f0f7ff; }
+
+/* carrier input: clean mockup style — no floating label, no outer chip box */
+.row-truck-val .cell-carrier { border: none !important; background: transparent !important; padding: 0 !important; }
+.row-truck-val .cell-carrier::before { content: none !important; }
+.row-truck-val .cell-carrier input {
+  width: 190px; text-align: left; padding: 5px 10px; font-size: 12px;
+  border: 1.5px solid #93c5fd; border-radius: 8px; background: #fff;
+}
+.new-empty .cell-carrier input { border-color: #86efac; }
+.row-confirmed .cell-carrier input { border-color: #60a5fa; }
+
+/* red dot after COST sub-label (mockup decoration; cost itself stays read-only).
+   Implemented inside ::before's background so ::after stays free for the
+   em-dash that empty costs already display. */
+.charge-pair .pair-cost::before {
+  content: "Cost"; padding-right: 9px;
+  background: radial-gradient(circle 2px at right 3px top 45%, #ef4444 97%, transparent 100%) no-repeat;
+}
+
+/* tighten line1 so pill → confirm → carrier read as one flow */
+.row-truck-val .cell-tag { display: flex; align-items: center; gap: 0; }
+.row-truck-val .status-pill { margin-left: 6px; margin-right: 8px; }
+
 /* ---- Note previews: keep one-line ellipsis + click affordance (old td-qualified rules are dead) ---- */
 #summaryTable .note-preview { cursor: pointer; }
 #summaryTable .note-preview .note-line {
@@ -2322,6 +2412,19 @@
         else if (saved) tr.classList.add('saved-price');
         else if (costReceived) tr.classList.add('cost-received');
         else tr.classList.add('new-empty');   // ✅ LAYOUT-ONLY: visual marker for the new/green state; does not affect any save/confirm logic
+
+        // ✅ LAYOUT-ONLY (v4): text status pill next to the quote label — mirrors the row
+        //    class already assigned above; same pattern as the NOT SENT badge below.
+        {
+          const pillCell = tr.firstElementChild;
+          if (pillCell) {
+            let pill = pillCell.querySelector('.status-pill');
+            if (!pill) { pill = document.createElement('span'); pill.className = 'status-pill'; pillCell.appendChild(pill); }
+            const st = confirmed ? 'CONFIRMED' : (saved ? 'SAVED' : (costReceived ? 'COST IN' : 'NEW'));
+            pill.textContent = st;
+            pill.dataset.state = st;
+          }
+        }
 
         // ── "Sales can't see this yet" indicator ──
         // Keyed off the SAME flag the server masks Sales on (trucking/warehouseCostDraft),
@@ -2997,12 +3100,12 @@
         //    in one labeled container so the five figures read as a unit (mockup style).
         const rateGroup = document.createElement('div'); rateGroup.className = 'rate-group';
         const lbl = (el, label) => { el.dataset.label = label; if (!String(el.textContent).trim() && !el.querySelector('input')) el.classList.add('is-empty'); return el; };
-        rateGroup.appendChild(lbl(tdCell(fmt2(item['Base Rate'])), 'Base Rate'));
+        rateGroup.appendChild(lbl(tdCell(fmt2(item['Base Rate'])), 'BASE'));
         // ✅ FIX: Use frontend fallback when server hasn't persisted Price/GP
         // Sub-rows may not have Inquiry Type; inherit from parent
         const itemForCalc = (!item['Inquiry Type'] && parentDoc) ? Object.assign({}, item, { 'Inquiry Type': parentDoc['Inquiry Type'] }) : item;
         const { price: calcPrice, gp: calcGP } = getTruckPriceGP(itemForCalc);
-        rateGroup.appendChild(lbl(tdCell(calcPrice > 0 ? calcPrice.toFixed(2) : '—'), 'Price'));
+        rateGroup.appendChild(lbl(tdCell(calcPrice > 0 ? calcPrice.toFixed(2) : '—'), 'PRICE'));
         const gpPercent = (calcGP !== null && Number.isFinite(calcGP)) ? (calcGP * 100).toFixed(2) + '%' : '—';
         const tdGP = tdCell(gpPercent);
         applyGPColor(tdGP, calcGP);
@@ -3010,10 +3113,10 @@
 
         const adj = makeInput(item['Adjusted Price'] || '', 'Adjusted Price', quote, locked, 'TRUCK');
         const tdAdj = document.createElement('div'); tdAdj.className = 'cell'; tdAdj.appendChild(adj);
-        rateGroup.appendChild(lbl(tdAdj, 'Adj. Price'));
+        rateGroup.appendChild(lbl(tdAdj, 'ADJ.PRICE'));
         const tdAdjGP = tdCell(calcAdjGPpct(adj.value, item['Base Rate']), 'text-right');
         applyGPColor(tdAdjGP, calcAdjGPval(adj.value, item['Base Rate']));
-        rateGroup.appendChild(lbl(tdAdjGP, 'Adj. GP'));
+        rateGroup.appendChild(lbl(tdAdjGP, 'ADJ.GP'));
 
         // live update Adjusted GP while typing Adjusted Price
         adj.addEventListener('input', () => {
@@ -3059,7 +3162,18 @@
 
         // ❌ Manager 不允许保存 Vendor Note：不要加 dataset.field / dataset.quote
         line2.appendChild(vNoteTd);
-        line1.appendChild(actionCell(item, quote, 'TRUCK'));
+        const actEl = actionCell(item, quote, 'TRUCK');
+        // ✅ CARD LAYOUT v4: relocate the Confirm checkbox (same element — listeners
+        //    survive a DOM move) from the action cluster to the line start, mockup-style.
+        const confChk = actEl.querySelector('input[type="checkbox"]');
+        if (confChk) {
+          const chkWrap = document.createElement('label');
+          chkWrap.className = 'confirm-inline';
+          chkWrap.appendChild(confChk);
+          chkWrap.appendChild(document.createTextNode('Confirm'));
+          line1.insertBefore(chkWrap, tdCar);
+        }
+        line1.appendChild(actEl);
 
         applyRowState(tr, item, 'TRUCK');
         lockRow(quote, 'TRUCK', locked);

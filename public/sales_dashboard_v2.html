@@ -2040,6 +2040,9 @@
   border-radius: 0 !important;
 }
 
+/* rocket safety: guarantee the emoji glyph is never zeroed out */
+#summaryTable .action-button.btn-push-gf { font-size: 14px !important; line-height: 1 !important; }
+
 /* card close: last row before next card header (or list end) */
 #summaryBody > div:has(+ .row-basic-head),
 #summaryBody > div:last-child {
@@ -4897,7 +4900,7 @@
           if (!quote) return;
 
           // ✅ 关键修复：submit 也能正确找到 tr
-          const tr = activeBtn.closest('tr');
+          const tr = activeBtn.closest('.row-basic-val, .row-truck-val, .row-wh-val');   // ✅ CARD LAYOUT: was closest('tr') — returned null on div rows, silently killing edit/save/submit/🚀 for every card
           if (!tr) return;
 
           const fields = tr.querySelectorAll('.inq-field');

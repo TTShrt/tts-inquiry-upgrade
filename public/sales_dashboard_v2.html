@@ -2111,6 +2111,26 @@
 /* empty ADJ.PRICE input: don't sprawl */
 #summaryTable .rate-group .cell input { max-width: 130px; }
 
+
+/* ---- card header: tinted title bar with brand accent ---- */
+.row-basic-val {
+  background: linear-gradient(180deg, #f1f5f9 0%, #ffffff 85%) !important;
+  border-top: 3px solid #334155 !important;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+/* ---- card bottom (sales has no sep row): cap + floating depth on the group's last row ---- */
+#summaryBody > div:has(+ .row-basic-head),
+#summaryBody > div:last-child {
+  box-shadow: 0 12px 18px -12px rgba(15, 23, 42, .35) !important;
+}
+#summaryBody > div.row-wh-val:has(+ .row-basic-head),
+#summaryBody > div.row-wh-val:last-child,
+#summaryBody > div.row-truck-val:has(+ .row-basic-head),
+#summaryBody > div.row-truck-val:last-child {
+  margin-bottom: 26px !important;
+}
+
   </style>
 </head>
 

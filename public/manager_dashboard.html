@@ -1651,8 +1651,8 @@
   color: #64748b; flex: 0 0 78px; width: 78px; line-height: 1.1;
 }
 .charge-pair { width: 100%; box-sizing: border-box; }
-.charge-pair .pair-price { flex: 1 1 auto; }
-.charge-pair .pair-price input { width: 100%; min-width: 60px; }
+.charge-pair .pair-price { flex: 0 0 auto; margin-left: 8px; }   /* v8: gap before PRICE label */
+.charge-pair .pair-price input { width: 68px; }                   /* v8: compact fixed width */
 .charge-pair .cell {
   border: none !important; background: transparent !important; padding: 0 !important;
   min-width: 0;
@@ -1804,7 +1804,7 @@
   border: 1px solid #cbd5e1; border-radius: 5px; padding: 2px 6px;
   font-size: 11px; background: #fff;
 }
-.charge-pair .pair-cost.is-empty .pair-val { border-style: dashed; background: transparent; color: #cbd5e1; }
+.charge-pair .pair-cost.is-empty .pair-val { border-style: dashed; background: transparent; color: #94a3b8; }
 .charge-pair .pair-cost.is-empty .pair-val:empty::before { content: "—"; }
 .charge-pair .pair-price.is-empty input { border-style: dashed; background: transparent; }
 .charge-pair { padding: 3px 8px; }

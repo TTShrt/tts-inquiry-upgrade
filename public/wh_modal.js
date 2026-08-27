@@ -436,7 +436,7 @@
         var sec = String(r.section || '');
         if (sec !== lastSec) {
           gi++; lastSec = sec;
-          h += '<tr class="whm-grp" data-g="lp' + gi + '"><td colspan="3" class="l">\uD83D\uDCCB ' + esc(sec || 'Services') + '</td>' +
+          h += '<tr class="whm-grp" data-g="lp' + gi + '"><td colspan="3" class="l"><span class="whm-chev">\u25be</span>\uD83D\uDCCB ' + esc(sec || 'Services') + '</td>' +
             '<td colspan="' + SUP + '"></td>' +
             (showPrice ? '<td class="r" data-gsub="lp' + gi + '"></td><td></td>' : '') + '</tr>';
         }

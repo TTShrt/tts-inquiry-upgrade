@@ -188,18 +188,21 @@
 
     .gp-low { color: #DC2626 !important; font-weight: bold; }
 
-    /* SAVE 状态：整行极淡灰蓝 */
+    /* SAVED 状态：整行浅蓝（新配色：绿→琥珀→蓝→深蓝） */
 
     #summaryTable tr.saved-price td {
-      background: #f3f6fb !important;
+      background: #eff6ff !important;
     }
 
     /* input 保持透明，避免“格子感” */
     #summaryTable tr.saved-price input {
       background: transparent !important;
-      border-color: #e5e7eb !important;
+      border-color: #93c5fd !important;
     }
 
+    /* CONFIRMED 状态：整行深蓝（此前这里被后面第 1235 行附近一段死代码的重复
+       #summaryTable tr.row-confirmed td 规则覆盖成了绿色 #f0fdf4 —— 那段死代码
+       已删除，这里现在会正确生效） */
     #summaryTable tr.row-confirmed td {
       background: #cfe8ff !important;
     }
@@ -212,6 +215,13 @@
     #summaryTable tr.row-confirmed td:first-child,
     #summaryTable tr.row-confirmed td:last-child {
       background: #e5e7eb !important;
+    }
+
+    /* NEW 状态：全新的一段——之前默认（无 class）是纯白，现在标记为浅绿，
+       跟 saved-price/row-confirmed 一样只影响背景色，不影响任何输入框的可编辑性 */
+    #summaryTable tr.new-empty.row-truck-val td,
+    #summaryTable tr.new-empty.row-wh-val td {
+      background: #f0fdf4 !important;
     }
 
     .sub-row {
@@ -1218,24 +1228,6 @@
       background: #f1f5f9 !important;
     }
 
-    /* ── Row states: softer colors ── */
-    #summaryTable tr.new-inquiry.row-truck-val td,
-    #summaryTable tr.new-inquiry.row-wh-val td {
-      background: #fefce8 !important;
-    }
-
-    #summaryTable tr.cost-saved td {
-      background: #f0f9ff !important;
-    }
-
-    #summaryTable tr.row-sent td {
-      background: #eff6ff !important;
-    }
-
-    #summaryTable tr.row-confirmed td {
-      background: #f0fdf4 !important;
-    }
-
     /* ── Row separator ── */
     .row-sep td {
       background: #f1f5f9 !important;
@@ -1247,15 +1239,7 @@
       background: #fafbfc !important;
     }
 
-    /* Keep sticky columns neutral on all row states */
-    #summaryTable tr.new-inquiry td:first-child,
-    #summaryTable tr.new-inquiry td:last-child,
-    #summaryTable tr.cost-saved td:first-child,
-    #summaryTable tr.cost-saved td:last-child,
-    #summaryTable tr.row-sent td:first-child,
-    #summaryTable tr.row-sent td:last-child,
-    #summaryTable tr.row-confirmed td:first-child,
-    #summaryTable tr.row-confirmed td:last-child,
+    /* Keep sticky columns neutral on these row states */
     #summaryTable tr.sub-row td:first-child,
     #summaryTable tr.sub-row td:last-child,
     #summaryTable tr.row-sep td:first-child,
@@ -1524,6 +1508,172 @@
     #inquiryForm select {
       min-height: 38px !important;
     }
+
+/* ============================================================================
+   ✅ CARD LAYOUT (Phase 2) — appended last, wins the cascade.
+   All legacy rules qualified with tr/td tags no longer match (rows are now
+   divs), so they self-deactivate without needing deletion. Class-only rules
+   (.action-button, .note-line, .flag-badge, .wh-summary-box, .status-badge …)
+   still apply and are reused as-is.
+   ========================================================================== */
+
+#summaryTable { display: block !important; background: #f6f7f9 !important; padding: 10px 12px 40px; }
+#summaryBody  { display: block; }
+#summaryTable .cell { box-sizing: border-box; }
+
+/* ---- Field labels injected per cell position (JS emits unlabeled cells) ---- */
+#summaryTable .cell::before {
+  display: block; font-size: 8.5px; font-weight: 700; letter-spacing: .03em;
+  color: #64748b; text-transform: uppercase; margin-bottom: 2px; white-space: nowrap;
+}
+
+/* ---- Legacy header rows: labels now live on the chips themselves ---- */
+.row-basic-head { display: none !important; }
+.row-truck-head .cell:not(:first-child),
+.row-wh-head .cell:not(:first-child) { display: none !important; }
+.row-truck-head, .row-wh-head {
+  display: flex !important; align-items: center;
+  background: #fff !important; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;
+  padding: 8px 14px 2px;
+}
+.row-truck-head .cell:first-child, .row-wh-head .cell:first-child {
+  background: transparent !important; border: none !important;
+  font-size: 11px !important; font-weight: 700 !important; color: #334155 !important;
+}
+.row-truck-head .cell:first-child::after { content: "  ·  TRUCKING"; color: #94a3b8; font-weight: 600; }
+.row-wh-head .cell:first-child::after   { content: "  ·  WAREHOUSE"; color: #94a3b8; font-weight: 600; }
+
+/* ---- Card shell: basic-val opens the card, row-sep closes it ---- */
+.row-basic-val {
+  display: flex !important; flex-wrap: wrap; gap: 8px 16px; align-items: flex-start;
+  background: #fff !important; border: 1px solid #e2e8f0; border-bottom: 1px dashed #e2e8f0;
+  border-radius: 10px 10px 0 0; padding: 12px 14px 10px; margin-top: 4px;
+}
+.row-truck-val, .row-wh-val {
+  display: flex !important; flex-wrap: wrap; gap: 6px 10px; align-items: flex-start;
+  background: #fff; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;
+  padding: 8px 14px;
+}
+.row-sep {
+  display: block !important; height: 14px; background: transparent !important;
+  border-top: 1px solid #e2e8f0; border-radius: 0 0 10px 10px;
+  margin-bottom: 14px; box-shadow: 0 1px 2px rgba(15,23,42,.05);
+  background: #fff !important;
+}
+.row-sep .cell { display: none; }
+
+/* ---- Basic-val chips: per-position labels ---- */
+.row-basic-val .cell {
+  border: none !important; padding: 0 !important; font-size: 12px !important; color: #0f172a;
+}
+.row-basic-val .cell:nth-child(1)::before  { content: "#"; }
+.row-basic-val .cell:nth-child(2)::before  { content: "Date"; }
+.row-basic-val .cell:nth-child(3)::before  { content: "Customer ID"; }
+.row-basic-val .cell:nth-child(4)::before  { content: "Requested By"; }
+.row-basic-val .cell:nth-child(5)::before  { content: "Inquiry Type"; }
+.row-basic-val .cell:nth-child(6)::before  { content: "Container"; }
+.row-basic-val .cell:nth-child(7)::before  { content: "Commodity"; }
+.row-basic-val .cell:nth-child(8)::before  { content: "Pkgs"; }
+.row-basic-val .cell:nth-child(9)::before  { content: "Flags"; }
+.row-basic-val .cell:nth-child(10)::before { content: "Ship Type"; }
+.row-basic-val .cell:nth-child(11)::before { content: "Legal/OW"; }
+.row-basic-val .cell:nth-child(12)::before { content: "Gross Wt"; }
+.row-basic-val .cell:nth-child(13)::before { content: "Live/Drop"; }
+.row-basic-val .cell:nth-child(14)::before { content: "From"; }
+.row-basic-val .cell:nth-child(15)::before { content: "To"; }
+.row-basic-val .cell:nth-child(16)::before { content: "QTY"; }
+.row-basic-val .cell:nth-child(17)::before { content: "Quote #"; }
+.row-basic-val .cell:nth-child(7)  { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-basic-val .cell:nth-child(14),
+.row-basic-val .cell:nth-child(15) { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-basic-val .note-preview       { flex: 1 1 260px; min-width: 200px; border: 1px solid #e2e8f0 !important; border-radius: 7px; padding: 5px 10px !important; background: #fbfcfe; }
+.row-basic-val .note-preview::before { content: "General Note"; }
+.row-basic-val .cell:last-child    { margin-left: auto; }
+.row-basic-val .cell:last-child::before { content: "Action"; }
+
+/* ---- Truck-val chips ---- */
+.row-truck-val .cell, .row-wh-val .cell {
+  border: 1px solid #e2e8f0 !important; border-radius: 7px;
+  padding: 5px 9px !important; background: #fbfcfe; font-size: 12px !important;
+  min-width: 74px;
+}
+.row-truck-val .cell:nth-child(1), .row-wh-val .cell:nth-child(1) {
+  border: none !important; background: transparent !important; min-width: 84px;
+  font-weight: 700; font-size: 11px !important; color: #334155; align-self: center; padding-left: 0 !important;
+}
+.row-truck-val .cell:nth-child(1)::before, .row-wh-val .cell:nth-child(1)::before { content: none; }
+.row-truck-val .cell input, .row-wh-val .cell input {
+  width: 72px; border: 1px solid #cbd5e1; border-radius: 5px; padding: 3px 6px;
+  font-size: 11.5px; text-align: right; background: #fff;
+}
+.row-truck-val .cell:nth-child(2)::before  { content: "Base Rate"; }
+.row-truck-val .cell:nth-child(3)::before  { content: "Price"; }
+.row-truck-val .cell:nth-child(4)::before  { content: "GP"; }
+.row-truck-val .cell:nth-child(5)::before  { content: "Adj. Price"; }
+.row-truck-val .cell:nth-child(6)::before  { content: "Adj. GP"; }
+.row-truck-val .cell:nth-child(7)::before  { content: "Chassis Cost"; }
+.row-truck-val .cell:nth-child(8)::before  { content: "Chassis Price"; }
+.row-truck-val .cell:nth-child(9)::before  { content: "Pre-Pull Cost"; }
+.row-truck-val .cell:nth-child(10)::before { content: "Pre-Pull Price"; }
+.row-truck-val .cell:nth-child(11)::before { content: "Yard Stor. Cost"; }
+.row-truck-val .cell:nth-child(12)::before { content: "Yard Stor. Price"; }
+.row-truck-val .cell:nth-child(13)::before { content: "Drv Wait Cost"; }
+.row-truck-val .cell:nth-child(14)::before { content: "Drv Wait Price"; }
+.row-truck-val .cell:nth-child(15)::before { content: "Overweight Cost"; }
+.row-truck-val .cell:nth-child(16)::before { content: "Overweight Price"; }
+.row-truck-val .cell:nth-child(17)::before { content: "Ch. Split Cost"; }
+.row-truck-val .cell:nth-child(18)::before { content: "Ch. Split Price"; }
+.row-truck-val .cell:nth-child(19)::before { content: "Toll Cost"; }
+.row-truck-val .cell:nth-child(20)::before { content: "Toll Price"; }
+.row-truck-val .cell:nth-child(21)::before { content: "Reefer Cost"; }
+.row-truck-val .cell:nth-child(22)::before { content: "Reefer Price"; }
+.row-truck-val .cell:nth-child(23)::before { content: "Bond Cost"; }
+.row-truck-val .cell:nth-child(24)::before { content: "Bond Price"; }
+.row-truck-val .cell:nth-child(25)::before { content: "Carrier"; }
+.row-truck-val .cell:nth-child(25) input   { width: 160px; text-align: center; }
+.row-truck-val .vendor-note-preview        { flex: 1 1 220px; min-width: 180px; }
+.row-truck-val .vendor-note-preview::before{ content: "Vendor Note"; }
+.row-truck-val .cell-action, .row-wh-val .cell-action {
+  margin-left: auto; border: none !important; background: transparent !important;
+  align-self: center; min-width: 0;
+}
+.row-truck-val .cell-action::before, .row-wh-val .cell-action::before { content: none; }
+
+/* ---- WH-val chips (7 cells: tag / summary / vendor-spacer / est-gp / truck-note / wh-vendor-note / action) ---- */
+.row-wh-val .cell-wh-summary { flex: 2 1 340px; background: #fff; }
+.row-wh-val .cell-wh-summary::before { content: "Warehouse — Cost / Price / GP"; }
+.row-wh-val .cell-wh-vendor-spacer { display: none; }
+.row-wh-val .cell:nth-child(4)::before { content: "EST GP"; }
+.row-wh-val .note-preview { flex: 1 1 220px; min-width: 180px; }
+.row-wh-val .note-preview[data-which="TRUCK INQUIRY NOTE"]::before { content: "Truck Inquiry Note"; }
+.row-wh-val .vendor-note-preview::before { content: "Vendor Note (WH)"; }
+
+/* ---- Sub-rows: indent + connector hint ---- */
+.sub-row { margin-left: 0; }
+.sub-row .cell:nth-child(1) { padding-left: 18px !important; position: relative; }
+.sub-row .cell:nth-child(1)::after {
+  content: ""; position: absolute; left: 4px; top: 50%; width: 10px; height: 1px; background: #cbd5e1;
+}
+
+/* ---- State colors (div edition; the tr/td-qualified Phase-1 rules no longer match) ---- */
+.row-truck-val.new-empty, .row-wh-val.new-empty { background: #f0fdf4 !important; }
+.row-truck-val.cost-received .cell input, .row-wh-val.cost-received .cell input {
+  background: #fef3c7 !important; border-color: #f1d6a8 !important;
+}
+.row-truck-val.editing-row, .row-wh-val.editing-row { background: #fef3c7 !important; }
+.row-truck-val.editing-row .cell, .row-wh-val.editing-row .cell { background: #fffbeb !important; }
+.row-truck-val.saved-price, .row-wh-val.saved-price { background: #eff6ff !important; }
+.row-truck-val.saved-price .cell input, .row-wh-val.saved-price .cell input { border-color: #93c5fd !important; }
+.row-truck-val.row-confirmed, .row-wh-val.row-confirmed { background: #cfe8ff !important; }
+.row-truck-val.row-confirmed .cell, .row-wh-val.row-confirmed .cell { background: #e7f3ff !important; }
+
+/* ---- Note previews: keep one-line ellipsis + click affordance (old td-qualified rules are dead) ---- */
+#summaryTable .note-preview { cursor: pointer; }
+#summaryTable .note-preview .note-line {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  font-size: 11.5px; color: #334155;
+}
+
   </style>
 </head>
 
@@ -1768,39 +1918,13 @@
 
 
   <div id="fixed-scroll-wrapper" class="scroll-container">
-    <table class="bg-white text-xs" id="summaryTable">
-      <tr>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-        <th class="border px-2"></th>
-      </tr>
-      </thead>
-      <tbody id="summaryBody"></tbody>
-    </table>
+    <!-- ✅ CARD LAYOUT: container converted from <table> to <div>. The old empty
+         27-th skeleton served only table column sizing and is not needed in the
+         flex/card layout. #summaryTable / #summaryBody ids kept — all JS still
+         targets them the same way. -->
+    <div class="bg-white text-xs" id="summaryTable">
+      <div id="summaryBody"></div>
+    </div>
   </div>
 
 
@@ -1936,8 +2060,8 @@
           }
 
       function tdCell(text = '', cls = '') {
-        const td = document.createElement('td');
-        td.className = `border px-1 text-xs ${cls}`;
+        const td = document.createElement('div');   // ✅ CARD LAYOUT: was <td>
+        td.className = `cell border px-1 text-xs ${cls}`;
         td.textContent = text ?? '';
         return td;
       }
@@ -2147,7 +2271,7 @@
       }
 
       function applyRowState(tr, item, scope) {
-        tr.classList.remove('cost-received', 'saved-price', 'row-confirmed');
+        tr.classList.remove('cost-received', 'saved-price', 'row-confirmed', 'new-empty');
 
         const confirmed = scope === 'WH'
           ? (isTruthy(item['warehouseManagerConfirmed']) || isTruthy(item['warehouseSalesConfirmed']))
@@ -2171,6 +2295,7 @@
         if (confirmed) tr.classList.add('row-confirmed');
         else if (saved) tr.classList.add('saved-price');
         else if (costReceived) tr.classList.add('cost-received');
+        else tr.classList.add('new-empty');   // ✅ LAYOUT-ONLY: visual marker for the new/green state; does not affect any save/confirm logic
 
         // ── "Sales can't see this yet" indicator ──
         // Keyed off the SAME flag the server masks Sales on (trucking/warehouseCostDraft),
@@ -2206,8 +2331,8 @@
       }
 
       function actionCell(item, quote, scope) {
-        const td = document.createElement('td');
-        td.className = 'border px-2 text-center';
+        const td = document.createElement('div');   // ✅ CARD LAYOUT: was <td>
+        td.className = 'cell cell-action border px-2 text-center';
         const wrap = document.createElement('div');
         wrap.className = 'action-button-row';
 
@@ -2239,10 +2364,10 @@
 
           lockRow(quote, scope, false);
 
-          const tr = document.querySelector(`tr[data-quote="${quote}"][data-scope="${scope}"]`);
+          const tr = document.querySelector(`.row-truck-val[data-quote="${quote}"][data-scope="${scope}"], .row-wh-val[data-quote="${quote}"][data-scope="${scope}"]`);   // ✅ CARD LAYOUT: tag-agnostic
           if (tr) {
             // ✅ Rule 1: editing row should look like COST received (yellow)
-            tr.classList.remove('saved-price', 'row-confirmed');
+            tr.classList.remove('saved-price', 'row-confirmed', 'new-empty');
             tr.classList.add('editing-row');
           }
 
@@ -2266,11 +2391,11 @@
           lockRow(quote, scope, true);
 
           // ✅ 只查一次 tr，统一处理
-          const tr = document.querySelector(`tr[data-quote="${quote}"][data-scope="${scope}"]`);
+          const tr = document.querySelector(`.row-truck-val[data-quote="${quote}"][data-scope="${scope}"], .row-wh-val[data-quote="${quote}"][data-scope="${scope}"]`);   // ✅ CARD LAYOUT: tag-agnostic
           if (tr) {
             tr.classList.remove('editing-row');
             tr.classList.add('saved-price');
-            tr.classList.remove('row-confirmed', 'cost-received', 'new-inquiry');
+            tr.classList.remove('row-confirmed', 'cost-received', 'new-inquiry', 'new-empty');
           }
 
           // ✅ update local cache so paging/search keeps latest values
@@ -2646,7 +2771,7 @@
           }
         });
         document.addEventListener('click', (e) => {
-          const td = e.target.closest('#summaryTable td.note-preview');
+          const td = e.target.closest('#summaryTable .note-preview');   // ✅ CARD LAYOUT: tag-agnostic
           if (!td) return;
           openModal(td);
         });
@@ -2697,7 +2822,7 @@
 
           displayIndex += 1;
 
-          const r1 = document.createElement('tr'); r1.className = 'row-basic-head';
+          const r1 = document.createElement('div'); r1.className = 'row-basic-head';   // ✅ CARD LAYOUT: was <tr>
           BASIC_HEAD.forEach(h => r1.appendChild(tdHeader(h)));
           const noteHead = tdHeader('NOTE');
           noteHead.colSpan = 9;
@@ -2706,7 +2831,7 @@
           r1.appendChild(tdHeader('ACTION'));
           tbody.appendChild(r1);
 
-          const r2 = document.createElement('tr'); r2.className = 'row-basic-val';
+          const r2 = document.createElement('div'); r2.className = 'row-basic-val';   // ✅ CARD LAYOUT: was <tr>
           const flags = (String(main['Hazmat'] || '').toLowerCase() === 'true' ? 'HAZ' : '') + (String(main['Reefer'] || '').toLowerCase() === 'true' ? 'RFR' : '') + (String(main['Bonded'] || '').toLowerCase() === 'true' ? 'BND' : '');
           const vals = [
             String(displayIndex),
@@ -2772,7 +2897,7 @@
           mgrLockTd.appendChild(exportBtn);
           tbody.appendChild(r2);
 
-          const r3 = document.createElement('tr'); r3.className = 'row-truck-head';
+          const r3 = document.createElement('div'); r3.className = 'row-truck-head';   // ✅ CARD LAYOUT: was <tr>
           TRUCK_HEADERS.forEach((h, i) => {
             if (i === 0) r3.appendChild(tdHeader(k, 'text-left'));
             else r3.appendChild(tdHeader(h));
@@ -2782,7 +2907,7 @@
           tbody.appendChild(renderTruckRow(main, k, false));
           truckSubs.forEach(sub => tbody.appendChild(renderTruckRow(sub, String(sub['Quotation #'] || '').trim(), true)));
 
-          const r5 = document.createElement('tr'); r5.className = 'row-wh-head';
+          const r5 = document.createElement('div'); r5.className = 'row-wh-head';   // ✅ CARD LAYOUT: was <tr>
           WH_LEFT_HEADERS.forEach((h, i) => {
             if (i === 0) { r5.appendChild(tdHeader(k, 'text-left')); return; }   // quote #
             if (i === 15) { r5.appendChild(tdHeader(h)); return; }              // Vendor
@@ -2810,8 +2935,8 @@
           tbody.appendChild(renderWhRow(main, k, false));
           whSubs.forEach(sub => tbody.appendChild(renderWhRow(sub, String(sub['Quotation #'] || '').trim(), true)));
 
-          const sep = document.createElement('tr'); sep.className = 'row-sep';
-          const tdSep = document.createElement('td'); tdSep.colSpan = 27; sep.appendChild(tdSep);
+          const sep = document.createElement('div'); sep.className = 'row-sep';   // ✅ CARD LAYOUT: was <tr>/<td>
+          const tdSep = document.createElement('div'); tdSep.className = 'cell'; sep.appendChild(tdSep);
           tbody.appendChild(sep);
         });
 
@@ -2819,7 +2944,7 @@
       }
 
       function renderTruckRow(item, quote, isSub) {
-        const tr = document.createElement('tr');
+        const tr = document.createElement('div');   // ✅ CARD LAYOUT: was <tr>
         tr.className = 'row-truck-val' + (isSub ? ' sub-row' : '');
         tr.dataset.quote = quote;
         tr.dataset.scope = 'TRUCK';
@@ -2846,7 +2971,7 @@
         tr.appendChild(tdGP);
 
         const adj = makeInput(item['Adjusted Price'] || '', 'Adjusted Price', quote, locked, 'TRUCK');
-        const tdAdj = document.createElement('td'); tdAdj.appendChild(adj); tr.appendChild(tdAdj);
+        const tdAdj = document.createElement('div'); tdAdj.className = 'cell'; tdAdj.appendChild(adj); tr.appendChild(tdAdj);   // ✅ CARD LAYOUT
         const tdAdjGP = tdCell(calcAdjGPpct(adj.value, item['Base Rate']), 'text-right');
         applyGPColor(tdAdjGP, calcAdjGPval(adj.value, item['Base Rate']));
         tr.appendChild(tdAdjGP);
@@ -2863,11 +2988,11 @@
         pairs.forEach(([cF, pF]) => {
           tr.appendChild(tdCell(fmt2(item[cF])));
           const pi = makeInput(item[pF] || '', pF, quote, locked, 'TRUCK');
-          const tdP = document.createElement('td'); tdP.appendChild(pi); tr.appendChild(tdP);
+          const tdP = document.createElement('div'); tdP.className = 'cell'; tdP.appendChild(pi); tr.appendChild(tdP);   // ✅ CARD LAYOUT
         });
 
         const car = makeInput(item['Carrier'] || '', 'Carrier', quote, locked, 'TRUCK');
-        const tdCar = document.createElement('td'); tdCar.appendChild(car); tr.appendChild(tdCar);
+        const tdCar = document.createElement('div'); tdCar.className = 'cell'; tdCar.appendChild(car); tr.appendChild(tdCar);   // ✅ CARD LAYOUT
 
         // ✅ Vendor Note (Column 26) — Manager view only (read-only)
         const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();
@@ -2895,7 +3020,7 @@
         const baseExt = String((parentDoc && parentDoc['External Quotation #']) || item['External Quotation #'] || '').trim();
         const suffixAlpha = String(quote || '').match(/-[A-Z]$/i)?.[0] || '';
         const displayQuote = (isSub && baseExt) ? (baseExt + suffixAlpha) : (isSub ? quote : '');
-        const tr = document.createElement('tr');
+        const tr = document.createElement('div');   // ✅ CARD LAYOUT: was <tr>
         tr.className = 'row-wh-val' + (isSub ? ' sub-row' : '');
         tr.dataset.quote = quote;
         tr.dataset.scope = 'WH';
@@ -2910,8 +3035,7 @@
         {
           const t = (window.WHModal ? WHModal.totals(item) : { cost: 0, price: 0, gp: null });
           const money = v => '$' + Math.round(v || 0).toLocaleString();
-          const tdSum = document.createElement('td');
-          tdSum.colSpan = 14;
+          const tdSum = document.createElement('div'); tdSum.className = 'cell cell-wh-summary';   // ✅ CARD LAYOUT: was <td colSpan=14>
 
           const box = document.createElement('div');
           box.className = 'wh-summary-box';
@@ -2969,7 +3093,7 @@
         }
 
         // Vendor column removed (vestigial, unused). Blank placeholder keeps the grid aligned.
-        const tdVen = document.createElement('td'); tr.appendChild(tdVen);
+        const tdVen = document.createElement('div'); tdVen.className = 'cell cell-wh-vendor-spacer'; tr.appendChild(tdVen);   // ✅ CARD LAYOUT
 
 
 

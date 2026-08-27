@@ -2540,7 +2540,7 @@
             // Server masks cost fields when draft=true, so if values exist here, Sourcing has sent them
             const numFields = [
               'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-              'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee'
+              'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee'
             ];
 
             const anyCost = numFields.some(k => {
@@ -2583,7 +2583,7 @@
               ]
               : [
                 'Adjusted Price', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
-                'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Carrier'
+                'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price', 'Carrier'
               ];
             return fields.some(k => String((data && data[k]) ?? '').trim() !== '');
           }
@@ -2981,7 +2981,7 @@
                 'Adjusted Price', 'Carrier', 'Note',
                 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price',
                 'Driver Waiting Price', 'Over Weight Price', 'Chassis Split Price',
-                'Toll Price', 'Reefer Fee Price', 'Bond Fee Price'
+                'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price'
               ];
 
               const ok = await saveFields(quote, fields, 'TRUCK');
@@ -3010,7 +3010,7 @@
                 const fields = [
                   'Adjusted Price', 'Carrier', 'Note',
                   'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
-                  'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price'
+                  'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price'
                 ];
                 const ok = await saveAndConfirm(quote, fields, 'TRUCK', 'truckingSalesConfirmed');
                 if (!ok) { chk.checked = false; return; }
@@ -3333,6 +3333,7 @@
               'Over Weight Cost', 'Over Weight Price',
               'Chassis Split Cost', 'Chassis Split Price',
               'Toll Cost', 'Toll Price',
+              'Drop Fee Cost', 'Drop Fee Price',
               'Reefer Fee Cost', 'Reefer Fee Price',
               'Bond Fee Cost', 'Bond Fee Price',
               'Carrier', '', 'Action'
@@ -3708,6 +3709,7 @@
                 ['Over Weight', 'Over Weight Price'],
                 ['Chassis Split', 'Chassis Split Price'],
                 ['Toll', 'Toll Price'],
+                ['Drop Fee', 'Drop Fee Price'],
                 ['Reefer Fee', 'Reefer Fee Price'],
                 ['Bond Fee', 'Bond Fee Price'],
               ];
@@ -3859,6 +3861,7 @@
                   ['Over Weight', 'Over Weight Price'],
                   ['Chassis Split', 'Chassis Split Price'],
                   ['Toll', 'Toll Price'],
+                  ['Drop Fee', 'Drop Fee Price'],
                   ['Reefer Fee', 'Reefer Fee Price'],
                   ['Bond Fee', 'Bond Fee Price'],
                 ];

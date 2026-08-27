@@ -1755,7 +1755,7 @@
             ]
             : [
               'Adjusted Price', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
-              'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price',
+              'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price',
               'Carrier', 'Price'
             ];
           return fields.some(k => String((item && item[k]) ?? '').trim() !== '');
@@ -2033,7 +2033,7 @@
           if (!hasValue) return true;
 
           const fields = sTrim === 'TRUCK'
-            ? ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier']
+            ? ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Carrier']
             : ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound', 'Vendor'];
 
           return await saveFields(qTrim, fields, sTrim);
@@ -2090,7 +2090,7 @@
           const draftField     = sTrim === 'TRUCK' ? 'truckingCostDraft' : 'warehouseCostDraft';
           const costFields     = sTrim === 'TRUCK'
             ? ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-               'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier']
+               'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Carrier']
             : ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee',
                'Storage', 'Outbound', 'Vendor'];
 
@@ -2300,7 +2300,7 @@
           saveBtn.onclick = async () => {
             const fields = [
               'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-              'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier'
+              'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Carrier'
             ];
 
             const ok = await saveFields(quote, fields, 'TRUCK');
@@ -2728,7 +2728,7 @@ ${qDel}`)) return;
           const TRUCK_HEADERS = ['', 'Base Rate', 'Price', 'GP', 'Adjusted Price', 'Adjusted GP',
             'Chassis Cost', 'Chassis Price', 'Pre-Pull Cost', 'Pre-Pull Price', 'Yard Storage Cost', 'Yard Storage Price',
             'Driver Waiting Cost', 'Driver Waiting Price', 'Over Weight Cost', 'Over Weight Price', 'Chassis Split Cost', 'Chassis Split Price',
-            'Toll Cost', 'Toll Price', 'Reefer Fee Cost', 'Reefer Fee Price', 'Bond Fee Cost', 'Bond Fee Price', 'Carrier', '', 'Action'];
+            'Toll Cost', 'Toll Price', 'Drop Fee Cost', 'Drop Fee Price', 'Reefer Fee Cost', 'Reefer Fee Price', 'Bond Fee Cost', 'Bond Fee Price', 'Carrier', '', 'Action'];
 
           const WH_LEFT_HEADERS = ['', 'WH Order Proc', 'WH Order Proc Price', 'WH Inbound', 'WH Inbound Price', 'WH Sorting', 'WH Sorting Price',
             'WH Palletizing', 'WH Palletizing Price', 'WH Pallet', 'WH Pallet Price', 'WH Storage', 'WH Storage Price', 'WH Outbound', 'WH Outbound Price', 'Vendor'];
@@ -2985,7 +2985,7 @@ ${qDel}`)) return;
           const confirmed = scopeConfirmed(item, 'TRUCK');
           const costSent = isTruthy(item['truckingCostSent']);   // ✅ 只看 TRUCK
           const costSaved = isTruthy(item['truckingCostSaved']);
-          const hasAnyCost = ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee']
+          const hasAnyCost = ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee']
             .some(k => (num(item[k]) || 0) > 0 || String(item[k] || '').trim() !== '');
           const isNew = !confirmed && !costSent && !costSaved && !hasAnyCost;
 
@@ -3024,7 +3024,7 @@ ${qDel}`)) return;
           });
 
           const chargesWrap = document.createElement('div'); chargesWrap.className = 'charges-wrap';
-          ['Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee'].forEach(cF => {
+          ['Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Drop Fee', 'Reefer Fee', 'Bond Fee'].forEach(cF => {
             const pairBox = document.createElement('div'); pairBox.className = 'charge-pair';
             const title = document.createElement('span'); title.className = 'pair-title'; title.textContent = cF;
             pairBox.appendChild(title);

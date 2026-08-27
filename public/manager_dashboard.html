@@ -2529,7 +2529,7 @@
           : isTruthy(item['truckingPriceSaved']);
 
         // Scope-specific "cost received" (avoid cross-scope pollution)
-        const hasTruckCost = ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee']
+        const hasTruckCost = ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee']
           .some(k => String(item[k] ?? '').trim() !== '' && String(item[k]).trim() !== '0');
 
         const hasWhCost = ['Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee', 'Storage', 'Outbound']
@@ -2643,7 +2643,7 @@
         saveBtn.onclick = async () => {
           const fields = scope === 'WH'
             ? ['Vendor', 'Note', 'Order Processing Price', 'Inbound Price', 'Sorting Price', 'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price']
-            : ['Adjusted Price', 'Carrier', 'Note', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price', 'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price'];
+            : ['Adjusted Price', 'Carrier', 'Note', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price', 'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price'];
 
           const r = await saveFields(quote, fields, scope);
           if (!r.ok) return;
@@ -2738,7 +2738,7 @@
             // ✅ PERF: Single POST — save prices + confirm flag together
             const fields = scope === 'WH'
               ? ['Vendor', 'Note', 'Order Processing Price', 'Inbound Price', 'Sorting Price', 'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price']
-              : ['Adjusted Price', 'Carrier', 'Note', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price', 'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price'];
+              : ['Adjusted Price', 'Carrier', 'Note', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price', 'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price'];
             const confirmField = scope === 'WH' ? 'warehouseManagerConfirmed' : 'truckingManagerConfirmed';
             const r = await saveAndConfirm(quote, fields, scope, confirmField);
             if (!r.ok) {
@@ -3061,7 +3061,7 @@
         const keys = Array.from(groupMap.keys()).sort((a, b) => naturalQuotationSort({ 'Quotation #': a }, { 'Quotation #': b }));
 
         const BASIC_HEAD = ['#', 'Date', 'Customer ID', 'Requested By', 'Inquiry Type', 'Container Size', 'Commodity', 'Packages', 'Flags', 'Shipping Type', 'Legal/Over Weight', 'Gross Weight', 'Live/Drop', 'From', 'To', 'QTY', 'Quotation #'];
-        const TRUCK_HEADERS = ['', 'Base Rate', 'Price', 'GP', 'Adjusted Price', 'Adjusted GP', 'Chassis Cost', 'Chassis Price', 'Pre-Pull Cost', 'Pre-Pull Price', 'Yard Storage Cost', 'Yard Storage Price', 'Driver Waiting Cost', 'Driver Waiting Price', 'Over Weight Cost', 'Over Weight Price', 'Chassis Split Cost', 'Chassis Split Price', 'Toll Cost', 'Toll Price', 'Reefer Fee Cost', 'Reefer Fee Price', 'Bond Fee Cost', 'Bond Fee Price', 'Carrier', '', 'Action'];
+        const TRUCK_HEADERS = ['', 'Base Rate', 'Price', 'GP', 'Adjusted Price', 'Adjusted GP', 'Chassis Cost', 'Chassis Price', 'Pre-Pull Cost', 'Pre-Pull Price', 'Yard Storage Cost', 'Yard Storage Price', 'Driver Waiting Cost', 'Driver Waiting Price', 'Over Weight Cost', 'Over Weight Price', 'Chassis Split Cost', 'Chassis Split Price', 'Toll Cost', 'Toll Price', 'Drop Fee Cost', 'Drop Fee Price', 'Reefer Fee Cost', 'Reefer Fee Price', 'Bond Fee Cost', 'Bond Fee Price', 'Carrier', '', 'Action'];
         const WH_LEFT_HEADERS = ['', 'WH Order Proc', 'WH Order Proc Price', 'WH Inbound', 'WH Inbound Price', 'WH Sorting', 'WH Sorting Price', 'WH Palletizing', 'WH Palletizing Price', 'WH Pallet', 'WH Pallet Price', 'WH Storage', 'WH Storage Price', 'WH Outbound', 'WH Outbound Price', ''];
 
         let displayIndex = start;
@@ -3278,7 +3278,7 @@
         // ✅ CARD LAYOUT v2: each charge type = ONE fused pair chip (Cost | Price),
         //    so a wrap can never split a pair and empty types stay compact.
         const chargesWrap = document.createElement('div'); chargesWrap.className = 'charges-wrap';
-        const pairs = [['Chassis', 'Chassis Price'], ['Pre-Pull', 'Pre-Pull Price'], ['Yard Storage', 'Yard Storage Price'], ['Driver Waiting', 'Driver Waiting Price'], ['Over Weight', 'Over Weight Price'], ['Chassis Split', 'Chassis Split Price'], ['Toll', 'Toll Price'], ['Reefer Fee', 'Reefer Fee Price'], ['Bond Fee', 'Bond Fee Price']];
+        const pairs = [['Chassis', 'Chassis Price'], ['Pre-Pull', 'Pre-Pull Price'], ['Yard Storage', 'Yard Storage Price'], ['Driver Waiting', 'Driver Waiting Price'], ['Over Weight', 'Over Weight Price'], ['Chassis Split', 'Chassis Split Price'], ['Toll', 'Toll Price'], ['Drop Fee', 'Drop Fee Price'], ['Reefer Fee', 'Reefer Fee Price'], ['Bond Fee', 'Bond Fee Price']];
         pairs.forEach(([cF, pF]) => {
           const pairBox = document.createElement('div'); pairBox.className = 'charge-pair';
           const title = document.createElement('span'); title.className = 'pair-title'; title.textContent = cF;

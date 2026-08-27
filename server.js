@@ -531,6 +531,7 @@ function applyTruckingUnits(doc) {
   setIfEmpty(doc, 'Toll Unit', 'Container');
   setIfEmpty(doc, 'Reefer Fee Unit', 'Container');
   setIfEmpty(doc, 'Bond Fee Unit', 'Container');
+  setIfEmpty(doc, 'Drop Fee Unit', 'Container');   // ✅ Drop Fee (2026-08-27)
 }
 
 // ==================== Warehouse redesign (additive, backward-compatible) ====================
@@ -601,9 +602,9 @@ const WH_SUPPLIER_COUNT = 5;
 // module-level constants above so the two stay in sync automatically.
 const DELQ_TRUCK_FIELDS = [
   'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-  'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee',
+  'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee',
   'Adjusted Price', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
-  'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price',
+  'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price',
   'Price'
 ];
 
@@ -858,6 +859,8 @@ function applyTruckingAutoPrices(prevDoc, doc) {
     if (!Number.isFinite(n)) return '';
     return String(Math.round(n + 30));
   });
+
+  // ✅ Drop Fee (2026-08-27): NO auto-price by design — Sales enters the price manually (per Lina).
 
   // Bond Fee Price = Cost + $30
   autoPriceTruckingItem(prevDoc, doc, 'Bond Fee', 'Bond Fee Price', (c) => {
@@ -1299,6 +1302,7 @@ app.post('/inquiries', async (req, res) => {
       'Over Weight': raw['Over Weight'] || '',
       'Chassis Split': raw['Chassis Split'] || '',
       'Toll': raw['Toll'] || '',
+      'Drop Fee': raw['Drop Fee'] || '',
       'Reefer Fee': raw['Reefer Fee'] || '',
       'Bond Fee': raw['Bond Fee'] || '',
 
@@ -1309,6 +1313,7 @@ app.post('/inquiries', async (req, res) => {
       'Over Weight Price': raw['Over Weight Price'] || '',
       'Chassis Split Price': raw['Chassis Split Price'] || '',
       'Toll Price': raw['Toll Price'] || '',
+      'Drop Fee Price': raw['Drop Fee Price'] || '',
       'Reefer Fee Price': raw['Reefer Fee Price'] || '',
       'Bond Fee Price': raw['Bond Fee Price'] || '',
 
@@ -1320,6 +1325,7 @@ app.post('/inquiries', async (req, res) => {
       'Chassis Split Unit': raw['Chassis Split Unit'] || '',
       'Over Weight Unit': raw['Over Weight Unit'] || '',
       'Toll Unit': raw['Toll Unit'] || '',
+      'Drop Fee Unit': raw['Drop Fee Unit'] || '',
       'Reefer Fee Unit': raw['Reefer Fee Unit'] || '',
       'Bond Fee Unit': raw['Bond Fee Unit'] || '',
 
@@ -1515,14 +1521,14 @@ app.get('/inquiries', async (req, res) => {
       // ✅ Strip cost data AND auto-calculated prices that Sourcing hasn't "sent" yet
       const truckCostFields = [
         'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier',
+        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Carrier',
         'Vendor Note'
       ];
       const truckPriceFields = [
         'Price', 'GP', 'Adjusted Price', 'Adjusted GP',
         'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
         'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price',
-        'Bond Fee Price'
+        'Bond Fee Price', 'Drop Fee Price'
       ];
       const whCostFields = [
         'Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee',
@@ -1629,7 +1635,7 @@ app.get('/api/quotation-print', async (req, res) => {
     // Trucking price/unit fields — stripped entirely while sourcing draft is unsent
     if (!truckDraft) {
       const truckBuckets = ['Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Layover'];
+        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Layover'];
       ['Adjusted Price', 'Price', 'Base Rate Unit'].forEach(f => { if (doc[f] != null) out[f] = doc[f]; });
       truckBuckets.forEach(b => {
         if (doc[b + ' Price'] != null) out[b + ' Price'] = doc[b + ' Price'];
@@ -1994,11 +2000,11 @@ app.post('/inquiries/update', async (req, res) => {
     // ===== Field buckets (scope-aware) =====
     const TRUCK_COST_FIELDS = [
       'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-      'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier'
+      'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Carrier'
     ];
     const TRUCK_PRICE_FIELDS = [
       'Adjusted Price', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
-      'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Carrier',
+      'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price', 'Carrier',
       'Price', 'GP', 'Adjusted GP'
     ];
     const WH_COST_FIELDS = [
@@ -2536,6 +2542,15 @@ app.post('/api/push-to-gofreight', async (req, res) => {
       unit: 'SPL',
       remark: 'IF APPLICABLE'
     }
+    // ✅ Drop Fee (2026-08-27): code confirmed as LTLRG-DROP, but the numeric GF ref
+    //    is NOT yet confirmed. DO NOT enable until the ref is verified in GF
+    //    (same procedure as the 7 refs above). Uncomment and fill ref to enable:
+    // ,'Drop Fee Price': {
+    //   ref: 'TODO-CONFIRM',   // LTLRG-DROP — look up the numeric id in GF freight codes
+    //   desc: 'Drayage Surcharge- Drop Fee',
+    //   unit: 'CNT',
+    //   remark: 'IF APPLICABLE'
+    // }
   };
 
   const chargeItems = [];
@@ -2563,11 +2578,10 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     return res.status(400).json({ error: 'No locked price fields found on ' + quotationId + ' — nothing to push.' });
   }
 
-  // ✅ ORDER FIX v2 (2026-08-27): the earlier assumption ("GF renders the LAST array item at
-  // the top") was wrong — live pushes show GF renders the array IN ORDER (first item = top row).
-  // The previous chargeItems.reverse() therefore displayed the group upside-down (Chassis Split
-  // first, Hauling last). Removed: send in natural order so Hauling Fee appears first.
-  // (Previous line kept for history: chargeItems.reverse();)
+  // ✅ ORDER FIX: GoFreight renders charge lines newest-first (last item in the array ends up
+  // at the TOP of the charge group). Sending in natural order (Hauling → Chassis → ... → Split)
+  // therefore displayed reversed. Reverse before sending so GF shows Hauling Fee first.
+  chargeItems.reverse();
 
   // ✅ Resolve the GF quotation ref from OUR OWN database — NOT from a GF lookup-by-quotation_no
   // call, because GoFreight's public API has no such endpoint (confirmed against the official
@@ -2779,6 +2793,7 @@ app.post('/duplicate_inquiry', async (req, res) => {
     duplicated['Toll'] = '';
     duplicated['Reefer Fee'] = '';
     duplicated['Bond Fee'] = '';
+    duplicated['Drop Fee'] = '';
 
     duplicated['Price'] = '';
     duplicated['GP'] = '';
@@ -2796,6 +2811,7 @@ app.post('/duplicate_inquiry', async (req, res) => {
     duplicated['Toll Price'] = '';
     duplicated['Reefer Fee Price'] = '';
     duplicated['Bond Fee Price'] = '';
+    duplicated['Drop Fee Price'] = '';
 
     duplicated['Order Processing'] = duplicated['Order Processing'] || '';
     duplicated['Inbound'] = duplicated['Inbound'] || '';

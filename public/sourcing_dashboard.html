@@ -3142,7 +3142,17 @@ ${qDel}`)) return;
           vNoteTd.dataset.field = 'WH Vendor Note';
 
           r6.appendChild(vNoteTd);
-          r6.appendChild(actionCellWH(item, quote, mainKey, false));
+          const actElW = actionCellWH(item, quote, mainKey, false);
+          // ✅ relocate Send-to-Sales checkbox (same element — listeners survive the move)
+          const sendChkW = actElW.querySelector('input[type="checkbox"]');
+          if (sendChkW) {
+            const w = document.createElement('label');
+            w.className = 'confirm-inline';
+            w.appendChild(sendChkW);
+            w.appendChild(document.createTextNode('Send to Sales'));
+            r6.insertBefore(w, r6.children[1]);
+          }
+          r6.appendChild(actElW);
           return r6;
         }   // ✅ 这一行你必须加
 

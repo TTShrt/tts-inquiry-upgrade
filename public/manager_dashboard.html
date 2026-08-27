@@ -1528,7 +1528,7 @@
 }
 
 /* ---- Card head: dark columnar header (r1) + grid-aligned value row (r2) ---- */
-:root { --basic-grid: 30px 66px 84px 92px 74px 62px minmax(90px,1.1fr) 42px 64px 62px 62px 62px 56px minmax(84px,1fr) minmax(94px,1.2fr) 38px 72px minmax(150px,2fr) 66px; }
+:root { --basic-grid: 30px 66px 84px 92px 74px 62px minmax(90px,1.1fr) 42px 64px 62px 62px 62px 56px minmax(84px,1fr) minmax(94px,1.2fr) 38px 72px minmax(120px,1.2fr) minmax(120px,1.2fr) 66px; }
 .row-basic-head {
   display: grid !important; grid-template-columns: var(--basic-grid);
   gap: 0 10px; align-items: center;
@@ -1698,7 +1698,10 @@
 .row-wh-val .cell-wh-vendor-spacer { display: none; }
 .row-wh-val .cell:nth-child(4)::before { content: "EST GP"; }
 .row-wh-val .note-preview { flex: 1 1 220px; min-width: 180px; }
-.row-wh-val .note-preview[data-which="TRUCK INQUIRY NOTE"]::before { content: "Truck Inquiry Note"; }
+/* v12: per Lina — WH line shows ONLY the warehouse vendor note. The Truck Inquiry
+   Note cell (editable, saves to the main inquiry) is hidden via CSS, not removed:
+   the element and its save wiring stay intact — delete this rule to restore it. */
+.row-wh-val .note-preview[data-which="TRUCK INQUIRY NOTE"] { display: none !important; }
 .row-wh-val .vendor-note-preview::before { content: "Vendor Note (WH)"; }
 
 /* ---- Sub-rows: indent + connector hint ---- */
@@ -2901,8 +2904,9 @@
           const text  = (td && (td.dataset.fullNote ?? td.textContent)) || '';
           const field = ((td && td.dataset.field) || '').trim();
           const quote = ((td && td.dataset.quote) || '').trim();
-          // ✅ Only the Truck Inquiry Note is editable here; every other note stays read-only.
-          const editable = (field === 'Truck Inquiry Note') && !!quote;
+          // ✅ Editable notes: Truck Inquiry Note + General Note ('Note') — per Lina 2026-08-27.
+          //    All other notes stay read-only.
+          const editable = (field === 'Truck Inquiry Note' || field === 'Note') && !!quote;
 
           if (titleEl) titleEl.textContent = which;
           input.value = text;
@@ -2929,6 +2933,7 @@
         saveBtn?.addEventListener('click', async () => {
           if (!noteEditCtx) return;
           const payload = { 'Quotation #': noteEditCtx.quote, [noteEditCtx.field]: input.value };
+          if (String(input.value).trim() === '') payload.__clearFields = [noteEditCtx.field];   // ✅ empty saves must be declared or the server silently drops them
           saveBtn.disabled = true;
           try {
             const r = (typeof postUpdate === 'function')
@@ -3000,6 +3005,9 @@
           noteHead.colSpan = 9;
           noteHead.classList.add('note-head');   // ✅ 新增
           r1.appendChild(noteHead);
+          const truckNoteHead = tdHeader('TRUCK NOTE');
+          truckNoteHead.classList.add('note-head');   // ✅ v13: second note column
+          r1.appendChild(truckNoteHead);
           r1.appendChild(tdHeader('ACTION'));
           tbody.appendChild(r1);
 
@@ -3053,10 +3061,25 @@
           // ✅ 最终 GENERAL NOTE：客户信息在第一行，下面才是原 Note
           const fullGeneralNote = [customerInfoLine, noteBody].filter(Boolean).join('\n');
           const noteTd = tdCell('', 'note-preview'); noteTd.colSpan = 9;
-          noteTd.dataset.fullNote = fullGeneralNote; noteTd.dataset.which = 'GENERAL NOTE';
+          // ✅ v13: editable — editor opens with ONLY the Note field body (never the
+          //    assembled customer-info line, which must not be saved into 'Note').
+          noteTd.dataset.fullNote = noteBody; noteTd.dataset.which = 'GENERAL NOTE';
+          noteTd.dataset.field = 'Note'; noteTd.dataset.quote = String(k).trim();
           const line = document.createElement('div'); line.className = 'note-line'; line.textContent = fullGeneralNote.replace(/\s+/g, ' ').trim();
           noteTd.appendChild(line);
           r2.appendChild(noteTd);
+
+          // ✅ v13: Truck Inquiry Note now lives in the card head, editable (same field
+          //    + wiring the hidden WH-row cell used; openModal whitelist already allows it).
+          const truckNoteVal = String(main['Truck Inquiry Note'] || '').trim();
+          const truckNoteTd = tdCell('', 'note-preview');
+          truckNoteTd.dataset.fullNote = truckNoteVal;
+          truckNoteTd.dataset.which = 'TRUCK INQUIRY NOTE';
+          truckNoteTd.dataset.field = 'Truck Inquiry Note';
+          truckNoteTd.dataset.quote = String(k).trim();
+          const tLine = document.createElement('div'); tLine.className = 'note-line'; tLine.textContent = truckNoteVal.replace(/\s+/g, ' ').trim();
+          truckNoteTd.appendChild(tLine);
+          r2.appendChild(truckNoteTd);
           const mgrLockTd = tdCell('', 'text-center'); mgrLockTd.innerHTML = lockBadgeHTML(); r2.appendChild(mgrLockTd);
           // ✅ EXPORT: open printable quotation in a new tab (read-only; manager can export any group)
           const exportBtn = document.createElement('button');

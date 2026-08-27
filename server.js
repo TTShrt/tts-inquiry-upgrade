@@ -2563,10 +2563,11 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     return res.status(400).json({ error: 'No locked price fields found on ' + quotationId + ' — nothing to push.' });
   }
 
-  // ✅ ORDER FIX: GoFreight renders charge lines newest-first (last item in the array ends up
-  // at the TOP of the charge group). Sending in natural order (Hauling → Chassis → ... → Split)
-  // therefore displayed reversed. Reverse before sending so GF shows Hauling Fee first.
-  chargeItems.reverse();
+  // ✅ ORDER FIX v2 (2026-08-27): the earlier assumption ("GF renders the LAST array item at
+  // the top") was wrong — live pushes show GF renders the array IN ORDER (first item = top row).
+  // The previous chargeItems.reverse() therefore displayed the group upside-down (Chassis Split
+  // first, Hauling last). Removed: send in natural order so Hauling Fee appears first.
+  // (Previous line kept for history: chargeItems.reverse();)
 
   // ✅ Resolve the GF quotation ref from OUR OWN database — NOT from a GF lookup-by-quotation_no
   // call, because GoFreight's public API has no such endpoint (confirmed against the official

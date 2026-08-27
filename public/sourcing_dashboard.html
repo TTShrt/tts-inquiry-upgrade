@@ -1491,11 +1491,11 @@
 .rate-group {
   display: flex; align-items: stretch; gap: 0;
   border: 1px solid #e2e8f0; border-radius: 8px; background: #fbfcfe; overflow: hidden;
-  flex: 1 1 auto; min-width: 420px;
+  flex: 0 0 auto;   /* ✅ sourcing: PRICE/GP/ADJ.* are read-only dashes — keep the strip compact, don't stretch */
 }
 .rate-group .cell {
   border: none !important; border-right: 1px solid #eef2f7 !important; border-radius: 0 !important;
-  background: transparent !important; flex: 1 1 0; text-align: center; padding: 3px 8px !important;
+  background: transparent !important; flex: 0 0 auto; min-width: 76px; text-align: center; padding: 3px 10px !important;
 }
 .rate-group .cell:last-child { border-right: none !important; }
 .rate-group .cell.is-empty { color: #cbd5e1; }
@@ -3433,7 +3433,7 @@ ${qDel}`)) return;
   inner.style.setProperty('max-height', 'none', 'important');
   inner.style.setProperty('border', 'none', 'important');
   inner.style.setProperty('border-radius', '0', 'important');
-  inner.style.setProperty('width', 'max-content', 'important');
+  inner.style.setProperty('width', '100%', 'important');   // ✅ CARD LAYOUT: 'max-content' was for the old wide table (it lays everything on ONE line); cards must wrap at viewport width
 
   // 2026-08-03 v3: fixed proxy scrollbar pinned to the viewport bottom.
   // The outer's own scrollbar sits at its bottom edge, which can land a few px

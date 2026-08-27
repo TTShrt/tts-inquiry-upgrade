@@ -123,7 +123,7 @@
       '.whm-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e3e6ea}',
       '.whm-hd h3{margin:0;font-size:16px;font-weight:600}',
       '.whm-x{cursor:pointer;color:#9aa1ab;font-size:20px;line-height:1;border:none;background:none}',
-      '.whm-common{display:flex;gap:18px;align-items:stretch;padding:12px 18px;border-bottom:1px solid #e3e6ea;background:#f0faf3;box-shadow:inset 4px 0 0 #22c55e}',
+      '.whm-common{display:flex;gap:18px;align-items:stretch;padding:12px 18px;border-bottom:1px solid #e3e6ea;background:#f8fafc;box-shadow:inset 4px 0 0 #94a3b8}',
       '.whm-cleft{flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px;align-content:start;min-width:0}',
       '.whm-svc{grid-column:span 2}',
       '.whm-f{display:flex;flex-direction:column;gap:4px;min-width:0}',
@@ -158,17 +158,35 @@
       '.whm-oqcol{text-align:center}',
       '.whm-oq{cursor:pointer;width:14px;height:14px;accent-color:#15803d}',
       '.whm-exist{color:#9aa1ab;font-style:italic}',
-      '.whm-vnote{padding:8px 18px 4px;border-top:1px solid #eef0f2;display:flex;flex-direction:column;gap:4px;background:#eef4ff;box-shadow:inset 4px 0 0 #3b82f6}',
+      /* ✅ MOCKUP: supplier comparison strip */
+      '.whm-supstrip{display:flex;gap:10px;padding:10px 18px;flex-wrap:wrap;background:#fbfcfe;border-bottom:1px solid #eef0f2}',
+      '.whm-supcard{position:relative;border:1.5px solid #e2e8f0;border-radius:9px;background:#fff;padding:7px 12px;min-width:148px;cursor:pointer;transition:box-shadow .12s,border-color .12s}',
+      '.whm-supcard:hover{box-shadow:0 2px 8px rgba(15,23,42,.08)}',
+      '.whm-supcard.sel{border-color:#2563eb;background:#eff6ff}',
+      '.whm-supcard.nosel{cursor:default}',
+      '.whm-supname2{font-size:11px;font-weight:600;color:#334155;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.whm-supdot{width:9px;height:9px;border-radius:50%;border:2px solid #cbd5e1;flex:0 0 auto}',
+      '.whm-supcard.sel .whm-supdot{border-color:#2563eb;background:#2563eb}',
+      '.whm-suptotal{font-size:14px;font-weight:700;color:#0f172a;margin-top:3px;font-variant-numeric:tabular-nums}',
+      '.whm-suptotal.empty{color:#cbd5e1;font-weight:400}',
+      '.whm-lowest{position:absolute;top:-7px;right:8px;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:8px;font-size:8.5px;font-weight:800;letter-spacing:.04em;padding:1px 6px}',
+      '.whm-striplabel{font-size:9px;font-weight:700;letter-spacing:.05em;color:#94a3b8;text-transform:uppercase;align-self:center;margin-right:2px}',
+      /* ✅ MOCKUP: group accordion */
+      '.whm-chev{display:inline-block;transition:transform .15s;margin-right:6px;color:#94a3b8;font-size:10px}',
+      'tr.whm-grp{cursor:pointer;user-select:none}',
+      'tr.whm-grp.closed .whm-chev{transform:rotate(-90deg)}',
+      'tr.whm-rowhide{display:none}',
+      '.whm-vnote{padding:8px 18px 4px;border-top:1px solid #eef0f2;display:flex;flex-direction:column;gap:4px;background:#eff6ff;box-shadow:inset 4px 0 0 #60a5fa}',
       '.whm-vnote>label{font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.3px}',
       '.whm-vnote textarea{width:100%;min-height:40px;border:1px solid #cfd4da;border-radius:6px;font-family:inherit;font-size:12px;color:#1f2430;padding:6px 9px;resize:vertical;line-height:1.5}',
       '.whm-vnote textarea:disabled{background:#f3f4f6;color:#6b7280}',
       '.whm-table th.whm-col.cost, .whm-table td.whm-col.cost{background:#eef4ff}',
-      '.whm-table th.whm-pcol, .whm-table td.whm-pcol{background:#fff5ea}',
-      '.whm-table th.whm-qcol, .whm-table td.whm-qcol{background:#f0faf3}',
+      '.whm-table th.whm-pcol, .whm-table td.whm-pcol{background:#f5f8fd}',
+      '.whm-table th.whm-qcol, .whm-table td.whm-qcol{background:#f8fafc}',
       '.whm-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:11px;color:#475569}',
       '.whm-chip{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}',
       '.whm-sw{width:11px;height:11px;border-radius:3px;display:inline-block}',
-      '.whm-sw.g{background:#22c55e}.whm-sw.b{background:#3b82f6}.whm-sw.o{background:#f59e0b}',
+      '.whm-sw.g{background:#94a3b8}.whm-sw.b{background:#3b82f6}.whm-sw.o{background:#93c5fd}',
       '.whm-ft{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;border-top:1px solid #e3e6ea;background:#f7f8fa;flex-wrap:wrap}',
       '.whm-tot{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:13px}',
       '.whm-tot b{font-weight:600}',
@@ -280,6 +298,7 @@
           '<span class="whm-note2">' + (canEditCost ? 'Sales picks the supplier' : 'Cost read-only \u2014 you edit price') + '</span>' +
         '</div></div>' +
 
+        '<div class="whm-supstrip" data-supstrip></div>' +   // ✅ MOCKUP: supplier comparison strip (rendered by renderSupStrip)
         '<div class="whm-tablewrap"><table class="whm-table">' +
           '<colgroup>' +
             '<col style="width:26px"><col style="width:150px">' + (lpMode ? '' : '<col style="width:88px">') + '<col style="width:70px">' +
@@ -362,7 +381,7 @@
     var tbody = ov.querySelector('[data-rows]');
     var rowsHTML = '';
     GROUPS.forEach(function (g, gi) {
-      rowsHTML += '<tr class="whm-grp" data-g="' + gi + '"><td colspan="4" class="l">' + g.icon + ' ' + g.name + '</td>' +
+      rowsHTML += '<tr class="whm-grp" data-g="' + gi + '"><td colspan="4" class="l"><span class="whm-chev">\u25be</span>' + g.icon + ' ' + g.name + '</td>' +
         '<td colspan="' + SUP + '"></td>' +
         (showPrice ? '<td class="r" data-gsub="' + gi + '"></td><td></td>' : '') +
         '</tr>';
@@ -506,9 +525,48 @@
       var tgpEl = ov.querySelector('[data-tgp]'); if (tgpEl) tgpEl.textContent = gp;
       var nm = supNameFor(sel);
       ov.querySelector('[data-via]').textContent = nm;
+      renderSupStrip();   // ✅ MOCKUP: keep the comparison strip live
     }
     function money(v) { return '$' + Math.round(v).toLocaleString(); }
     function supNameFor(w) { var el = ov.querySelector('.whm-sname[data-sname="' + w + '"]'); return (el && el.value.trim()) || ('Supplier ' + w); }
+
+    // ✅ MOCKUP: supplier comparison strip. Per Lina (2026-08-27):
+    //   totals count ONLY rows whose OnQuote box is checked (legacy rows have no
+    //   OnQuote box and are therefore excluded); in LP-snapshot mode every LP row
+    //   counts (the snapshot IS the quote). Suppliers with no cost anywhere are hidden.
+    function renderSupStrip() {
+      var host = ov.querySelector('[data-supstrip]');
+      if (!host) return;
+      var totals = {}, hasAny = {};
+      for (var w = 1; w <= SUP; w++) { totals[w] = 0; hasAny[w] = false; }
+      ov.querySelectorAll('tr[data-row]').forEach(function (tr) {
+        var g = String(tr.getAttribute('data-g') || '');
+        var oq = tr.querySelector('.whm-oq');
+        var counts = (oq && oq.checked) || g.indexOf('lp') === 0;
+        tr.querySelectorAll('.whm-cell[data-cost]').forEach(function (inp) {
+          var w2 = +inp.getAttribute('data-w');
+          var v = num(inp.value);
+          if (String(inp.value).trim() !== '') hasAny[w2] = true;
+          if (counts && v) totals[w2] += v;
+        });
+      });
+      var visible = [];
+      for (var w3 = 1; w3 <= SUP; w3++) if (hasAny[w3]) visible.push(w3);
+      if (!visible.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
+      host.style.display = '';
+      var min = null;
+      visible.forEach(function (w4) { if (totals[w4] > 0 && (min === null || totals[w4] < min)) min = totals[w4]; });
+      var html = '<span class="whm-striplabel">Compare</span>';
+      visible.forEach(function (w5) {
+        var isSel = (w5 === sel), isLow = (min !== null && totals[w5] === min && totals[w5] > 0);
+        html += '<div class="whm-supcard ' + (isSel ? 'sel' : '') + (canEditPrice ? '' : ' nosel') + '" data-supsel="' + w5 + '">' +
+          (isLow ? '<span class="whm-lowest">\u2605 LOWEST</span>' : '') +
+          '<div class="whm-supname2"><span class="whm-supdot"></span>' + esc(supNameFor(w5)) + '</div>' +
+          '<div class="whm-suptotal ' + (totals[w5] > 0 ? '' : 'empty') + '">' + (totals[w5] > 0 ? money(totals[w5]) : '\u2014') + '</div>' +
+        '</div>';
+      });
+      host.innerHTML = html;
+    }
 
     function applySel() {
       ov.querySelectorAll('.whm-col').forEach(function (c) {
@@ -693,6 +751,7 @@
       if (e.target.matches('[data-onquote]')) {
         var oqKey = e.target.getAttribute('data-onquote') + ' OnQuote';
         set(oqKey, e.target.checked ? 'true' : 'false');
+        recalc();   // ✅ MOCKUP: strip totals follow the OnQuote rule live
         autosave([oqKey]);
         return;
       }
@@ -720,6 +779,24 @@
         set('WH Locked By', next);
         applyLockUI();
         postUpdate({ 'WH Locked By': next }).then(function (ok) { if (ok) { flashSaved('\u2713 saved'); onSaved(); } });
+        return;
+      }
+      // ✅ MOCKUP: click a comparison card = pick that supplier (reuses the existing
+      //   radio change pipeline: set + applySel + recalc + autosave, zero new save logic)
+      var supCard = e.target.closest('[data-supsel]');
+      if (supCard && canEditPrice) {
+        var rw = ov.querySelector('input[name="whm-selwh"][value="' + supCard.getAttribute('data-supsel') + '"]');
+        if (rw && !rw.checked) { rw.checked = true; rw.dispatchEvent(new Event('change', { bubbles: true })); }
+        return;
+      }
+      // ✅ MOCKUP: group header toggles its rows (accordion)
+      var grpTr = e.target.closest('tr.whm-grp');
+      if (grpTr) {
+        var gKey = grpTr.getAttribute('data-g');
+        var closed = grpTr.classList.toggle('closed');
+        ov.querySelectorAll('tr[data-row][data-g="' + gKey + '"]').forEach(function (r5) {
+          r5.classList.toggle('whm-rowhide', closed);
+        });
         return;
       }
       if (e.target.closest('[data-close]')) return close();

@@ -1527,8 +1527,20 @@
   color: #64748b; text-transform: uppercase; margin-bottom: 2px; white-space: nowrap;
 }
 
-/* ---- Legacy header rows: labels now live on the chips themselves ---- */
-.row-basic-head { display: none !important; }
+/* ---- Card head: dark columnar header (r1) + grid-aligned value row (r2) ---- */
+:root { --basic-grid: 30px 66px 84px 92px 74px 62px minmax(90px,1.1fr) 42px 64px 62px 62px 62px 56px minmax(84px,1fr) minmax(94px,1.2fr) 38px 72px minmax(150px,2fr) 66px; }
+.row-basic-head {
+  display: grid !important; grid-template-columns: var(--basic-grid);
+  gap: 0 10px; align-items: center;
+  background: #1e293b !important; border-radius: 10px 10px 0 0;
+  padding: 7px 14px; margin-top: 4px;
+}
+.row-basic-head .cell {
+  background: transparent !important; border: none !important;
+  color: #cbd5e1 !important; font-size: 8.5px !important; font-weight: 700 !important;
+  letter-spacing: .05em; text-transform: uppercase; text-align: left !important;
+  padding: 0 !important; overflow: hidden; white-space: nowrap;
+}
 .row-truck-head .cell:not(:first-child),
 .row-wh-head .cell:not(:first-child) { display: none !important; }
 .row-truck-head, .row-wh-head {
@@ -1543,12 +1555,14 @@
 .row-truck-head .cell:first-child::after { content: "  ·  TRUCKING"; color: #94a3b8; font-weight: 600; }
 .row-wh-head .cell:first-child::after   { content: "  ·  WAREHOUSE"; color: #94a3b8; font-weight: 600; }
 
-/* ---- Card shell: basic-val opens the card, row-sep closes it ---- */
+/* ---- Card shell: header strip above, value row aligned on the same grid ---- */
 .row-basic-val {
-  display: flex !important; flex-wrap: wrap; gap: 8px 16px; align-items: flex-start;
-  background: #fff !important; border: 1px solid #e2e8f0; border-bottom: 1px dashed #e2e8f0;
-  border-radius: 10px 10px 0 0; padding: 12px 14px 10px; margin-top: 4px;
+  display: grid !important; grid-template-columns: var(--basic-grid);
+  gap: 0 10px; align-items: center;
+  background: #fff !important; border: 1px solid #e2e8f0; border-top: none;
+  border-bottom: 1px dashed #e2e8f0; padding: 8px 14px;
 }
+.row-basic-val .cell::before { content: none !important; }
 .row-truck-val, .row-wh-val {
   display: flex !important; flex-wrap: wrap; gap: 6px 10px; align-items: flex-start;
   background: #fff; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;
@@ -1564,35 +1578,23 @@
 
 /* ---- Basic-val chips: per-position labels ---- */
 .row-basic-val .cell {
-  border: none !important; padding: 0 !important; font-size: 12px !important; color: #0f172a;
+  border: none !important; padding: 0 !important; font-size: 11.5px !important; color: #0f172a;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left !important;
 }
-.row-basic-val .cell:nth-child(1)::before  { content: "#"; }
-.row-basic-val .cell:nth-child(2)::before  { content: "Date"; }
-.row-basic-val .cell:nth-child(3)::before  { content: "Customer ID"; }
-.row-basic-val .cell:nth-child(4)::before  { content: "Requested By"; }
-.row-basic-val .cell:nth-child(5)::before  { content: "Inquiry Type"; }
-.row-basic-val .cell:nth-child(6)::before  { content: "Container"; }
-.row-basic-val .cell:nth-child(7)::before  { content: "Commodity"; }
-.row-basic-val .cell:nth-child(8)::before  { content: "Pkgs"; }
-.row-basic-val .cell:nth-child(9)::before  { content: "Flags"; }
-.row-basic-val .cell:nth-child(10)::before { content: "Ship Type"; }
-.row-basic-val .cell:nth-child(11)::before { content: "Legal/OW"; }
-.row-basic-val .cell:nth-child(12)::before { content: "Gross Wt"; }
-.row-basic-val .cell:nth-child(13)::before { content: "Live/Drop"; }
-.row-basic-val .cell:nth-child(14)::before { content: "From"; }
-.row-basic-val .cell:nth-child(15)::before { content: "To"; }
-.row-basic-val .cell:nth-child(16)::before { content: "QTY"; }
-.row-basic-val .cell:nth-child(17)::before { content: "Quote #"; }
-.row-basic-val .cell:nth-child(7)  { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.row-basic-val .cell:nth-child(14),
-.row-basic-val .cell:nth-child(15) { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.row-basic-val .note-preview       { flex: 1 1 260px; min-width: 200px; border: 1px solid #e2e8f0 !important; border-radius: 7px; padding: 5px 10px !important; background: #fbfcfe; }
-.row-basic-val .note-preview::before { content: "General Note"; }
-.row-basic-val .cell:last-child    { margin-left: auto; }
-.row-basic-val .cell:last-child::before { content: "Action"; }
+.row-basic-val .note-preview {
+  border: 1px solid #e2e8f0 !important; border-radius: 7px;
+  padding: 4px 10px !important; background: #fbfcfe; overflow: hidden;
+}
+.row-basic-val .cell:last-child { overflow: visible; white-space: nowrap; }
 
-/* ---- Truck-val: grouped chips (v2 — mockup-style pairing) ---- */
-.row-truck-val, .row-wh-val { gap: 8px 12px !important; align-items: stretch !important; }
+/* ---- Truck-val: two-line architecture (v3 — mockup layout) ---- */
+.row-truck-val { display: flex !important; flex-wrap: wrap; gap: 6px 10px !important; align-items: center !important; padding: 7px 14px !important; }
+.row-truck-val .truck-line1 { flex: 1 1 640px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.row-truck-val .truck-line1 .rate-group { margin-left: auto; }
+.row-truck-val .truck-line1 .cell-action { margin-left: 12px; }
+.row-truck-val .truck-line2 { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row-truck-val .truck-line2 .charges-wrap { flex: 1 1 auto; }
+.row-wh-val { gap: 8px 12px !important; align-items: stretch !important; }
 .row-truck-val .cell, .row-wh-val .cell {
   border: 1px solid #e2e8f0 !important; border-radius: 7px;
   padding: 5px 9px !important; background: #fbfcfe; font-size: 12px !important;
@@ -1616,23 +1618,25 @@
 .rate-group {
   display: flex; align-items: stretch; gap: 0;
   border: 1px solid #e2e8f0; border-radius: 8px; background: #fbfcfe; overflow: hidden;
+  flex: 0 0 auto;
 }
 .rate-group .cell {
   border: none !important; border-right: 1px solid #eef2f7 !important; border-radius: 0 !important;
-  background: transparent !important; min-width: 78px; text-align: right;
+  background: transparent !important; min-width: 64px; text-align: right;
+  padding: 3px 8px !important;
 }
 .rate-group .cell:last-child { border-right: none !important; }
 .rate-group .cell.is-empty { color: #cbd5e1; }
 
 /* fused charge pair: title + cost + price in one chip; wrap can never split it */
-.charges-wrap { display: flex; flex-wrap: wrap; gap: 8px 10px; flex: 1 1 100%; }
+.charges-wrap { display: flex; flex-wrap: wrap; gap: 5px 6px; }
 .charge-pair {
-  display: flex; align-items: center; gap: 7px;
-  border: 1px solid #e2e8f0; border-radius: 7px; background: #fbfcfe; padding: 4px 9px;
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid #e2e8f0; border-radius: 6px; background: #fbfcfe; padding: 2px 7px;
 }
 .charge-pair .pair-title {
-  font-size: 8.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
-  color: #64748b; width: 74px; flex: 0 0 auto;
+  font-size: 8px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: #64748b; flex: 0 0 auto; max-width: 72px; line-height: 1.1;
 }
 .charge-pair .cell {
   border: none !important; background: transparent !important; padding: 0 !important;
@@ -1642,17 +1646,19 @@
   content: attr(data-sub); display: block; font-size: 7.5px; color: #cbd5e1;
   text-transform: uppercase; font-weight: 700; margin-bottom: 1px;
 }
-.charge-pair .pair-cost { min-width: 44px; text-align: right; font-size: 11.5px !important; }
+.charge-pair .pair-cost { min-width: 34px; text-align: right; font-size: 11px !important; }
 .charge-pair .pair-cost.is-empty { color: #cbd5e1; }
 .charge-pair .pair-cost.is-empty::after { content: "—"; }
-.charge-pair .cell input { width: 56px; }
+.charge-pair .cell input { width: 50px; padding: 2px 5px; font-size: 11px; }
 .charge-pair .pair-price.is-empty input { border-style: dashed; background: transparent; }
 .charge-pair.pair-empty { opacity: .55; }
 .charge-pair.pair-empty:hover, .charge-pair.pair-empty:focus-within { opacity: 1; }
 
-.row-truck-val .cell-carrier input { width: 160px; text-align: center; }
-.row-truck-val .vendor-note-preview        { flex: 1 1 220px; min-width: 180px; }
+.row-truck-val .cell-carrier { flex: 0 0 auto; }
+.row-truck-val .cell-carrier input { width: 170px; text-align: center; font-weight: 600; }
+.row-truck-val .vendor-note-preview        { flex: 1 1 200px; min-width: 160px; align-self: stretch; }
 .row-truck-val .vendor-note-preview::before{ content: "Vendor Note"; }
+.row-truck-val .vendor-note-preview:not([data-full-note=""])[data-full-note] { background: #fffbeb; border-color: #fde68a !important; }
 .row-truck-val .cell-action, .row-wh-val .cell-action {
   margin-left: auto; border: none !important; background: transparent !important;
   align-self: center; min-width: 0;
@@ -2980,6 +2986,13 @@
         const displayQuote = (isSub && baseExt) ? (baseExt + suffixNum) : (isSub ? quote : '');
         tr.appendChild(tdCell(displayQuote, 'cell-tag' + (isSub ? ' text-center font-semibold' : '')));
 
+        // ✅ CARD LAYOUT v3: two-line structure (mockup architecture).
+        //    line1 = carrier + rate strip + actions;  line2 = charge chips + vendor note.
+        //    Same elements & listeners as before — only the append targets changed.
+        const line1 = document.createElement('div'); line1.className = 'truck-line1';
+        const line2 = document.createElement('div'); line2.className = 'truck-line2';
+        tr.appendChild(line1); tr.appendChild(line2);
+
         // ✅ CARD LAYOUT v2: rate summary group — same elements/listeners, now wrapped
         //    in one labeled container so the five figures read as a unit (mockup style).
         const rateGroup = document.createElement('div'); rateGroup.className = 'rate-group';
@@ -3001,7 +3014,6 @@
         const tdAdjGP = tdCell(calcAdjGPpct(adj.value, item['Base Rate']), 'text-right');
         applyGPColor(tdAdjGP, calcAdjGPval(adj.value, item['Base Rate']));
         rateGroup.appendChild(lbl(tdAdjGP, 'Adj. GP'));
-        tr.appendChild(rateGroup);
 
         // live update Adjusted GP while typing Adjusted Price
         adj.addEventListener('input', () => {
@@ -3027,10 +3039,14 @@
           if (!String(costCell.textContent).trim() && !String(pi.value).trim()) pairBox.classList.add('pair-empty');
           chargesWrap.appendChild(pairBox);
         });
-        tr.appendChild(chargesWrap);
 
         const car = makeInput(item['Carrier'] || '', 'Carrier', quote, locked, 'TRUCK');
-        const tdCar = document.createElement('div'); tdCar.className = 'cell cell-carrier'; tdCar.dataset.label = 'Carrier'; tdCar.appendChild(car); tr.appendChild(tdCar);   // ✅ CARD LAYOUT
+        const tdCar = document.createElement('div'); tdCar.className = 'cell cell-carrier'; tdCar.dataset.label = 'Carrier'; tdCar.appendChild(car);   // ✅ CARD LAYOUT
+
+        // ✅ CARD LAYOUT v3: assemble line1 (carrier → rate strip), line2 (charges)
+        line1.appendChild(tdCar);
+        line1.appendChild(rateGroup);
+        line2.appendChild(chargesWrap);
 
         // ✅ Vendor Note (Column 26) — Manager view only (read-only)
         const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();
@@ -3042,8 +3058,8 @@
         vNoteTd.dataset.which = 'VENDOR NOTE';
 
         // ❌ Manager 不允许保存 Vendor Note：不要加 dataset.field / dataset.quote
-        tr.appendChild(vNoteTd);
-        tr.appendChild(actionCell(item, quote, 'TRUCK'));
+        line2.appendChild(vNoteTd);
+        line1.appendChild(actionCell(item, quote, 'TRUCK'));
 
         applyRowState(tr, item, 'TRUCK');
         lockRow(quote, 'TRUCK', locked);

@@ -746,26 +746,27 @@
       border-color: #e5e7eb !important;
     }
 
-    /* ✅ 收到 COST：只染 input 杏黄（提醒 Sales），td 背景不变 */
+    /* ✅ 收到 COST：只染 input 琥珀（提醒 Sales），td 背景不变 —
+       new palette: green(new) → amber(cost received) → blue(saved) → deep blue(confirmed) */
     #summaryTable tr.cost-received.row-truck-val input,
     #summaryTable tr.cost-received.row-wh-val input {
-      background: #fcf7eb !important;
+      background: #fef3c7 !important;
       border-color: #f1d6a8 !important;
     }
 
-    /* SAVE 状态：整行极淡灰蓝 */
+    /* SAVE 状态：整行浅蓝 */
 
     #summaryTable tr.saved-price td {
-      background: #f3f6fb !important;
+      background: #eff6ff !important;
     }
 
     /* input 保持透明，避免“格子感” */
     #summaryTable tr.saved-price input {
       background: transparent !important;
-      border-color: #e5e7eb !important;
+      border-color: #93c5fd !important;
     }
 
-    /* ✅ CHECK 后：整行锁定蓝（这时才染 td 背景） */
+    /* ✅ CHECK 后：整行锁定深蓝（这时才染 td 背景） */
     #summaryTable tr.row-confirmed td {
       background: #cfe8ff !important;
     }
@@ -773,6 +774,12 @@
     #summaryTable tr.row-confirmed td input {
       background: #cfe8ff !important;
       border-color: #b6dcff !important;
+    }
+
+    /* NEW 状态：之前默认（无 class）是纯白，现在标记为浅绿 */
+    #summaryTable tr.new-empty.row-truck-val td,
+    #summaryTable tr.new-empty.row-wh-val td {
+      background: #f0fdf4 !important;
     }
 
 
@@ -829,24 +836,24 @@
       text-align: center !important;
     }
 
-    /* States (same as Manager) */
+    /* States (same as Manager) — new palette: green(new) → amber(cost received) → blue(saved) → deep blue(confirmed) */
     #summaryTable tr.cost-received.row-truck-val input,
     #summaryTable tr.cost-received.row-wh-val input {
-      background: #fcf7eb !important;
+      background: #fef3c7 !important;
       border-color: #f1d6a8 !important;
     }
 
-    /* SAVE = whole row light gray-blue (NOT per cell) */
+    /* SAVE = whole row light blue (NOT per cell) */
     #summaryTable tr.saved-price td {
-      background: #f3f6fb !important;
+      background: #eff6ff !important;
     }
 
     #summaryTable tr.saved-price input {
       background: transparent !important;
-      border-color: #e5e7eb !important;
+      border-color: #93c5fd !important;
     }
 
-    /* CONFIRMED = whole row blue */
+    /* CONFIRMED = whole row deep blue */
     #summaryTable tr.row-confirmed td {
       background: #cfe8ff !important;
     }
@@ -854,6 +861,12 @@
     #summaryTable tr.row-confirmed td input {
       background: #cfe8ff !important;
       border-color: #b6dcff !important;
+    }
+
+    /* NEW = whole row light green (default/no state class) */
+    #summaryTable tr.new-empty.row-truck-val td,
+    #summaryTable tr.new-empty.row-wh-val td {
+      background: #f0fdf4 !important;
     }
 
     /* Sub rows: same font as main (no italic, no gray) */
@@ -1051,13 +1064,13 @@
       gap: 5px !important;
     }
 
-    /* ===== SALES: EDITING row should look like COST received (apricot) ===== */
+    /* ===== SALES: EDITING row should look like COST received (amber) ===== */
     #summaryTable tr.editing-row td {
-      background: #fcf7eb !important;
+      background: #fef3c7 !important;
     }
 
     #summaryTable tr.editing-row td input {
-      background: #fcf7eb !important;
+      background: #fef3c7 !important;
       border-color: #f1d6a8 !important;
     }
 
@@ -1103,20 +1116,20 @@
     /* ===== FINAL: force SAVE row color (must be LAST) ===== */
     #summaryTable tr.saved-price.row-truck-val td,
     #summaryTable tr.saved-price.row-wh-val td {
-      background: #f3f6fb !important;
+      background: #eff6ff !important;
     }
 
     /* SAVE 状态下 input 透明，避免格子感 */
     #summaryTable tr.saved-price.row-truck-val td input,
     #summaryTable tr.saved-price.row-wh-val td input {
       background: transparent !important;
-      border-color: #e5e7eb !important;
+      border-color: #93c5fd !important;
     }
 
-    /* 确保 SAVE 后不再保持 editing 杏色 */
+    /* 确保 SAVE 后不再保持 editing 琥珀色 */
     #summaryTable tr.saved-price.editing-row td,
     #summaryTable tr.saved-price.editing-row td input {
-      background: #f3f6fb !important;
+      background: #eff6ff !important;
     }
 
     /* ===== SALES: match MANAGER compact density ===== */
@@ -1807,6 +1820,232 @@
     .wh-svc-chk { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 500; color: #1e293b; cursor: pointer; }
     .wh-svc-chk input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: #1a4f8a; }
     @media (max-width: 700px) { .wh-common-grid { grid-template-columns: 1fr; } .wh-cf-svc, .wh-cf-note { grid-column: span 1; } }
+
+/* ============================================================================
+   ✅ CARD LAYOUT (Sales — ported from manager v13 + sourcing final). Legacy
+   tr/td-qualified rules self-deactivate. Sales role: PRICE editable, cost
+   read-only; checkbox = Confirm; states: new-empty/cost-received/saved-price/
+   row-confirmed (+editing-row).
+   ========================================================================== */
+#summaryTable { display: block !important; background: #f6f7f9 !important; padding: 10px 12px 40px; }
+#summaryBody  { display: block; }
+#summaryTable .cell { box-sizing: border-box; }
+#summaryTable .cell::before {
+  display: block; font-size: 8.5px; font-weight: 700; letter-spacing: .03em;
+  color: #64748b; text-transform: uppercase; margin-bottom: 2px; white-space: nowrap;
+}
+
+:root { --basic-grid-sales: 30px 66px 84px 92px 74px 62px minmax(90px,1.1fr) 42px 64px 62px 62px 62px 56px minmax(84px,1fr) minmax(94px,1.2fr) 38px 72px minmax(120px,1.2fr) minmax(120px,1.2fr) 0px 76px; }
+#summaryBody .row-basic-head { display: none !important; }
+#summaryBody .row-basic-head:first-of-type {
+  display: grid !important; grid-template-columns: var(--basic-grid-sales);
+  gap: 0 10px; align-items: center;
+  background: #1e293b !important; border-radius: 8px; padding: 7px 14px; margin: 4px 0 6px;
+  position: sticky; top: 0; z-index: 60; box-shadow: 0 2px 6px rgba(15,23,42,.25);
+}
+.row-basic-head .cell {
+  background: transparent !important; border: none !important;
+  color: #cbd5e1 !important; font-size: 8.5px !important; font-weight: 700 !important;
+  letter-spacing: .05em; text-transform: uppercase; text-align: left !important;
+  padding: 0 !important; overflow: hidden; white-space: nowrap;
+}
+.row-basic-val {
+  display: grid !important; grid-template-columns: var(--basic-grid-sales);
+  gap: 0 10px; align-items: center;
+  background: #fff !important; border: 1px solid #e2e8f0;
+  border-bottom: 1px dashed #e2e8f0; border-radius: 10px 10px 0 0; padding: 8px 14px;
+}
+.row-basic-val .cell::before { content: none !important; }
+.row-basic-val .cell {
+  border: none !important; padding: 0 !important; font-size: 11.5px !important; color: #0f172a;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left !important;
+  background: transparent !important;
+}
+#summaryTable .row-basic-val .cell input.inq-field {
+  width: 100% !important; height: auto !important; font-size: 11.5px !important;
+  border: 1px solid transparent !important; background: transparent !important;
+  padding: 1px 3px !important; text-align: left !important;
+}
+#summaryTable .row-basic-val .cell input.inq-field:not(:disabled) {
+  border-color: #cbd5e1 !important; background: #fff !important;
+}
+.row-basic-val .note-preview {
+  border: 1px solid #e2e8f0 !important; border-radius: 7px;
+  padding: 4px 10px !important; background: #fbfcfe !important; overflow: hidden;
+  min-height: 26px; display: flex; align-items: center;
+}
+#summaryTable .note-preview { cursor: pointer; }
+#summaryTable .note-preview .note-line {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  font-size: 11.5px; color: #334155; min-height: 15px; width: 100%;
+}
+#summaryTable .note-preview .note-line:empty::before { content: "Add note…"; color: #b6c2d0; font-style: italic; }
+.row-basic-val .spacer-col { display: none !important; }
+.row-basic-head .spacer-col { display: none !important; }
+.row-basic-val .cell:last-child { overflow: visible; white-space: nowrap; }
+
+.row-truck-head .cell:not(:first-child), .row-wh-head .cell:not(:first-child) { display: none !important; }
+.row-truck-head, .row-wh-head {
+  display: flex !important; align-items: center;
+  background: #fff !important; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;
+  padding: 8px 14px 2px;
+}
+.row-truck-head .cell:first-child, .row-wh-head .cell:first-child {
+  background: transparent !important; border: none !important;
+  font-size: 11px !important; font-weight: 700 !important; color: #334155 !important;
+}
+.row-truck-head .cell:first-child::after { content: "  ·  TRUCKING"; color: #94a3b8; font-weight: 600; }
+.row-wh-head .cell:first-child::after   { content: "  ·  WAREHOUSE"; color: #94a3b8; font-weight: 600; }
+
+.row-truck-val, .row-wh-val {
+  display: flex !important; flex-wrap: wrap; gap: 6px 10px !important; align-items: center !important;
+  background: #fff; border: 1.5px solid #e2e8f0 !important; border-radius: 10px !important;
+  margin: 8px 14px !important; padding: 7px 12px !important;
+}
+.row-truck-val.new-empty,     .row-wh-val.new-empty     { border-color: #86efac !important; background: #ffffff !important; }
+.row-truck-val.cost-received, .row-wh-val.cost-received { border-color: #fcd34d !important; }
+.row-truck-val.editing-row,   .row-wh-val.editing-row   { border-color: #f59e0b !important; background: #fffbeb !important; }
+.row-truck-val.saved-price,   .row-wh-val.saved-price   { border-color: #93c5fd !important; background: #eff6ff !important; }
+.row-truck-val.row-confirmed, .row-wh-val.row-confirmed { border-color: #60a5fa !important; background: #cfe8ff !important; }
+
+.row-truck-val .truck-line1 { flex: 1 1 640px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.row-truck-val .truck-line1 .rate-group { margin-left: 12px; }
+.row-truck-val .truck-line2 { flex: 1 1 100%; display: grid !important; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: 5px 6px; }
+.charges-wrap { display: contents; }
+.row-truck-val .truck-line2 .vendor-note-preview { grid-column: 1 / -1; }
+.row-wh-val .charges-wrap.wh-charges { display: grid; flex: 1 1 100%; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: 5px 6px; }
+
+.row-truck-val .cell-tag, .row-wh-val .cell-tag {
+  border: none !important; background: transparent !important;
+  font-weight: 700; font-size: 11px !important; color: #334155; align-self: center; padding-left: 0 !important;
+  min-width: 0; display: flex; align-items: center;
+}
+.sub-row .cell-tag { min-width: 84px !important; padding-left: 18px !important; position: relative; }
+.sub-row .cell-tag::after { content: ""; position: absolute; left: 4px; top: 50%; width: 10px; height: 1px; background: #cbd5e1; }
+
+.status-pill {
+  display: inline-block; margin-left: 6px; margin-right: 8px; padding: 2px 8px; border-radius: 10px;
+  font-size: 8.5px; font-weight: 800; letter-spacing: .05em; vertical-align: middle;
+}
+.status-pill[data-state="NEW"]       { background: #dcfce7; color: #15803d; }
+.status-pill[data-state="COST IN"]   { background: #fef3c7; color: #92400e; }
+.status-pill[data-state="SAVED"]     { background: #dbeafe; color: #1d4ed8; }
+.status-pill[data-state="CONFIRMED"] { background: #bfdbfe; color: #1e40af; }
+
+.confirm-inline {
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  font-size: 10.5px; font-weight: 600; color: #475569; flex: 0 0 auto; user-select: none;
+  white-space: nowrap;
+}
+.confirm-inline input { width: 14px; height: 14px; cursor: pointer; }
+
+.rate-group {
+  display: flex; align-items: stretch; gap: 0;
+  border: 1px solid #e2e8f0; border-radius: 8px; background: #fbfcfe; overflow: hidden;
+  flex: 1 1 auto; min-width: 420px;
+}
+.rate-group .cell {
+  border: none !important; border-right: 1px solid #eef2f7 !important; border-radius: 0 !important;
+  background: transparent !important; flex: 1 1 0; text-align: center; padding: 3px 8px !important;
+}
+.rate-group .cell:last-child { border-right: none !important; }
+.rate-group .cell.is-empty { color: #cbd5e1; }
+.row-truck-val .cell[data-label]::before, .row-wh-val .cell[data-label]::before { content: attr(data-label); text-align: center; }
+#summaryTable .rate-group .cell input {
+  width: 90% !important; height: auto !important; border: 1px solid #cbd5e1 !important;
+  border-radius: 5px !important; padding: 2px 6px !important; font-size: 11px !important;
+  text-align: right !important; background: #fff !important;
+}
+.new-empty .rate-group      { border-color: #bbf7d0; }
+.cost-received .rate-group  { border-color: #fde68a; }
+.saved-price .rate-group    { border-color: #bfdbfe; }
+.row-confirmed .rate-group  { border-color: #93c5fd; background: #f0f7ff; }
+
+.charge-pair {
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid #e2e8f0; border-radius: 6px; background: #fbfcfe; padding: 3px 8px;
+  width: 100%; box-sizing: border-box; overflow: hidden;
+}
+.new-empty .charge-pair     { border-color: #bbf7d0; background: #fff; }
+.cost-received .charge-pair { border-color: #fde68a; background: #fffdf5; }
+.saved-price .charge-pair   { border-color: #bfdbfe; background: #fff; }
+.row-confirmed .charge-pair { border-color: #93c5fd; background: #f0f7ff; }
+.charge-pair .pair-title {
+  font-size: 8px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: #64748b; flex: 0 0 70px; width: 70px; line-height: 1.1; align-self: center;
+}
+.charge-pair .cell {
+  display: inline-flex !important; align-items: center; gap: 5px; flex-shrink: 0 !important;
+  border: none !important; background: transparent !important; padding: 0 !important; min-width: 0;
+}
+.charge-pair .cell::before { display: inline !important; margin-bottom: 0 !important; font-size: 8px !important; }
+.charge-pair .pair-cost::before { content: "Cost"; padding-right: 4px; }
+.charge-pair .pair-price::before { content: "Price"; }
+.charge-pair .pair-price { margin-left: 8px; }
+.charge-pair .pair-val {
+  display: inline-block; width: 48px; box-sizing: border-box; text-align: right;
+  border: 1px solid #cbd5e1; border-radius: 5px; padding: 2px 6px;
+  font-size: 11px; background: #fff;
+}
+.charge-pair .pair-cost.is-empty .pair-val { border-style: dashed; background: transparent; color: #94a3b8; text-align: center; }
+.charge-pair .pair-val:empty::before { content: "—"; }
+#summaryTable .charge-pair .pair-price input {
+  width: 48px !important; box-sizing: border-box !important; height: auto !important;
+  padding: 2px 6px !important; font-size: 11px !important; text-align: right !important;
+  border: 1px solid #cbd5e1 !important; border-radius: 5px !important; background: #fff !important;
+}
+#summaryTable .charge-pair .pair-price.is-empty input { border-style: dashed !important; background: transparent !important; }
+.charge-pair.pair-empty { opacity: .55; }
+.charge-pair.pair-empty:hover, .charge-pair.pair-empty:focus-within { opacity: 1; }
+
+#summaryTable .row-truck-val .cell-carrier { border: none !important; background: transparent !important; padding: 0 !important; flex: 0 0 auto; }
+#summaryTable .row-truck-val .cell-carrier::before { content: none !important; }
+#summaryTable .row-truck-val .cell-carrier input {
+  width: 190px !important; text-align: left !important; padding: 5px 10px !important;
+  font-size: 12px !important; font-weight: 600; height: auto !important;
+  border: 1.5px solid #93c5fd !important; border-radius: 8px !important; background: #fff !important;
+}
+.new-empty .cell-carrier input { border-color: #86efac !important; }
+.row-confirmed .cell-carrier input { border-color: #60a5fa !important; }
+
+.row-truck-val .vendor-note-preview, .row-wh-val .vendor-note-preview {
+  flex: 1 1 200px; min-width: 160px; align-self: stretch; min-height: 26px;
+  display: flex; align-items: center;
+  border: 1px solid #e2e8f0 !important; border-radius: 7px; padding: 4px 10px !important; background: #fbfcfe;
+}
+.row-truck-val .vendor-note-preview::before { content: "Notes from Carrier"; }
+.row-wh-val .vendor-note-preview::before { content: "Vendor Note (WH)"; }
+#summaryTable .vendor-note-preview:not([data-full-note=""])[data-full-note] { background: #fffbeb; border-color: #fde68a !important; }
+
+.row-truck-val .cell-action, .row-wh-val .cell-action {
+  margin-left: 12px; border: none !important; background: transparent !important;
+  align-self: center; min-width: 0; padding: 0 !important;
+}
+.row-truck-val .cell-action::before, .row-wh-val .cell-action::before { content: none; }
+
+.row-wh-val .cell { border: 1px solid #e2e8f0 !important; border-radius: 7px; padding: 5px 9px !important; background: #fbfcfe; font-size: 12px !important; }
+.row-wh-val .cell-wh-summary { flex: 2 1 340px; background: #fff !important; }
+.row-wh-val .cell-wh-summary::before { content: "Warehouse — Cost / Price / GP"; }
+.row-wh-val .cell-wh-vendor-spacer { display: none !important; }
+.row-wh-val .note-preview { flex: 1 1 220px; min-width: 180px; min-height: 26px; display: flex; align-items: center; }
+/* Truck Inquiry Note moved to the card head — hidden here (wiring intact) */
+.row-wh-val .note-preview[data-which="TRUCK INQUIRY NOTE"] { display: none !important; }
+.row-wh-val .cell-tag { border: none !important; background: transparent !important; padding: 5px 0 !important; }
+.row-wh-val .cell-tag::before { content: none !important; }
+
+/* override: pair cells inside WH sub-row chips must stay borderless
+   (the generic .row-wh-val .cell rule above would otherwise re-box them) */
+.row-wh-val .charge-pair .cell {
+  border: none !important; background: transparent !important; padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* card close: last row before next card header (or list end) */
+#summaryBody > div:has(+ .row-basic-head),
+#summaryBody > div:last-child {
+  margin-bottom: 22px !important;
+}
+
   </style>
 </head>
 
@@ -2054,42 +2293,10 @@
 
   <div id="fixed-scroll-wrapper" class="scroll-container">
     <div style="width: 100%;">
-      <table class="bg-white text-xs" id="summaryTable">
-        <thead class="bg-gray-200" style="background-color:#e0f2fe; position: sticky; top: 0; z-index: 10;">
-          <tr>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-            <th class="border px-2"></th>
-          </tr>
-        </thead>
-
-        <tbody id="summaryBody">
-        </tbody>
-      </table>
+      <!-- ✅ CARD LAYOUT: container <table>→<div>; ids kept -->
+      <div class="bg-white text-xs" id="summaryTable">
+        <div id="summaryBody"></div>
+      </div>
 
 
       <div id="noteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
@@ -2346,8 +2553,8 @@
           }
 
           function tdCell(text = '', cls = '') {
-            const td = document.createElement('td');
-            td.className = `border px-1 text-xs ${cls}`;
+            const td = document.createElement('div');   // ✅ CARD LAYOUT
+            td.className = `cell border px-1 text-xs ${cls}`;
             td.textContent = text ?? '';
             return td;
           }
@@ -2642,8 +2849,8 @@
           }
 
           function actionCellTruck(item, quote, role) {
-            const td = document.createElement('td');
-            td.className = 'border px-2 text-center';
+            const td = document.createElement('div');   // ✅ CARD LAYOUT
+            td.className = 'cell cell-action border px-2 text-center';
 
             if (roleIsViewOnly(role)) return td;
 
@@ -2671,8 +2878,8 @@
               window._dirtyEditing = true;
 
               // ✅ 点击 EDIT：整行变成杏色（editing-row）
-              document.querySelectorAll(`tr.row-truck-val[data-quote="${quote}"]`).forEach(tr => {
-                tr.classList.remove('saved-price', 'row-confirmed', 'cost-received');
+              document.querySelectorAll(`.row-truck-val[data-quote="${quote}"]`).forEach(tr => {
+                tr.classList.remove('saved-price', 'row-confirmed', 'cost-received', 'new-empty');
                 tr.classList.add('editing-row');
               });
 
@@ -2698,8 +2905,8 @@
                 lockRow(quote, 'TRUCK');
 
                 // ✅ 保存成功：退出 editing（黄），进入 saved（淡灰蓝）
-                document.querySelectorAll(`tr.row-truck-val[data-quote="${quote}"]`).forEach(tr => {
-                  tr.classList.remove('editing-row', 'row-confirmed', 'cost-received');
+                document.querySelectorAll(`.row-truck-val[data-quote="${quote}"]`).forEach(tr => {
+                  tr.classList.remove('editing-row', 'row-confirmed', 'cost-received', 'new-empty');
                   tr.classList.add('saved-price');
                 });
               }
@@ -2751,7 +2958,7 @@
               }
 
               // ✅ Update row color immediately
-              document.querySelectorAll(`tr.row-truck-val[data-quote="${quote}"]`).forEach(tr => {
+              document.querySelectorAll(`.row-truck-val[data-quote="${quote}"]`).forEach(tr => {
                 if (want) {
                   tr.classList.remove('editing-row', 'saved-price', 'cost-received');
                   tr.classList.add('row-confirmed');
@@ -2804,8 +3011,8 @@
           }
 
           function actionCellWH(item, quote, role) {
-            const td = document.createElement('td');
-            td.className = 'border px-2 text-center';
+            const td = document.createElement('div');   // ✅ CARD LAYOUT
+            td.className = 'cell cell-action border px-2 text-center';
 
             if (roleIsViewOnly(role)) return td;
 
@@ -2832,8 +3039,8 @@
               window._dirtyEditing = true;
 
               // ✅ 点击 EDIT：整行变成杏色（editing-row）
-              document.querySelectorAll(`tr.row-wh-val[data-quote="${quote}"]`).forEach(tr => {
-                tr.classList.remove('saved-price', 'row-confirmed', 'cost-received');
+              document.querySelectorAll(`.row-wh-val[data-quote="${quote}"]`).forEach(tr => {
+                tr.classList.remove('saved-price', 'row-confirmed', 'cost-received', 'new-empty');
                 tr.classList.add('editing-row');
               });
 
@@ -2861,8 +3068,8 @@
                 lockRow(quote, 'WH');
 
                 // ✅ 保存成功：退出 editing（黄），进入 saved（淡灰蓝）
-                document.querySelectorAll(`tr.row-wh-val[data-quote="${quote}"]`).forEach(tr => {
-                  tr.classList.remove('editing-row', 'row-confirmed', 'cost-received');
+                document.querySelectorAll(`.row-wh-val[data-quote="${quote}"]`).forEach(tr => {
+                  tr.classList.remove('editing-row', 'row-confirmed', 'cost-received', 'new-empty');
                   tr.classList.add('saved-price');
                 });
               }
@@ -2897,7 +3104,7 @@
               }
 
               // ✅ Update row color immediately
-              document.querySelectorAll(`tr.row-wh-val[data-quote="${quote}"]`).forEach(tr => {
+              document.querySelectorAll(`.row-wh-val[data-quote="${quote}"]`).forEach(tr => {
                 if (want) {
                   tr.classList.remove('editing-row', 'saved-price', 'cost-received');
                   tr.classList.add('row-confirmed');
@@ -3074,7 +3281,7 @@
 
 
               // 1) BASIC header
-              const r1 = document.createElement('tr');
+              const r1 = document.createElement('div');   // ✅ CARD LAYOUT
               r1.className = 'row-basic-head';
 
               // 前 17 列
@@ -3085,7 +3292,7 @@
               ];
               basicHeadFirst17.forEach(h => r1.appendChild(tdHeader(h)));
 
-              const row = document.createElement('tr');
+              const row = document.createElement('div');   // ✅ CARD LAYOUT (vestigial var)
 
               // 子行視覺區分（縮進 + 樣式）
               if (item['Parent Quotation #']) {
@@ -3100,6 +3307,9 @@
               noteHead.colSpan = 8;                 // ✅ 8 才对
               noteHead.classList.add('text-center'); // 你要左对齐就 text-left
               r1.appendChild(noteHead);
+              const truckNoteHead = tdHeader('TRUCK NOTE');   // ✅ v13-parity
+              truckNoteHead.classList.add('text-center');
+              r1.appendChild(truckNoteHead);
 
               // ✅ 第26栏 spacer（一定要有，避免 ACTION 挤进 NOTE）
               r1.appendChild(tdHeader('', 'spacer-col'));
@@ -3112,7 +3322,7 @@
 
 
               // 2) BASIC values
-              const r2 = document.createElement('tr');
+              const r2 = document.createElement('div');   // ✅ CARD LAYOUT
               r2.className = 'row-basic-val';
 
               function makeInquiryInput(value, key, allowEdit, alignLeft = false) {
@@ -3150,8 +3360,8 @@
               ];
 
               basicValFirst17.forEach((v, i) => {
-                const td = document.createElement('td');
-                td.className = 'border px-2 text-xs text-center';
+                const td = document.createElement('div');   // ✅ CARD LAYOUT
+                td.className = 'cell border px-2 text-xs text-center';
 
                 // 允许 Sales 修改的 inquiry 字段（前提：Sourcing 未出 cost）
                 // 你说 QUOTATION # 也要能改，所以放进来
@@ -3232,8 +3442,11 @@
 
               const noteVal = tdCell('', 'text-left note-preview');
               noteVal.colSpan = 8;  // ✅ 9 -> 8
-              noteVal.dataset.fullNote = fullGeneralNote;
+              // ✅ v13-parity: editable — editor opens with ONLY the Note body
+              noteVal.dataset.fullNote = noteBody;
               noteVal.dataset.which = 'GENERAL NOTE';
+              noteVal.dataset.field = 'Note';
+              noteVal.dataset.quote = String(quote || '').trim();
 
               const line = document.createElement('div');
               line.className = 'note-line';
@@ -3241,6 +3454,17 @@
               noteVal.appendChild(line);
 
               r2.appendChild(noteVal);
+
+              // ✅ v13-parity: Truck Inquiry Note in the card head, editable
+              const truckNoteVal0 = String(item['Truck Inquiry Note'] || '').trim();
+              const truckNoteTd0 = tdCell('', 'text-left note-preview');
+              truckNoteTd0.dataset.fullNote = truckNoteVal0;
+              truckNoteTd0.dataset.which = 'TRUCK INQUIRY NOTE';
+              truckNoteTd0.dataset.field = 'Truck Inquiry Note';
+              truckNoteTd0.dataset.quote = String(quote || '').trim();
+              const tLine0 = document.createElement('div'); tLine0.className='note-line'; tLine0.textContent = truckNoteVal0.replace(/\s+/g,' ').trim();
+              truckNoteTd0.appendChild(tLine0);
+              r2.appendChild(truckNoteTd0);
 
               // ✅ 第26栏 spacer（必须有，不然 ACTION 会挤进 NOTE 造成右侧错位）
               r2.appendChild(tdCell('', 'spacer-col'));
@@ -3250,8 +3474,8 @@
 
               // ✅ 第27栏 ACTION（你原本的按钮 td，保持原逻辑）
               // ✅ BASIC r2 ACTION cell (Submit/Edit/Save) — unified layout
-              const inquiryActionTd = document.createElement('td');
-              inquiryActionTd.className = 'border px-2 text-center';
+              const inquiryActionTd = document.createElement('div');   // ✅ CARD LAYOUT
+              inquiryActionTd.className = 'cell border px-2 text-center';
 
               const wrapBasic = document.createElement('div');
               wrapBasic.className = 'basic-action-row';
@@ -3313,7 +3537,7 @@
               tbody.appendChild(r2);
 
               // 3) TRUCK header
-              const r3 = document.createElement('tr');
+              const r3 = document.createElement('div');   // ✅ CARD LAYOUT
               r3.className = 'row-truck-head';
               TRUCK_HEADERS.forEach((h, i) => {
                 if (i === 0) r3.appendChild(tdHeader(quote, 'text-left nowrap-limit'));  // ✅ 第1格显示主号
@@ -3323,7 +3547,7 @@
               tbody.appendChild(r3);
 
               // 4) TRUCK values (MAIN)
-              const r4 = document.createElement('tr');
+              const r4 = document.createElement('div');   // ✅ CARD LAYOUT
               r4.className = 'row-truck-val';
 
               // ✅ 让 lockRow(quote,'TRUCK') 找得到主行
@@ -3339,26 +3563,31 @@
                 || isTruthy(item['truckingSalesConfirmed']);
 
 
-              r4.appendChild(tdCell('')); // 空白欄
+              r4.appendChild(tdCell(quote, 'cell-tag'));   // ✅ v13-parity: main line shows its number
+              const line1T = document.createElement('div'); line1T.className = 'truck-line1';
+              const line2T = document.createElement('div'); line2T.className = 'truck-line2';
+              r4.appendChild(line1T); r4.appendChild(line2T);
+              const rateGroup = document.createElement('div'); rateGroup.className = 'rate-group';
+              const lbl = (el, label) => { el.dataset.label = label; if (!String(el.textContent).trim() && !el.querySelector('input')) el.classList.add('is-empty'); return el; };
 
               // Base Rate
-              r4.appendChild(tdCell(fmt2(item['Base Rate'])));
+              rateGroup.appendChild(lbl(tdCell(fmt2(item['Base Rate'])), 'BASE'));
 
               // Price（顯示兩位小數）— ✅ FIX: Use frontend fallback when server hasn't persisted
               const { price: calcPrice, gp: calcGP } = getTruckPriceGP(item);
-              r4.appendChild(tdCell(calcPrice > 0 ? calcPrice.toFixed(2) : '—'));
+              rateGroup.appendChild(lbl(tdCell(calcPrice > 0 ? calcPrice.toFixed(2) : '—'), 'PRICE'));
 
               // GP（防 NaN，轉成百分比）
               const gpPercent = (calcGP !== null && Number.isFinite(calcGP)) ? (calcGP * 100).toFixed(2) + '%' : '—';
               const tdGP = tdCell(gpPercent);
               applyGPColor(tdGP, calcGP);
-              r4.appendChild(tdGP);
+              rateGroup.appendChild(lbl(tdGP, 'GP'));
 
               // Adjusted Price（可編輯）
               const adjInp = makeInput(item['Adjusted Price'] || '', 'Adjusted Price', quote, lockedTruck, 'TRUCK');
-              const tdAdj = document.createElement('td');
+              const tdAdj = document.createElement('div'); tdAdj.className = 'cell';
               tdAdj.appendChild(adjInp);
-              r4.appendChild(tdAdj);
+              rateGroup.appendChild(lbl(tdAdj, 'ADJ.PRICE'));
 
               // Adjusted GP（自動計算）
               const baseRateNum = num(item['Base Rate']);
@@ -3371,7 +3600,7 @@
               }
               const tdAdjGP = tdCell(adjGPText);
               applyGPColor(tdAdjGP, adjGPVal);
-              r4.appendChild(tdAdjGP);
+              rateGroup.appendChild(lbl(tdAdjGP, 'ADJ.GP'));
 
               adjInp.addEventListener('input', () => {
                 const ap = num(adjInp.value);
@@ -3398,18 +3627,31 @@
                 ['Bond Fee', 'Bond Fee Price'],
               ];
 
+              const chargesWrap = document.createElement('div'); chargesWrap.className = 'charges-wrap';
               pairs.forEach(([cF, pF]) => {
-                r4.appendChild(tdCell(fmt2(item[cF])));
+                const pairBox = document.createElement('div'); pairBox.className = 'charge-pair';
+                const title = document.createElement('span'); title.className = 'pair-title'; title.textContent = cF;
+                pairBox.appendChild(title);
+                const costCell = document.createElement('div'); costCell.className = 'cell pair-cost'; costCell.dataset.sub = 'Cost';
+                const cv = document.createElement('span'); cv.className = 'pair-val'; cv.textContent = fmt2(item[cF]) ?? '';
+                costCell.appendChild(cv);
+                if (!String(cv.textContent).trim()) costCell.classList.add('is-empty');
+                pairBox.appendChild(costCell);
                 const pi = makeInput(item[pF] || '', pF, quote, lockedTruck, 'TRUCK');
-                const t = document.createElement('td');
+                const t = document.createElement('div'); t.className = 'cell pair-price'; t.dataset.sub = 'Price';
                 t.appendChild(pi);
-                r4.appendChild(t);
+                if (!String(pi.value).trim()) t.classList.add('is-empty');
+                pairBox.appendChild(t);
+                if (!String(cv.textContent).trim() && !String(pi.value).trim()) pairBox.classList.add('pair-empty');
+                chargesWrap.appendChild(pairBox);
               });
+              line2T.appendChild(chargesWrap);
 
               const carrier = makeInput(item['Carrier'] || '', 'Carrier', quote, lockedTruck, 'TRUCK', true);
-              const tdCar = document.createElement('td');
+              const tdCar = document.createElement('div'); tdCar.className = 'cell cell-carrier';
               tdCar.appendChild(carrier);
-              r4.appendChild(tdCar);
+              line1T.appendChild(tdCar);
+              line1T.appendChild(rateGroup);
 
               // ✅ Vendor Note (Column 26) — Sales view only (read-only)
               const vendorNoteFull = String(item['Vendor Note'] || item['Carrier Note'] || '').trim();
@@ -3421,9 +3663,16 @@
               vNoteTd.dataset.which = 'VENDOR NOTE';
 
               // ❌ Sales 不允许保存，所以不要加 dataset.field / dataset.quote
-              r4.appendChild(vNoteTd);
+              line2T.appendChild(vNoteTd);
 
-              r4.appendChild(actionCellTruck(item, quote, role));
+              const actEl4 = actionCellTruck(item, quote, role);
+              const chk4 = actEl4.querySelector('input[type="checkbox"]');
+              if (chk4) {
+                const w = document.createElement('label'); w.className = 'confirm-inline';
+                w.appendChild(chk4); w.appendChild(document.createTextNode('Confirm'));
+                line1T.insertBefore(w, tdCar);
+              }
+              line1T.appendChild(actEl4);
 
 
               const costReceivedTruck = hasSourcingInput(item) || ((truckSubsByParent.get(quote) || []).some(s => hasSourcingInput(s)));
@@ -3434,6 +3683,13 @@
               if (confirmedTruck) r4.classList.add('row-confirmed');
               else if (savedTruck) r4.classList.add('saved-price');
               else if (costReceivedTruck) r4.classList.add('cost-received');
+              else r4.classList.add('new-empty');   // ✅ LAYOUT-ONLY: visual marker for the new/green state; does not affect any save/confirm logic
+              {
+                const pc = r4.firstElementChild;
+                const pill = document.createElement('span'); pill.className='status-pill';
+                const st = confirmedTruck ? 'CONFIRMED' : (savedTruck ? 'SAVED' : (costReceivedTruck ? 'COST IN' : 'NEW'));
+                pill.textContent = st; pill.dataset.state = st; pc.appendChild(pill);
+              }
 
               tbody.appendChild(r4);
 
@@ -3443,7 +3699,7 @@
                 const subQuote = String(sub['Quotation #'] || '').trim();
                 if (!subQuote) return;
 
-                const r4s = document.createElement('tr');
+                const r4s = document.createElement('div');   // ✅ CARD LAYOUT
                 r4s.dataset.quote = subQuote;
                 r4s.dataset.scope = 'TRUCK';
                 r4s.className = 'row-truck-val sub-row';
@@ -3454,7 +3710,12 @@
                 const displaySuffix = `-${i + 1}`;
 
                 // ✅ 只改显示，不改真实 quote（真实 quote 仍用于保存/删除/权限）
-                r4s.appendChild(tdCell((baseExt ? (baseExt + displaySuffix) : (quote + displaySuffix)), 'text-center font-semibold nowrap-limit'));
+                r4s.appendChild(tdCell((baseExt ? (baseExt + displaySuffix) : (quote + displaySuffix)), 'cell-tag text-center font-semibold nowrap-limit'));
+                const line1s = document.createElement('div'); line1s.className = 'truck-line1';
+                const line2s = document.createElement('div'); line2s.className = 'truck-line2';
+                r4s.appendChild(line1s); r4s.appendChild(line2s);
+                const rateGroupS = document.createElement('div'); rateGroupS.className = 'rate-group';
+                const lblS = (el, label) => { el.dataset.label = label; if (!String(el.textContent).trim() && !el.querySelector('input')) el.classList.add('is-empty'); return el; };
 
                 // ✅ 子行统一锁定状态（一定要在任何 makeInput 之前定义）
 
@@ -3464,31 +3725,31 @@
                   || isTruthy(sub['truckingSalesConfirmed']);
 
                 // Base Rate (Cost)
-                r4s.appendChild(tdCell(fmt2(sub['Base Rate'])));
+                rateGroupS.appendChild(lblS(tdCell(fmt2(sub['Base Rate'])), 'BASE'));
 
                 // Price / GP — ✅ FIX: Use frontend fallback when server hasn't persisted
                 // Sub-line may not have Inquiry Type; inherit from parent
                 const subForCalc = Object.assign({}, sub);
                 if (!subForCalc['Inquiry Type']) subForCalc['Inquiry Type'] = item['Inquiry Type'];
                 const { price: calcPriceSub, gp: calcGPSub } = getTruckPriceGP(subForCalc);
-                r4s.appendChild(tdCell(calcPriceSub > 0 ? calcPriceSub.toFixed(2) : '—'));
+                rateGroupS.appendChild(lblS(tdCell(calcPriceSub > 0 ? calcPriceSub.toFixed(2) : '—'), 'PRICE'));
 
                 const gpPercentSub = (calcGPSub !== null && Number.isFinite(calcGPSub)) ? (calcGPSub * 100).toFixed(2) + '%' : '—';
                 const tdGPSub = tdCell(gpPercentSub);
                 applyGPColor(tdGPSub, calcGPSub);
-                r4s.appendChild(tdGPSub);
+                rateGroupS.appendChild(lblS(tdGPSub, 'GP'));
 
                 // Adjusted Price（input）
                 const adjInpSub = makeInput(sub['Adjusted Price'] || '', 'Adjusted Price', subQuote, lockedSub, 'TRUCK');
-                const tdAdjSub = document.createElement('td');
+                const tdAdjSub = document.createElement('div'); tdAdjSub.className = 'cell';
                 tdAdjSub.appendChild(adjInpSub);
-                r4s.appendChild(tdAdjSub);
+                rateGroupS.appendChild(lblS(tdAdjSub, 'ADJ.PRICE'));
 
                 // Adjusted GP（显示 + 即时更新）
                 const tdAdjGPSub = tdCell(sub['Adjusted GP'] || '—');
                 const initAdjGPSub = parseFloat(sub['Adjusted GP']) / 100;
                 applyGPColor(tdAdjGPSub, Number.isFinite(initAdjGPSub) ? initAdjGPSub : null);
-                r4s.appendChild(tdAdjGPSub);
+                rateGroupS.appendChild(lblS(tdAdjGPSub, 'ADJ.GP'));
 
                 adjInpSub.addEventListener('input', () => {
                   const baseRateNum = Number(String(sub['Base Rate'] || '').replace(/,/g, '')) || 0;
@@ -3517,20 +3778,31 @@
                   ['Bond Fee', 'Bond Fee Price'],
                 ];
 
+                const chargesWrapS = document.createElement('div'); chargesWrapS.className = 'charges-wrap';
                 pairsSub.forEach(([cF, pF]) => {
-                  r4s.appendChild(tdCell(fmt2(sub[cF])));
-
+                  const pairBox = document.createElement('div'); pairBox.className = 'charge-pair';
+                  const title = document.createElement('span'); title.className = 'pair-title'; title.textContent = cF;
+                  pairBox.appendChild(title);
+                  const costCell = document.createElement('div'); costCell.className = 'cell pair-cost'; costCell.dataset.sub = 'Cost';
+                  const cv = document.createElement('span'); cv.className = 'pair-val'; cv.textContent = fmt2(sub[cF]) ?? '';
+                  costCell.appendChild(cv);
+                  if (!String(cv.textContent).trim()) costCell.classList.add('is-empty');
+                  pairBox.appendChild(costCell);
                   const pi = makeInput(sub[pF] || '', pF, subQuote, lockedSub, 'TRUCK');
-                  const tdP = document.createElement('td');
+                  const tdP = document.createElement('div'); tdP.className = 'cell pair-price'; tdP.dataset.sub = 'Price';
                   tdP.appendChild(pi);
-                  r4s.appendChild(tdP);
+                  if (!String(pi.value).trim()) tdP.classList.add('is-empty');
+                  pairBox.appendChild(tdP);
+                  if (!String(cv.textContent).trim() && !String(pi.value).trim()) pairBox.classList.add('pair-empty');
+                  chargesWrapS.appendChild(pairBox);
                 });
+                line2s.appendChild(chargesWrapS);
 
                 const carInp = makeInput(sub['Carrier'] || '', 'Carrier', subQuote, true, 'TRUCK', true);
-
-                const tdCar = document.createElement('td');
+                const tdCar = document.createElement('div'); tdCar.className = 'cell cell-carrier';
                 tdCar.appendChild(carInp);
-                r4s.appendChild(tdCar);
+                line1s.appendChild(tdCar);
+                line1s.appendChild(rateGroupS);
 
                 // ✅ FIX: Show Vendor Note on sub-line (was empty placeholder)
                 const subVendorNoteFull = String(sub['Vendor Note'] || sub['Carrier Note'] || '').trim();
@@ -3540,9 +3812,16 @@
                 const subVNoteTd = tdCell(subVendorNotePreview, 'text-left note-preview vendor-note-preview');
                 subVNoteTd.dataset.fullNote = subVendorNoteFull;
                 subVNoteTd.dataset.which = 'VENDOR NOTE';
-                r4s.appendChild(subVNoteTd);
+                line2s.appendChild(subVNoteTd);
 
-                r4s.appendChild(actionCellTruck(sub, subQuote, role));
+                const actElS = actionCellTruck(sub, subQuote, role);
+                const chkS = actElS.querySelector('input[type="checkbox"]');
+                if (chkS) {
+                  const w = document.createElement('label'); w.className = 'confirm-inline';
+                  w.appendChild(chkS); w.appendChild(document.createTextNode('Confirm'));
+                  line1s.insertBefore(w, tdCar);
+                }
+                line1s.appendChild(actElS);
 
                 if (isTruthy(sub['truckingSalesConfirmed']) || isTruthy(sub['truckingManagerConfirmed'])) {
                   r4s.classList.add('truck-confirmed');
@@ -3563,6 +3842,14 @@
                   r4s.classList.add('saved-price');
                 } else if (costReceivedTruckSub) {
                   r4s.classList.add('cost-received');
+                } else {
+                  r4s.classList.add('new-empty');   // ✅ LAYOUT-ONLY: visual marker for the new/green state; does not affect any save/confirm logic
+                }
+                {
+                  const pc = r4s.firstElementChild;
+                  const pill = document.createElement('span'); pill.className='status-pill';
+                  const st = confirmedTruckSub ? 'CONFIRMED' : (savedTruckSub ? 'SAVED' : (costReceivedTruckSub ? 'COST IN' : 'NEW'));
+                  pill.textContent = st; pill.dataset.state = st; pc.appendChild(pill);
                 }
 
 
@@ -3571,7 +3858,7 @@
               });
 
               // 5) WH header
-              const r5 = document.createElement('tr');
+              const r5 = document.createElement('div');   // ✅ CARD LAYOUT
               r5.className = 'row-wh-head';
               // WH header row
               WH_LEFT_HEADERS.forEach((h, i) => {
@@ -3603,7 +3890,7 @@
 
 
               // 6) WH values
-              const r6 = document.createElement('tr');
+              const r6 = document.createElement('div');   // ✅ CARD LAYOUT
               r6.className = 'row-wh-val';
 
               // ✅ allow lockRow()/style targeting
@@ -3619,7 +3906,7 @@
                 || isTruthy(item['warehouseSalesConfirmed']);
 
 
-              r6.appendChild(tdCell('')); // col1 blank
+              r6.appendChild(tdCell(quote, 'cell-tag')); // ✅ shows number + pill
 
               const whPairs = [
                 ['Order Processing', 'Order Processing Price'],
@@ -3645,9 +3932,8 @@
               {
                 const t = (window.WHModal ? WHModal.totals(item) : { cost: 0, price: 0, gp: null });
                 const money = v => '$' + Math.round(v || 0).toLocaleString();
-                const tdSum = document.createElement('td');
-                tdSum.colSpan = 14;
-                tdSum.className = 'wh-summary-cell';
+                const tdSum = document.createElement('div');   // ✅ CARD LAYOUT
+                tdSum.className = 'cell cell-wh-summary wh-summary-cell';
 
                 const box = document.createElement('div');
                 box.className = 'wh-summary-box';
@@ -3706,7 +3992,7 @@
 
 
               // ===== Vendor (第16栏) — removed (vestigial, unused). Blank placeholder keeps grid. =====
-              const tdVendor = document.createElement('td');
+              const tdVendor = document.createElement('div'); tdVendor.className = 'cell cell-wh-vendor-spacer';
               r6.appendChild(tdVendor);
 
               // ===== 第17栏：EST GP =====
@@ -3739,7 +4025,7 @@
                 estGpText = (estGpVal * 100).toFixed(2) + '%';
               }
 
-              const tdEstGP = document.createElement('td');
+              const tdEstGP = document.createElement('div'); tdEstGP.className = 'cell'; tdEstGP.dataset.label = 'EST GP';
               tdEstGP.textContent = estGpText;
               tdEstGP.style.textAlign = 'right';
               applyGPColor(tdEstGP, estGpVal);
@@ -3808,6 +4094,19 @@
               if (confirmedWH) r6.classList.add('row-confirmed');
               else if (savedWH) r6.classList.add('saved-price');
               else if (costReceivedWH) r6.classList.add('cost-received');
+              else r6.classList.add('new-empty');   // ✅ LAYOUT-ONLY: visual marker for the new/green state; does not affect any save/confirm logic
+              {
+                const pc = r6.firstElementChild;
+                const pill = document.createElement('span'); pill.className='status-pill';
+                const st = confirmedWH ? 'CONFIRMED' : (savedWH ? 'SAVED' : (costReceivedWH ? 'COST IN' : 'NEW'));
+                pill.textContent = st; pill.dataset.state = st; pc.appendChild(pill);
+                const chk6 = r6.querySelector('.cell-action input[type="checkbox"]');
+                if (chk6) {
+                  const w = document.createElement('label'); w.className = 'confirm-inline';
+                  w.appendChild(chk6); w.appendChild(document.createTextNode('Confirm'));
+                  r6.insertBefore(w, r6.children[1]);
+                }
+              }
 
 
               tbody.appendChild(r6);
@@ -3819,7 +4118,7 @@
                 const subQuote = String(sub['Quotation #'] || '').trim();
                 if (!subQuote) return;
 
-                const r6s = document.createElement('tr');
+                const r6s = document.createElement('div');   // ✅ CARD LAYOUT
                 r6s.dataset.quote = subQuote;
                 r6s.dataset.scope = 'WH';
                 r6s.className = 'row-wh-val sub-row';
@@ -3829,7 +4128,9 @@
                 // ✅ 显示用连续字母：-A, -B, -C ...
                 const displaySuffix = '-' + String.fromCharCode(65 + i);
 
-                r6s.appendChild(tdCell((baseExt ? (baseExt + displaySuffix) : (quote + displaySuffix)), 'text-center font-semibold nowrap-limit'));
+                r6s.appendChild(tdCell((baseExt ? (baseExt + displaySuffix) : (quote + displaySuffix)), 'cell-tag text-center font-semibold nowrap-limit'));
+                const whWrapS = document.createElement('div'); whWrapS.className = 'charges-wrap wh-charges';
+                r6s.appendChild(whWrapS);
 
                 const whPairsSub = [
                   ['Order Processing', 'Order Processing Price'],
@@ -3842,8 +4143,14 @@
                 ];
 
                 whPairsSub.forEach(([cF, pF]) => {
-                  // Cost：文本
-                  r6s.appendChild(tdCell(fmt2(sub[cF])));
+                  const pairBox = document.createElement('div'); pairBox.className = 'charge-pair';
+                  const title = document.createElement('span'); title.className = 'pair-title'; title.textContent = cF;
+                  pairBox.appendChild(title);
+                  const costCell = document.createElement('div'); costCell.className = 'cell pair-cost'; costCell.dataset.sub = 'Cost';
+                  const cv = document.createElement('span'); cv.className = 'pair-val'; cv.textContent = fmt2(sub[cF]) ?? '';
+                  costCell.appendChild(cv);
+                  if (!String(cv.textContent).trim()) costCell.classList.add('is-empty');
+                  pairBox.appendChild(costCell);
 
                   // Price：input（Sales 填价）— ✅ FIX: Use whAuto for auto-suggested price (same as main row)
                   const lockedSub = viewOnly
@@ -3852,13 +4159,16 @@
                     || isTruthy(sub['warehouseSalesConfirmed']);
 
                   const pi = makeInput(whAuto(sub[cF], sub[pF]), pF, subQuote, lockedSub, 'WH');
-                  const tdP = document.createElement('td');
+                  const tdP = document.createElement('div'); tdP.className = 'cell pair-price'; tdP.dataset.sub = 'Price';
                   tdP.appendChild(pi);
-                  r6s.appendChild(tdP);
+                  if (!String(pi.value).trim()) tdP.classList.add('is-empty');
+                  pairBox.appendChild(tdP);
+                  if (!String(cv.textContent).trim() && !String(pi.value).trim()) pairBox.classList.add('pair-empty');
+                  whWrapS.appendChild(pairBox);
                 });
 
-                // Vendor (sub-row) removed (vestigial, unused). Blank placeholder keeps grid.
-                const tdVen = document.createElement('td');
+                // Vendor (sub-row) removed (vestigial, unused). Hidden spacer in card layout.
+                const tdVen = document.createElement('div'); tdVen.className = 'cell cell-wh-vendor-spacer';
                 r6s.appendChild(tdVen);
 
                 // ===== 子行第17栏：EST GP（加在这里）=====
@@ -3891,7 +4201,7 @@
                   estGpSubText = (estGpSubVal * 100).toFixed(2) + '%';
                 }
 
-                const tdEstGPSub = document.createElement('td');
+                const tdEstGPSub = document.createElement('div'); tdEstGPSub.className = 'cell'; tdEstGPSub.dataset.label = 'EST GP';
                 tdEstGPSub.textContent = estGpSubText;
                 tdEstGPSub.style.textAlign = 'right';
                 applyGPColor(tdEstGPSub, estGpSubVal);
@@ -3964,6 +4274,20 @@
                   r6s.classList.add('saved-price');
                 } else if (costReceivedWHSub) {
                   r6s.classList.add('cost-received');
+                } else {
+                  r6s.classList.add('new-empty');   // ✅ LAYOUT-ONLY: visual marker for the new/green state; does not affect any save/confirm logic
+                }
+                {
+                  const pc = r6s.firstElementChild;
+                  const pill = document.createElement('span'); pill.className='status-pill';
+                  const st = confirmedWHSub ? 'CONFIRMED' : (savedWHSub ? 'SAVED' : (costReceivedWHSub ? 'COST IN' : 'NEW'));
+                  pill.textContent = st; pill.dataset.state = st; pc.appendChild(pill);
+                  const chk6s = r6s.querySelector('.cell-action input[type="checkbox"]');
+                  if (chk6s) {
+                    const w = document.createElement('label'); w.className = 'confirm-inline';
+                    w.appendChild(chk6s); w.appendChild(document.createTextNode('Confirm'));
+                    r6s.insertBefore(w, r6s.children[1]);
+                  }
                 }
 
                 tbody.appendChild(r6s);
@@ -4473,7 +4797,8 @@
             const text  = (td && (td.dataset.fullNote ?? td.textContent)) || '';
             const field = ((td && td.dataset.field) || '').trim();
             const quote = ((td && td.dataset.quote) || '').trim();
-            const editable = (field === 'Truck Inquiry Note') && !!quote;
+            // ✅ Editable notes: Truck Inquiry Note + General Note ('Note') — per Lina 2026-08-27.
+            const editable = (field === 'Truck Inquiry Note' || field === 'Note') && !!quote;
 
             if (titleEl) titleEl.textContent = which;
             input.value = text;
@@ -4501,6 +4826,7 @@
           saveBtn?.addEventListener('click', async () => {
             if (!noteEditCtx) return;
             const payload = { 'Quotation #': noteEditCtx.quote, [noteEditCtx.field]: input.value };
+            if (String(input.value).trim() === '') payload.__clearFields = [noteEditCtx.field];   // ✅ empty saves must be declared or the server silently drops them
             saveBtn.disabled = true;
             try {
               const r = (typeof postUpdate === 'function')
@@ -4521,7 +4847,7 @@
           });
 
           document.addEventListener('click', (e) => {
-            const td = e.target.closest('#summaryTable td.note-preview');
+            const td = e.target.closest('#summaryTable .note-preview');   // ✅ tag-agnostic
             if (!td) return;
             openModal(td);
           });

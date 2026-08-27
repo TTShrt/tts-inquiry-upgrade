@@ -2306,8 +2306,12 @@
             const ok = await saveFields(quote, fields, 'TRUCK');
             if (!ok) return;
 
-            // ✅ Mark as draft (Sales can't see) until checkbox is checked
-            await setFlags(quote, { [costSavedField]: 'true', 'truckingCostDraft': 'true' });
+            // ✅ FIX (2026-08-27): Save always resets sent status — the checkbox below is
+            //    unchecked visually, but that alone never calls chk.onchange, so
+            //    truckingCostSent was never persisted back to false. That mismatch
+            //    (Sent=true + Draft=true at once) is what let Sourcing show "sent" while
+            //    Manager showed "NOT SENT" for the same line. Now both flags move together.
+            await setFlags(quote, { [costSavedField]: 'true', 'truckingCostDraft': 'true', 'truckingCostSent': 'false' });
             lockRow(quote, 'TRUCK');
 
             // ✅ Uncheck the checkbox (since saving resets sent status)
@@ -2517,8 +2521,9 @@ ${qDel}`)) return;
             const ok = await saveFields(quote, fields, 'WH');
             if (!ok) return;
 
-            // ✅ Mark as draft (Sales can't see) until checkbox is checked
-            await setFlags(quote, { [costSavedField]: 'true', 'warehouseCostDraft': 'true' });
+            // ✅ FIX (2026-08-27): same fix as TRUCK — keep warehouseCostSent in sync with
+            //    the draft flag so Save can't leave the two states contradicting each other.
+            await setFlags(quote, { [costSavedField]: 'true', 'warehouseCostDraft': 'true', 'warehouseCostSent': 'false' });
             lockRow(quote, 'WH');
 
             // ✅ Uncheck the checkbox

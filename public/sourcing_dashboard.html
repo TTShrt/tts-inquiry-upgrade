@@ -1484,6 +1484,7 @@
 .confirm-inline {
   display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
   font-size: 10.5px; font-weight: 600; color: #475569; flex: 0 0 auto; user-select: none;
+  white-space: nowrap;   /* ✅ "Send to Sales" stays on one line */
 }
 .confirm-inline input { width: 14px; height: 14px; cursor: pointer; }
 
@@ -1491,11 +1492,11 @@
 .rate-group {
   display: flex; align-items: stretch; gap: 0;
   border: 1px solid #e2e8f0; border-radius: 8px; background: #fbfcfe; overflow: hidden;
-  flex: 0 0 auto;   /* ✅ sourcing: PRICE/GP/ADJ.* are read-only dashes — keep the strip compact, don't stretch */
+  flex: 1 1 auto; min-width: 420px;   /* ✅ stretch across line1 like manager (bounded now that max-content is fixed) */
 }
 .rate-group .cell {
   border: none !important; border-right: 1px solid #eef2f7 !important; border-radius: 0 !important;
-  background: transparent !important; flex: 0 0 auto; min-width: 76px; text-align: center; padding: 3px 10px !important;
+  background: transparent !important; flex: 1 1 0; text-align: center; padding: 3px 8px !important;
 }
 .rate-group .cell:last-child { border-right: none !important; }
 .rate-group .cell.is-empty { color: #cbd5e1; }

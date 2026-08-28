@@ -3015,9 +3015,48 @@
                 const ok = await saveAndConfirm(quote, fields, 'TRUCK', 'truckingSalesConfirmed');
                 if (!ok) { chk.checked = false; return; }
                 lockRow(quote, 'TRUCK');
+
+                // ✅ FIX (rocket-no-refresh 2026-08-28): the 🚀 button is only created inside
+                // actionCellTruck at render time, so confirming a row never showed it until the
+                // next full reload. A full renderPage() here is NOT safe: postUpdate() just
+                // cleared window._dirtyEditing, so a repaint could wipe in-progress edits on a
+                // DIFFERENT row, and the local cache (saveAndConfirm doesn't sync it) would
+                // visually roll back this row. Instead: sync this row's cache flags, then append
+                // the rocket directly to this row's action wrap — identical creation code to the
+                // render path; the document-level delegated 'button.btn-push-gf' click handler
+                // picks it up with no extra wiring.
+                item['truckingSalesConfirmed'] = 'true';
+                item['truckingPriceSaved'] = 'true';
+                if (_gfEligible && !wrap.querySelector('button.btn-push-gf')) {
+                  const pushGFBtnNow = document.createElement('button');
+                  pushGFBtnNow.type = 'button';
+                  pushGFBtnNow.textContent = '🚀';
+                  pushGFBtnNow.title = 'Push to GoFreight';
+                  pushGFBtnNow.className = 'btn-push-gf action-button';
+                  pushGFBtnNow.dataset.quote = quote;
+                  if (String(item['Pushed To GF'] || '').toLowerCase() === 'true') {
+                    pushGFBtnNow.classList.add('done');
+                    pushGFBtnNow.title = 'Already pushed to GoFreight';
+                  } else if (gfGroupPushedLines(quote).length) {
+                    // ✅ GF GROUP: a sibling carrier option of this route was already pushed
+                    pushGFBtnNow.classList.add('done');
+                    pushGFBtnNow.title = 'Another carrier option of this route was already pushed to GoFreight. Uncheck to edit & re-push.';
+                  }
+                  pushGFBtnNow.dataset.hasGfRef = item['GF Ref'] ? '1' : '0';
+                  wrap.appendChild(pushGFBtnNow);
+                }
               } else {
                 const ok = await setConfirm(quote, 'truckingSalesConfirmed', false);
                 if (!ok) { chk.checked = true; return; }
+
+                // ✅ FIX (rocket-no-refresh 2026-08-28, symmetric uncheck path): sync the cache
+                // flag unconditionally (the existing sync below only runs when resetLines is
+                // non-empty, leaving the cache stale on plain unchecks) and remove this row's
+                // 🚀 immediately — the row is no longer confirmed, so the rocket must not stay
+                // clickable until the next reload.
+                item['truckingSalesConfirmed'] = 'false';
+                const staleRocket = wrap.querySelector('button.btn-push-gf');
+                if (staleRocket) staleRocket.remove();
                 // ✅ GF GROUP: unlock-for-edit also resets the route group's push flags, so the
                 // 🚀 rockets come back active once the row is re-confirmed. (Re-pushing appends a
                 // NEW charge group in GF — the old block must be deleted manually on the GF page.)

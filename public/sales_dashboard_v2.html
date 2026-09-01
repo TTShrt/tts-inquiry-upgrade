@@ -2181,6 +2181,11 @@
           <option>53'</option>
         </select>
 
+        <span id="salesGroupPickWrap" style="display:none;">
+          <select class="border p-2" id="salesGroupPick" title="Which team does this inquiry belong to?">
+            <option value="">-- Select Team --</option>
+          </select>
+        </span>
         <select class="border p-2" name="dryVanType" id="dryVanTypeSelect">
           <option value="">Shipping Type</option>
           <option>HOTSHOT</option>
@@ -4497,6 +4502,21 @@
           const userInfo = await res.json();
           window.userRole = userInfo.role;
           window.currentUser = (userInfo.username || '').trim();
+          window.userSalesGroup = String(userInfo.salesGroup || '').trim();
+
+          // ✅ Cross-team users (salesGroup like 'TEAM2,TEAM3' — e.g. Aurora Peng): show the
+          // team picker on the inquiry form so each new inquiry is stamped to exactly ONE team.
+          // Single-group users never see it — nothing changes for them. (Re-applied 2026-09-01:
+          // this block was dropped when an older copy of the file was used as the base for the
+          // rocket-no-refresh fix; server.js still enforces the pick and rejected submits.)
+          const _groups = window.userSalesGroup.split(',').map(s => s.trim()).filter(Boolean);
+          const _pickWrap = document.getElementById('salesGroupPickWrap');
+          const _pick = document.getElementById('salesGroupPick');
+          if (_pickWrap && _pick && _groups.length > 1) {
+            _pick.innerHTML = '<option value="">-- Select Team --</option>' +
+              _groups.map(g => '<option>' + g + '</option>').join('');
+            _pickWrap.style.display = '';
+          }
 
           const nameEl = document.getElementById('usernameDisplay');
           if (nameEl) nameEl.textContent = window.currentUser;
@@ -4872,6 +4892,9 @@
             'Note': entry.note || '',
             'Truck Inquiry Note': entry.truckInquiryNote || '',
 
+            // ✅ Cross-team creators: stamp the picked team (server validates it too)
+            salesGroup: (document.getElementById('salesGroupPick')?.value || '').trim(),
+
             // default flags
             'Saved': 'false',
             'truckingPriceSaved': 'false',
@@ -4881,6 +4904,13 @@
             'warehouseSalesConfirmed': 'false',
             'warehouseManagerConfirmed': 'false'
           };
+
+          // ✅ Cross-team creators must pick a team before submitting
+          const _sgWrap = document.getElementById('salesGroupPickWrap');
+          if (_sgWrap && _sgWrap.style.display !== 'none' && !newInquiry.salesGroup) {
+            alert('Please select which team this inquiry belongs to.');
+            return;
+          }
 
           try {
             const res = await fetch('/inquiries', {

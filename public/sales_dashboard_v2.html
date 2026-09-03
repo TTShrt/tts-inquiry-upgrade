@@ -2392,6 +2392,7 @@
       <div id="noteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
         <div class="bg-white rounded-lg shadow-lg w-96 p-4">
           <h2 class="text-lg font-semibold mb-2">Edit Note</h2>
+          <div id="noteModalCustomerInfo" class="hidden mb-3 p-2 rounded border border-blue-200 bg-blue-50 text-sm text-gray-800 whitespace-pre-line"></div>
           <textarea id="noteModalInput" wrap="soft" class="w-full border p-2 h-40 resize-none"></textarea>
           <div class="mt-4 overflow-x-auto">
             <button id="noteModalSave" class="bg-blue-500 text-white px-4 py-1 rounded">Save</button>
@@ -3551,7 +3552,7 @@
 
 
               const company = (item['Customer Company'] || item['Company Name'] || '').toString().trim();
-              const contact = (item['Customer Contact'] || item['Contact Name'] || '').toString().trim();
+              const contact = (item['Customer Name'] || item['Customer Contact'] || item['Contact Name'] || '').toString().trim();
               const email = (item['Customer Email'] || '').toString().trim();
               const phone = (item['Customer Phone'] || '').toString().trim();
 
@@ -3577,6 +3578,9 @@
               noteVal.dataset.which = 'GENERAL NOTE';
               noteVal.dataset.field = 'Note';
               noteVal.dataset.quote = String(quote || '').trim();
+              // Customer info shown read-only in the modal, kept separate from the editable Note
+              // text above so a Save can never overwrite/erase it.
+              noteVal.dataset.customerInfo = customerInfoLine;
 
               const line = document.createElement('div');
               line.className = 'note-line';
@@ -4941,6 +4945,7 @@
           const input = document.getElementById('noteModalInput');
           const saveBtn = document.getElementById('noteModalSave');
           const titleEl = modal?.querySelector('h2');
+          const customerInfoEl = document.getElementById('noteModalCustomerInfo');
 
           if (!modal || !input) return;
 
@@ -4954,10 +4959,22 @@
             const text  = (td && (td.dataset.fullNote ?? td.textContent)) || '';
             const field = ((td && td.dataset.field) || '').trim();
             const quote = ((td && td.dataset.quote) || '').trim();
+            const customerInfo = ((td && td.dataset.customerInfo) || '').trim();
             // ✅ Editable notes: Truck Inquiry Note + General Note ('Note') — per Lina 2026-08-27.
             const editable = (field === 'Truck Inquiry Note' || field === 'Note') && !!quote;
 
             if (titleEl) titleEl.textContent = which;
+            // Customer info is shown read-only above the note; it is never part of the editable
+            // note text, so it can never be accidentally overwritten/erased by a note save.
+            if (customerInfoEl) {
+              if (customerInfo) {
+                customerInfoEl.textContent = customerInfo;
+                customerInfoEl.classList.remove('hidden');
+              } else {
+                customerInfoEl.textContent = '';
+                customerInfoEl.classList.add('hidden');
+              }
+            }
             input.value = text;
             if (editable) {
               noteEditCtx = { field, quote };

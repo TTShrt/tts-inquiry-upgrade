@@ -2179,6 +2179,7 @@
   <div id="noteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
     <div class="bg-white rounded-lg shadow-lg w-[720px] max-w-[92vw] p-4">
       <h2 class="text-lg font-semibold mb-2">NOTE</h2>
+      <div id="noteModalCustomerInfo" class="hidden mb-3 p-2 rounded border border-blue-200 bg-blue-50 text-sm text-gray-800 whitespace-pre-line"></div>
       <textarea id="noteModalInput" class="w-full border p-2 h-48 resize-none" readonly></textarea>
       <div class="mt-4 flex justify-end gap-2">
         <button id="noteModalSave" class="bg-green-600 text-white px-4 py-1 rounded hidden">Save</button>
@@ -2982,6 +2983,7 @@
         const closeBtn = document.getElementById('noteModalClose');
         const saveBtn = document.getElementById('noteModalSave');
         const titleEl = modal?.querySelector('h2');
+        const customerInfoEl = document.getElementById('noteModalCustomerInfo');
         let noteEditCtx = null;   // { field, quote, td } when the open note is editable
 
         function openModal(td) {
@@ -2989,11 +2991,23 @@
           const text  = (td && (td.dataset.fullNote ?? td.textContent)) || '';
           const field = ((td && td.dataset.field) || '').trim();
           const quote = ((td && td.dataset.quote) || '').trim();
+          const customerInfo = ((td && td.dataset.customerInfo) || '').trim();
           // ✅ Editable notes: Truck Inquiry Note + General Note ('Note') — per Lina 2026-08-27.
           //    All other notes stay read-only.
           const editable = (field === 'Truck Inquiry Note' || field === 'Note') && !!quote;
 
           if (titleEl) titleEl.textContent = which;
+          // Customer info is read-only display only, kept out of the editable note text
+          // so a Save can never overwrite/erase it.
+          if (customerInfoEl) {
+            if (customerInfo) {
+              customerInfoEl.textContent = customerInfo;
+              customerInfoEl.classList.remove('hidden');
+            } else {
+              customerInfoEl.textContent = '';
+              customerInfoEl.classList.add('hidden');
+            }
+          }
           input.value = text;
           if (editable) {
             noteEditCtx = { field, quote, td };
@@ -3128,7 +3142,7 @@
 
           // ✅ 最终 GENERAL NOTE：客户信息在第一行，下面才是原 Note
           const company = String(main['Customer Company'] || main['Company Name'] || '').trim();
-          const contact = String(main['Customer Contact'] || main['Contact Name'] || '').trim();
+          const contact = String(main['Customer Name'] || main['Customer Contact'] || main['Contact Name'] || '').trim();
           const email = String(main['Customer Email'] || '').trim();
           const phone = String(main['Customer Phone'] || '').trim();
 
@@ -3150,6 +3164,7 @@
           //    assembled customer-info line, which must not be saved into 'Note').
           noteTd.dataset.fullNote = noteBody; noteTd.dataset.which = 'GENERAL NOTE';
           noteTd.dataset.field = 'Note'; noteTd.dataset.quote = String(k).trim();
+          noteTd.dataset.customerInfo = customerInfoLine;
           const line = document.createElement('div'); line.className = 'note-line'; line.textContent = fullGeneralNote.replace(/\s+/g, ' ').trim();
           noteTd.appendChild(line);
           r2.appendChild(noteTd);

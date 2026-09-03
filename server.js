@@ -6,6 +6,7 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const fetch = require('node-fetch');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 console.log("🚀 THIS IS UPGRADE SERVER - NEW DB ONLY");
 
@@ -3215,6 +3216,123 @@ app.post('/public/inquiries', async (req, res) => {
   } catch (err) {
     console.error('[ERROR] /public/inquiries failed:', err);
     return res.status(500).json({ success: false, message: err.message || 'Server error' });
+  }
+});
+
+// ===== Carrier Application form (carrier.html) — sends an email to sourcing@totalsolutionus.com =====
+// Requires GMAIL_USER + GMAIL_APP_PASSWORD env vars (Gmail SMTP via a 16-char Google
+// "App Password" — the Workspace account needs 2-Step Verification on to generate one).
+let carrierMailTransporter = null;
+function getCarrierMailTransporter() {
+  if (carrierMailTransporter) return carrierMailTransporter;
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
+  if (!user || !pass) return null;
+  carrierMailTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user, pass }
+  });
+  return carrierMailTransporter;
+}
+
+// carrier.html is served from the main site (a different domain than this Render app),
+// so this route needs CORS enabled for that origin.
+const CARRIER_APPLY_ALLOWED_ORIGINS = new Set([
+  'https://www.totalsolutionus.com',
+  'https://totalsolutionus.com'
+]);
+function setCarrierApplyCors(req, res) {
+  const origin = req.headers.origin;
+  if (origin && CARRIER_APPLY_ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+app.options('/public/carrier-apply', (req, res) => {
+  setCarrierApplyCors(req, res);
+  res.sendStatus(204);
+});
+
+app.post('/public/carrier-apply', async (req, res) => {
+  setCarrierApplyCors(req, res);
+  try {
+    const raw = req.body || {};
+
+    // ===== Anti-spam guard (same helpers/thresholds as /public/inquiries) =====
+    if (portalRateLimited(req)) {
+      return res.status(429).json({ success: false, message: 'Too many requests. Please try again later.' });
+    }
+    // Honeypot — hidden field real users never see/fill. If filled, it's a bot:
+    // drop silently (fake success so it stops retrying), send nothing.
+    if (String(raw.website || '').trim()) {
+      return res.json({ success: true });
+    }
+    // Time-trap — a human can't complete this form in under 3s.
+    const elapsedMs = Number(raw.elapsedMs);
+    if (!Number.isFinite(elapsedMs) || elapsedMs < 3000) {
+      return res.status(400).json({ success: false, message: 'Form submitted too quickly. Please try again.' });
+    }
+
+    // ===== Field validation =====
+    const company = String(raw.company || '').trim();
+    const contact = String(raw.contact || '').trim();
+    const mc = String(raw.mc || '').trim();
+    const dot = String(raw.dot || '').trim();
+    const email = String(raw.email || '').trim();
+    const phone = String(raw.phone || '').trim();
+    let equipment = raw.equipment;
+    if (!Array.isArray(equipment)) equipment = equipment ? [equipment] : [];
+    const fleetSize = String(raw.fleet_size || '').trim();
+    const serviceArea = String(raw.service_area || '').trim();
+    const notes = String(raw.notes || '').trim();
+
+    if (!company || !contact || !mc || !dot || !phone) {
+      return res.status(400).json({ success: false, message: 'Please complete all required fields.' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+    }
+    if (!equipment.length) {
+      return res.status(400).json({ success: false, message: 'Please select at least one equipment type.' });
+    }
+    // Length caps + reject links in free-text, same spirit as the RFQ form's field sanity check.
+    if ([company, contact, notes].some(s => s.length > 500) || /https?:\/\//i.test(notes)) {
+      return res.status(400).json({ success: false, message: 'Please shorten your input and remove any links.' });
+    }
+
+    const transporter = getCarrierMailTransporter();
+    if (!transporter) {
+      console.error('[CARRIER-APPLY] GMAIL_USER / GMAIL_APP_PASSWORD not configured — cannot send email.');
+      return res.status(500).json({ success: false, message: 'Submission could not be sent. Please email sourcing@totalsolutionus.com directly.' });
+    }
+
+    const bodyLines = [
+      `Company: ${company}`,
+      `Contact: ${contact}`,
+      `MC #: ${mc}`,
+      `DOT #: ${dot}`,
+      `Email: ${email}`,
+      `Phone: ${phone}`,
+      `Equipment: ${equipment.join(', ')}`,
+      fleetSize ? `Fleet size: ${fleetSize}` : '',
+      serviceArea ? `Service area: ${serviceArea}` : '',
+      notes ? `Notes: ${notes}` : ''
+    ].filter(Boolean).join('\n');
+
+    await transporter.sendMail({
+      from: process.env.GMAIL_USER,
+      to: 'sourcing@totalsolutionus.com',
+      replyTo: email,
+      subject: `New Carrier Application — ${company}`,
+      text: bodyLines
+    });
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[CARRIER-APPLY] Error:', err?.message || err);
+    return res.status(500).json({ success: false, message: 'Something went wrong. Please try again or email sourcing@totalsolutionus.com directly.' });
   }
 });
 

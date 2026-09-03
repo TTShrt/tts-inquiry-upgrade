@@ -72,6 +72,7 @@
   var ALL_BARE = [];
   GROUPS.forEach(function (g) { g.buckets.forEach(function (b) { ALL_BARE.push(b[1]); }); });
 
+  function isTruthy(v) { return String(v == null ? '' : v).toLowerCase().trim() === 'true'; }   // ✅ REDESIGN: local helper (dashboards have their own)
   function num(v) {
     var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, ''));
     return isFinite(n) ? n : 0;
@@ -117,87 +118,98 @@
   function injectStyles() {
     if (document.getElementById('whm-styles')) return;
     var css = [
-      '.whm-ov{position:fixed;inset:0;background:rgba(20,24,32,.5);display:flex;align-items:flex-start;justify-content:center;padding:26px 16px;overflow:auto;z-index:9999;font-family:inherit}',
+      /* ===== REDESIGN 2026-09-03: one accent (cobalt band on the selected supplier), grey-scale everything else ===== */
+      '.whm-ov{position:fixed;inset:0;background:rgba(23,32,51,.55);display:flex;align-items:flex-start;justify-content:center;padding:22px 16px;overflow:auto;z-index:9999;font-family:inherit;font-feature-settings:"tnum" 1}',
       '.whm-ov.whm-hidden{display:none}',
-      '.whm{width:100%;max-width:1060px;background:#fff;border-radius:12px;border:1px solid #e3e6ea;box-shadow:0 18px 60px rgba(0,0,0,.28);color:#1f2430;font-size:13px}',
-      '.whm-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e3e6ea}',
-      '.whm-hd h3{margin:0;font-size:16px;font-weight:600}',
-      '.whm-x{cursor:pointer;color:#9aa1ab;font-size:20px;line-height:1;border:none;background:none}',
-      '.whm-common{display:flex;gap:18px;align-items:stretch;padding:12px 18px;border-bottom:1px solid #e3e6ea;background:#f8fafc;box-shadow:inset 4px 0 0 #94a3b8}',
+      '.whm{width:100%;max-width:1160px;background:#fff;border-radius:14px;box-shadow:0 30px 60px -20px rgba(0,0,0,.55);color:#172033;font-size:12.5px;overflow:hidden}',
+      '.whm-hd{display:flex;align-items:center;gap:14px;padding:13px 20px 11px;border-bottom:1px solid #e3e8ef}',
+      '.whm-title{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap}',
+      '.whm-meta{font-size:12px;color:#5b6b82;white-space:nowrap}.whm-meta b{color:#172033;font-weight:600}',
+      '.whm-hint{font-size:11.5px;color:#95a3b8;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}',
+      '.whm-lptoggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#5b6b82;cursor:pointer;user-select:none;white-space:nowrap}.whm-lptoggle input{accent-color:#2457d6;cursor:pointer}',
+      '.whm-x{cursor:pointer;color:#95a3b8;font-size:22px;line-height:1;border:none;background:none;padding:0 2px}.whm-x:hover{color:#172033}',
+      '.whm-common{display:flex;gap:18px;align-items:stretch;padding:12px 20px;border-bottom:1px solid #e3e8ef;background:#f5f7fa}',
       '.whm-cleft{flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px;align-content:start;min-width:0}',
       '.whm-svc{grid-column:span 2}',
       '.whm-f{display:flex;flex-direction:column;gap:4px;min-width:0}',
-      '.whm-f>label{font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}',
+      '.whm-f>label{font-size:11px;color:#5b6b82;font-weight:500;white-space:nowrap}',
       '.whm-checks{display:flex;flex-wrap:wrap;gap:6px 12px}',
       '.whm-chk{display:flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap;cursor:pointer}',
-      '.whm-in,.whm-sel{height:30px;border:1px solid #cfd4da;border-radius:6px;font-family:inherit;font-size:12px;color:#1f2430;padding:0 7px;background:#fff;width:100%}',
-      '.whm-in:focus,.whm-sel:focus{outline:none;border:2px solid #2563eb;padding:0 6px}',
-      '.whm-note{flex:0 0 200px;display:flex;flex-direction:column;gap:4px}',
-      '.whm-note textarea{flex:1;min-height:62px;width:100%;border:1px solid #cfd4da;border-radius:6px;font-family:inherit;font-size:12px;color:#1f2430;padding:7px 9px;resize:vertical;line-height:1.5}',
-      '.whm-vbar{display:flex;align-items:center;gap:8px;padding:8px 18px;border-bottom:1px solid #e3e6ea}',
-      '.whm-note2{font-size:11px;color:#9aa1ab;margin-left:auto}',
-      '.whm-tablewrap{max-height:46vh;overflow:auto;padding:4px 18px}',
-      '.whm-table{width:100%;border-collapse:collapse;table-layout:fixed}',
-      '.whm-table th,.whm-table td{padding:5px 4px;text-align:center;vertical-align:middle;font-size:12px}',
-      '.whm-table th.l,.whm-table td.l{text-align:left}',
-      '.whm-table th.r,.whm-table td.r{text-align:right}',
-      '.whm-table thead th{font-size:10px;color:#6b7280;font-weight:500;border-bottom:1px solid #e3e6ea;padding-bottom:7px}',
-      '.whm-cell{height:28px;width:100%;font-size:12px;text-align:right;border:1px solid #cfd4da;border-radius:5px;font-family:inherit;color:#1f2430;padding:0 5px;background:#fff}',
-      '.whm-cell:focus{outline:none;border:2px solid #2563eb;padding:0 4px}',
-      '.whm-cell:disabled{background:#f3f4f6;color:#9aa1ab}',
-      '.whm-sname{height:24px;font-size:11px;text-align:center;border:1px solid #cfd4da;border-radius:5px;width:100%;font-family:inherit;color:#1f2430;padding:0 3px;background:#fff}',
-      '.whm-radio{display:flex;justify-content:center;margin-bottom:3px}',
-      '.whm-grp td{background:#f7f8fa;font-size:12px;font-weight:600;cursor:pointer;border-top:1px solid #e3e6ea}',
-      '.whm-unit{font-size:10px;color:#6b7280;background:#f7f8fa;border:1px solid #e3e6ea;padding:1px 6px;border-radius:5px;white-space:nowrap}',
-      '.whm-perd{height:26px;font-size:11px;border:1px solid #cfd4da;border-radius:5px;width:100%;font-family:inherit;color:#1f2430;background:#fff;padding:0 3px}',
-      '.whm-gp{font-size:11px;font-weight:600;color:#9aa1ab}',
-      '.whm-col.sel .whm-cell{border:2px solid #2563eb;padding:0 4px}',
-      '.whm-col.dim{opacity:.72}',
-      '.whm-srcg .whm-col.sel .whm-cell{border:1px solid #cfd4da;padding:0 5px}',
-      '.whm-srcg .whm-col.dim{opacity:1}',
-      '.whm-oqcol{text-align:center}',
-      '.whm-oq{cursor:pointer;width:14px;height:14px;accent-color:#15803d}',
-      '.whm-exist{color:#9aa1ab;font-style:italic}',
-      /* ✅ MOCKUP: supplier comparison strip */
-      '.whm-supstrip{display:flex;gap:10px;padding:10px 18px;flex-wrap:wrap;background:#fbfcfe;border-bottom:1px solid #eef0f2}',
-      '.whm-supcard{position:relative;border:1.5px solid #e2e8f0;border-radius:9px;background:#fff;padding:7px 12px;min-width:148px;cursor:pointer;transition:box-shadow .12s,border-color .12s}',
-      '.whm-supcard:hover{box-shadow:0 2px 8px rgba(15,23,42,.08)}',
-      '.whm-supcard.sel{border-color:#2563eb;background:#eff6ff}',
-      '.whm-supcard.nosel{cursor:default}',
-      '.whm-supname2{font-size:11px;font-weight:600;color:#334155;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.whm-supdot{width:9px;height:9px;border-radius:50%;border:2px solid #cbd5e1;flex:0 0 auto}',
-      '.whm-supcard.sel .whm-supdot{border-color:#2563eb;background:#2563eb}',
-      '.whm-suptotal{font-size:14px;font-weight:700;color:#0f172a;margin-top:3px;font-variant-numeric:tabular-nums}',
-      '.whm-suptotal.empty{color:#cbd5e1;font-weight:400}',
-      '.whm-lowest{position:absolute;top:-7px;right:8px;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:8px;font-size:8.5px;font-weight:800;letter-spacing:.04em;padding:1px 6px}',
-      '.whm-striplabel{font-size:9px;font-weight:700;letter-spacing:.05em;color:#94a3b8;text-transform:uppercase;align-self:center;margin-right:2px}',
-      /* ✅ MOCKUP: group accordion */
-      '.whm-chev{display:inline-block;transition:transform .15s;margin-right:6px;color:#94a3b8;font-size:10px}',
-      'tr.whm-grp{cursor:pointer;user-select:none}',
-      'tr.whm-grp.closed .whm-chev{transform:rotate(-90deg)}',
-      'tr.whm-rowhide{display:none}',
-      '.whm-vnote{padding:8px 18px 4px;border-top:1px solid #eef0f2;display:flex;flex-direction:column;gap:4px;background:#eff6ff;box-shadow:inset 4px 0 0 #60a5fa}',
-      '.whm-vnote>label{font-size:10px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.3px}',
-      '.whm-vnote textarea{width:100%;min-height:40px;border:1px solid #cfd4da;border-radius:6px;font-family:inherit;font-size:12px;color:#1f2430;padding:6px 9px;resize:vertical;line-height:1.5}',
-      '.whm-vnote textarea:disabled{background:#f3f4f6;color:#6b7280}',
-      '.whm-table th.whm-col.cost, .whm-table td.whm-col.cost{background:#eef4ff}',
-      '.whm-table th.whm-pcol, .whm-table td.whm-pcol{background:#f5f8fd}',
-      '.whm-table th.whm-qcol, .whm-table td.whm-qcol{background:#f8fafc}',
-      '.whm-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:11px;color:#475569}',
-      '.whm-chip{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}',
-      '.whm-sw{width:11px;height:11px;border-radius:3px;display:inline-block}',
-      '.whm-sw.g{background:#94a3b8}.whm-sw.b{background:#3b82f6}.whm-sw.o{background:#93c5fd}',
-      '.whm-ft{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;border-top:1px solid #e3e6ea;background:#f7f8fa;flex-wrap:wrap}',
-      '.whm-tot{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:13px}',
-      '.whm-tot b{font-weight:600}',
-      '.whm-btn{height:32px;padding:0 14px;border:1px solid #cfd4da;background:#fff;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;color:#1f2430}',
-      '.whm-btn:hover{background:#f7f8fa}',
-      '.whm-btn.pri{border:2px solid #2563eb;color:#2563eb;font-weight:500}',
-      '.whm-btn.sel{border:2px solid #2563eb;color:#2563eb}',
-      '.whm-save-state{font-size:11px;color:#15803d;margin-right:6px}',
-      '.whm-hide{display:none !important}',
-      '.whm-vis-hidden{visibility:hidden}'
+      '.whm-in,.whm-sel{height:30px;border:1px solid #e3e8ef;border-radius:7px;font-family:inherit;font-size:12px;color:#172033;padding:0 8px;background:#fff;width:100%}',
+      '.whm-in:focus,.whm-sel:focus{outline:none;border-color:#2457d6;box-shadow:0 0 0 3px rgba(36,87,214,.14)}',
+      '.whm-note{flex:0 0 220px;display:flex;flex-direction:column;gap:4px}',
+      '.whm-note textarea{flex:1;min-height:62px;width:100%;border:1px solid #e3e8ef;border-radius:7px;font-family:inherit;font-size:12px;color:#172033;padding:7px 9px;resize:vertical;line-height:1.5}',
+      '.whm-tablewrap{max-height:48vh;overflow:auto}',
+      '.whm-table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}',
+      '.whm-table th,.whm-table td{padding:0 12px;text-align:center;vertical-align:middle;font-size:12.5px}',
+      '.whm-table th.l,.whm-table td.l{text-align:left}.whm-table th.r,.whm-table td.r{text-align:right}',
+      '.whm-table thead th{position:sticky;top:0;z-index:3;background:#fff;border-bottom:1px solid #e3e8ef;font-size:11.5px;color:#5b6b82;font-weight:500;padding:12px 12px 8px;vertical-align:bottom}',
+      '.whm-table thead th.whm-svc-h{padding-left:20px}',
+      '.whm-table tbody td{height:34px;border-bottom:1px solid #eef2f6}',
+      '.whm-table tbody tr[data-row]:hover td{background:#fafbfd}',
+      '.whm-table td.whm-svc,.whm-table td.l{padding-left:20px;font-weight:500;color:#172033}',
+      '.whm-unit{font-size:11px;color:#95a3b8;font-weight:400;margin-left:8px;white-space:nowrap}',
+      '.whm-lpnote{cursor:help;color:#95a3b8}',
+      '.whm-table thead th.whm-col{padding:0;vertical-align:bottom}',
+      '.whm-sh{display:grid;grid-template-columns:14px 1fr;grid-template-rows:18px 18px;column-gap:8px;row-gap:2px;align-items:center;padding:9px 12px 8px;border-top:3px solid transparent;height:64px;cursor:pointer}',
+      '.whm-radio{grid-row:1;grid-column:1;display:flex;align-items:center}.whm-radio input{width:12px;height:12px;margin:0;accent-color:#2457d6;cursor:pointer}',
+      '.whm-sname{grid-row:1;grid-column:2;border:0;border-bottom:1px dashed #c5cfdc;background:transparent;font-family:inherit;font-size:12px;font-weight:600;color:#172033;text-align:right;width:100%;min-width:0;padding:0 0 1px}',
+      '.whm-sname:disabled{border-bottom-color:transparent;color:#172033}.whm-sname:focus{outline:none;border-bottom:1px solid #2457d6}',
+      '.whm-sh-tr{grid-row:2;grid-column:2;display:flex;align-items:center;justify-content:flex-end;gap:6px;white-space:nowrap}',
+      '.whm-tot{font-size:12px;color:#5b6b82;font-weight:500}',
+      '.whm-low{font-size:10px;color:#2fbf8f;font-weight:600;border:1px solid #bfeedc;background:#e6f8f0;border-radius:4px;padding:0 5px;line-height:15px}.whm-low:empty{display:none}',
+      'th.whm-col.sel .whm-sh{border-top-color:#2457d6;background:#edf2ff}th.whm-col.sel .whm-tot{color:#2457d6;font-weight:600}',
+      'th.whm-col.empty .whm-sh{opacity:.55}',
+      '.whm-table td.whm-col{text-align:right}',
+      '.whm-cell{height:28px;width:100%;max-width:120px;font-size:12.5px;text-align:right;border:1px solid transparent;border-radius:6px;font-family:inherit;color:#5b6b82;padding:0 8px;background:transparent}',
+      '.whm-cell::placeholder{color:#d5dce6}',
+      '.whm-cell:disabled{color:#5b6b82;background:transparent}',
+      '.whm-table td.whm-col.sel{background:#edf2ff}.whm-table td.whm-col.sel .whm-cell{color:#172033;font-weight:600}',
+      '.whm-col.dim{opacity:1}',
+      '.whm-srcg .whm-cell[data-cost],.whm-srcg .whm-cell[data-costbare]{border-color:#e3e8ef;background:#fff;color:#172033}',
+      '.whm-srcg .whm-cell[data-cost]:focus,.whm-srcg .whm-cell[data-costbare]:focus{outline:none;border-color:#2457d6;box-shadow:0 0 0 3px rgba(36,87,214,.14)}',
+      '.whm-srcg .whm-table td.whm-col.sel{background:transparent}.whm-srcg .whm-table td.whm-col.sel .whm-cell{font-weight:500}',
+      '.whm-srcg th.whm-col.sel .whm-sh{border-top-color:transparent;background:transparent}.whm-srcg th.whm-col.sel .whm-tot{color:#5b6b82;font-weight:500}',
+      '.whm-srcg .whm-sh{cursor:default}',
+      '.whm-qcol .whm-cell{text-align:left;max-width:none;border-color:#e3e8ef;background:#fff;color:#172033}',
+      '.whm-cell[data-field]{border-color:#e3e8ef;background:#fff;color:#172033}',
+      '.whm-perd{height:26px;font-size:11px;border:1px solid #e3e8ef;border-radius:6px;width:100%;font-family:inherit;color:#172033;background:#fff;padding:0 4px}',
+      '.whm-oqcol{text-align:center}.whm-oq{cursor:pointer;width:14px;height:14px;accent-color:#2fbf8f}',
+      '.whm-exist{color:#95a3b8;font-style:italic}',
+      '.whm-table td.whm-pcol{text-align:right;padding-right:16px;padding-left:8px}',
+      '.whm-pw{position:relative;display:inline-block}',
+      '.whm-pcol .whm-cell{width:104px;max-width:104px;border:1px solid #e3e8ef;border-radius:7px;padding:0 10px;font-size:13px;font-weight:600;color:#172033;background:#fff}',
+      '.whm-pcol .whm-cell:focus{outline:none;border-color:#2457d6;box-shadow:0 0 0 3px rgba(36,87,214,.14)}',
+      '.whm-pcol .whm-cell.auto{color:#2457d6}',
+      '.whm-pcol .whm-cell:disabled{background:transparent;border-color:transparent}',
+      '.whm-man{position:absolute;left:-10px;top:50%;width:6px;height:6px;border-radius:50%;background:#d98b16;transform:translateY(-50%);display:none}.whm-pw.manual .whm-man{display:block}',
+      '.whm-in-desc{text-align:left;max-width:none;border:1px dashed #c5cfdc;background:#fffdf3;color:#172033}',
+      '.whm-table td.whm-gpcol{text-align:right;padding-right:20px;padding-left:4px}',
+      '.whm-gp{font-size:12px;font-weight:600;color:#d5dce6}',
+      '.whm-table tr.whm-grp td{background:#f5f7fa;height:30px;border-top:1px solid #e3e8ef;border-bottom:1px solid #e3e8ef;cursor:pointer;user-select:none;font-size:12px;font-weight:600;color:#172033;text-align:left}',
+      '.whm-table tr.whm-grp td.whm-pcol,.whm-table tr.whm-grp td.r{text-align:right;color:#5b6b82;font-weight:500}',
+      '.whm-chev{display:inline-block;width:14px;color:#95a3b8;font-size:10px;transition:transform .15s}',
+      'tr.whm-grp.closed .whm-chev{transform:rotate(-90deg)}tr.whm-rowhide{display:none}',
+      '.whm-vnote{padding:10px 20px 12px;border-top:1px solid #e3e8ef;background:#fff}',
+      '.whm-vnote textarea{width:100%;min-height:40px;border:1px solid #e3e8ef;border-radius:8px;font-family:inherit;font-size:12.5px;color:#172033;padding:7px 10px;resize:vertical;line-height:1.5}',
+      '.whm-vnote textarea::placeholder{color:#95a3b8}.whm-vnote textarea:disabled{background:#f5f7fa;color:#5b6b82}',
+      '.whm-ft{display:flex;align-items:center;gap:22px;padding:12px 20px;border-top:1px solid #e3e8ef;background:#f5f7fa;flex-wrap:wrap}',
+      '.whm-tot{display:flex;gap:22px;align-items:baseline;flex-wrap:wrap}',
+      '.whm-tot-i .k{font-size:11px;color:#5b6b82;display:block;margin-bottom:1px}.whm-tot-i b{font-size:14px;font-weight:600;color:#172033}',
+      '.whm-tot-i.via b{color:#2457d6}.whm-tot-i.gp b{font-size:18px}',
+      '.whm-ft-r{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
+      '.whm-send{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:#172033;cursor:pointer;user-select:none;padding:6px 12px;border:1px solid #e3e8ef;border-radius:8px;background:#fff;margin-right:6px}',
+      '.whm-send input{accent-color:#2457d6;width:15px;height:15px;cursor:pointer;margin:0}.whm-send em{font-style:normal;font-weight:400;font-size:11.5px;color:#95a3b8}',
+      '.whm-send.on{border-color:#c7d5fb;background:#edf2ff}.whm-send.on em{color:#2457d6}',
+      '.whm-lockstate{font-size:11px;font-weight:600;color:#b45309}',
+      '.whm-btn{height:32px;padding:0 14px;border:1px solid #e3e8ef;background:#fff;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;color:#172033}',
+      '.whm-btn:hover{background:#f5f7fa}.whm-btn.q{color:#5b6b82}',
+      '.whm-btn.pri{background:#2457d6;border-color:#2457d6;color:#fff}.whm-btn.pri:hover{background:#1e4bc0}',
+      '.whm-btn.sel{border-color:#2457d6;color:#2457d6}',
+      '.whm-save-state{font-size:11px;color:#2fbf8f;margin-right:4px}',
+      '.whm-hide{display:none !important}.whm-vis-hidden{visibility:hidden}'
     ].join('\n');
+
     var st = document.createElement('style');
     st.id = 'whm-styles';
     st.textContent = css;
@@ -247,20 +259,35 @@
     try { lpRows = JSON.parse(String(get('LP Rows') || '[]')); if (!Array.isArray(lpRows)) lpRows = []; } catch (eLp) { lpRows = []; }
     var lpMode = lpRows.length > 0;
     var lpPending = !lpMode && svcSubs.trim() !== '';
+    // ✅ REDESIGN (2026-09-03, per Lina): show 3 supplier columns by default. The data model
+    //    keeps all 5 (Cost S1..S5); a 4th/5th column appears only when that supplier already
+    //    holds data on this quote (name or any cost) or is the selected one — nothing gets hidden.
+    var supCols = [];
+    for (var w0 = 1; w0 <= SUP; w0++) {
+      var hasData = String(get('Supplier ' + w0 + ' Name') || '').trim() !== '';
+      if (!hasData) { for (var kk0 in item) { if (kk0.slice(-8) === ' Cost S' + w0 && String(item[kk0] == null ? '' : item[kk0]).trim() !== '') { hasData = true; break; } } }
+      if (w0 <= 3 || hasData || w0 === sel) supCols.push(w0);
+    }
 
     var headCols = '';
-    for (var w = 1; w <= SUP; w++) {
+    supCols.forEach(function (w) {
       headCols +=
         '<th class="whm-col cost ' + (w === sel ? 'sel' : 'dim') + '" data-w="' + w + '">' +
-          '<div class="whm-radio"><input type="radio" name="whm-selwh" value="' + w + '" ' + (w === sel ? 'checked' : '') + (canEditPrice ? '' : ' disabled') + '></div>' +
-          '<input class="whm-sname" data-sname="' + w + '" value="' + esc(supNames[w - 1]) + '" placeholder="Sup ' + w + '" ' + (canEditCost ? '' : 'disabled') + '>' +
+          '<div class="whm-sh">' +
+            '<span class="whm-radio"><input type="radio" name="whm-selwh" value="' + w + '" ' + (w === sel ? 'checked' : '') + (canEditPrice ? '' : ' disabled') + ' title="Quote via this supplier"></span>' +
+            '<input class="whm-sname" data-sname="' + w + '" value="' + esc(supNames[w - 1]) + '" placeholder="Supplier ' + w + '" ' + (canEditCost ? '' : 'disabled') + '>' +
+            '<span class="whm-sh-tr"><span class="whm-low" data-low="' + w + '"></span><span class="whm-tot" data-tot="' + w + '"></span></span>' +
+          '</div>' +
         '</th>';
-    }
+    });
 
     ov.innerHTML =
       '<div class="whm" role="dialog" aria-label="Warehouse cost and price">' +
-        '<div class="whm-hd"><h3>Warehouse cost &amp; price \u2014 Quote ' + esc(quote) + '</h3>' +
-          ((role === 'sales' || role === 'manager') ? '<button class="whm-btn whm-export" type="button" title="Export Quotation (Print / PDF) \u2014 prices appear after Send to Sales" onclick="window.open(\'/quotation_print.html?q=\' + encodeURIComponent(\'' + esc(quote) + '\'), \'_blank\')">Export PDF</button>' : '') +   // ✅ EXPORT: quick access from the modal (sourcing has no export permission)
+        '<div class="whm-hd">' +
+          '<span class="whm-title">Warehouse cost &amp; price</span>' +
+          '<span class="whm-meta">Quote <b>' + esc(quote) + '</b>' + (get('Customer ID') ? ' for <b>' + esc(get('Customer ID')) + '</b>' : '') + (get('Requested By') ? ' \u2014 ' + esc(get('Requested By')) : '') + '</span>' +
+          '<span class="whm-hint">' + (canEditCost ? 'Fill each supplier\u2019s cost. Sales picks the supplier and sees the auto price.' : 'Cost is read-only. Pick a supplier; price is auto-derived (25% GP) and you can override it.') + '</span>' +
+          (lpMode ? '<label class="whm-lptoggle" title="Show the TTS List Price under each Price as a reference"><input type="checkbox" data-showlp> Show TTS list price</label>' : '') +
           '<button class="whm-x" data-close aria-label="Close">\u00d7</button></div>' +
 
         '<div class="whm-common">' +
@@ -291,46 +318,39 @@
           '<div class="whm-note"><label>Note</label><textarea data-field="Warehouse Note" ' + (canEditCommon ? '' : 'disabled') + '>' + esc(get('Warehouse Note')) + '</textarea></div>' +
         '</div>' +
 
-        '<div class="whm-vbar"><div class="whm-legend">' +
-          '<span class="whm-chip"><span class="whm-sw g"></span>Sales / Customer Portal</span>' +
-          '<span class="whm-chip"><span class="whm-sw b"></span>Sourcing (Matthew): supplier cost &amp; notes</span>' +
-          '<span class="whm-chip"><span class="whm-sw o"></span>Sales: price</span>' +
-          '<span class="whm-note2">' + (canEditCost ? 'Sales picks the supplier' : 'Cost read-only \u2014 you edit price') + '</span>' +
-        '</div></div>' +
-
-        '<div class="whm-supstrip" data-supstrip></div>' +   // ✅ MOCKUP: supplier comparison strip (rendered by renderSupStrip)
-        '<div class="whm-tablewrap"><table class="whm-table">' +
+        '<div class="whm-tablewrap"><table class="whm-table' + (lpMode ? ' whm-lp' : '') + '">' +
           '<colgroup>' +
-            '<col style="width:26px"><col style="width:150px">' + (lpMode ? '' : '<col style="width:88px">') + '<col style="width:70px">' +
-            (function () { var c = ''; for (var i = 0; i < SUP; i++) c += '<col>'; return c; })() +
-            (showPrice ? '<col style="width:80px"><col style="width:48px">' : '') +
+            (lpMode ? '<col style="width:34%">' : '<col style="width:26px"><col style="width:150px"><col style="width:88px"><col style="width:70px">') +
+            supCols.map(function (w) { return '<col class="whm-supc" data-w="' + w + '">'; }).join('') +
+            (showPrice ? '<col style="width:118px"><col style="width:58px">' : '') +
           '</colgroup>' +
           '<thead><tr>' +
-            '<th class="whm-oqcol" title="Include this row in the quote sheet">\uD83D\uDCC4</th><th class="l">Service</th>' + (lpMode ? '' : '<th class="l whm-qcol">Qty / detail</th>') + '<th>Unit</th>' +
+            (lpMode ? '<th class="l whm-svc-h">Service</th>' : '<th class="whm-oqcol" title="Include this row in the quote sheet">\uD83D\uDCC4</th><th class="l whm-svc-h">Service</th><th class="l whm-qcol">Qty / detail</th><th>Unit</th>') +
             headCols +
-            (showPrice ? '<th class="r whm-pcol">Price</th><th class="r">GP</th>' : '') +
+            (showPrice ? '<th class="r whm-pcol">Price</th><th class="r whm-gpcol">GP</th>' : '') +
           '</tr></thead>' +
           '<tbody data-rows></tbody>' +
         '</table></div>' +
 
         '<div class="whm-vnote">' +
-          '<label>' + (canEditCost ? 'Supplier note (Sourcing)' : 'Supplier note') + '</label>' +
-          '<textarea data-field="WH Vendor Note" placeholder="' + (canEditCost ? 'e.g. lead time, MOQ, validity, vendor-specific terms\u2026' : '') + '" ' + (canEditCost ? '' : 'disabled') + '>' + esc(get('WH Vendor Note')) + '</textarea>' +
+          '<textarea data-field="WH Vendor Note" placeholder="' + (canEditCost ? 'Note from the supplier, or anything Sales should know (lead time, MOQ, validity\u2026)' : 'Supplier note') + '" ' + (canEditCost ? '' : 'disabled') + '>' + esc(get('WH Vendor Note')) + '</textarea>' +
         '</div>' +
 
         '<div class="whm-ft">' +
           '<div class="whm-tot">' +
-            '<span class="cost"><span style="color:#6b7280">via</span> <b data-via>Supplier ' + sel + '</b></span>' +
-            '<span class="cost"><span style="color:#6b7280">Cost</span> <b data-tcost>$0</b></span>' +
-            (showPrice ? '<span><span style="color:#6b7280">Price</span> <b data-tprice>$0</b></span>' : '') +
-            (showPrice ? '<span><span style="color:#6b7280">GP</span> <b data-tgp style="color:#15803d">\u2014</b></span>' : '') +
+            '<span class="whm-tot-i via"><span class="k">Quoting via</span><b data-via>Supplier ' + sel + '</b></span>' +
+            '<span class="whm-tot-i"><span class="k">Cost</span><b data-tcost>$0</b></span>' +
+            (showPrice ? '<span class="whm-tot-i"><span class="k">Price</span><b data-tprice>$0</b></span>' : '') +
+            (showPrice ? '<span class="whm-tot-i gp"><span class="k">Gross profit</span><b data-tgp>\u2014</b></span>' : '') +
           '</div>' +
-          '<div style="display:flex;align-items:center;gap:8px">' +
-            '<span class="whm-lockstate" data-lockstate style="font-size:11px;font-weight:600;color:#b45309"></span>' +
-            (canLockRole ? '<button class="whm-btn" data-lock></button>' : '') +
+          '<div class="whm-ft-r">' +
+            (role === 'sourcing' ? '<label class="whm-send" data-sendwrap><input type="checkbox" data-sendsales ' + (isTruthy(item['warehouseCostSent']) ? 'checked' : '') + '> <span>Send cost to Sales</span><em data-sendstate></em></label>' : '') +   // ✅ REDESIGN: Sourcing sends from inside the modal (same flags as the dashboard checkbox)
+            '<span class="whm-lockstate" data-lockstate></span>' +
             '<span class="whm-save-state" data-savestate></span>' +
+            (canLockRole ? '<button class="whm-btn q" data-lock></button>' : '') +
+            ((role === 'sales' || role === 'manager') ? '<button class="whm-btn q whm-export" type="button" title="Export Quotation (Print / PDF) \u2014 prices appear after Send to Sales" onclick="window.open(\'/quotation_print.html?q=\' + encodeURIComponent(\'' + esc(quote) + '\'), \'_blank\')">Export PDF</button>' : '') +   // ✅ EXPORT: moved to the footer
             '<button class="whm-btn" data-close>Close</button>' +
-            '<button class="whm-btn pri" data-save>\u2713 Save</button>' +
+            '<button class="whm-btn pri" data-save>Save changes</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -339,7 +359,7 @@
     // ✅ LPQUOTE: tiny extra styles (once)
     if (!document.getElementById('whm-lp-css')) {
       var stLp = document.createElement('style'); stLp.id = 'whm-lp-css';
-      stLp.textContent = '.whm-lpref{font-size:10px;color:#94a3b8;text-align:right;margin-top:1px;}.whm-in-desc{background:#fefce8;border-style:dashed;}.whm-lpnote{cursor:help;color:#94a3b8;}.whm-subgrp-lbl{font-size:11px;color:#64748b;font-weight:600;margin:0 4px 0 10px;}.whm-ro{font-size:12px;color:#334155;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;min-height:18px;white-space:pre-wrap;}.whm-export{margin-left:auto;margin-right:10px;background:#4361ee;color:#fff;border-color:#4361ee;}';
+      stLp.textContent = '.whm-lpref{font-size:10.5px;color:#95a3b8;text-align:right;line-height:1.1;margin-top:2px;display:none;}.whm.whm-showlp .whm-lpref{display:block;}.whm.whm-showlp .whm-table tbody td{height:44px;}.whm-lptoggle{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#475569;cursor:pointer;user-select:none;}.whm-lptoggle input{cursor:pointer;}.whm-in-desc{background:#fefce8;border-style:dashed;}.whm-lpnote{cursor:help;color:#94a3b8;}.whm-subgrp-lbl{font-size:11px;color:#64748b;font-weight:600;margin:0 4px 0 10px;}.whm-ro{font-size:12px;color:#334155;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;min-height:18px;white-space:pre-wrap;}.whm-export{margin-left:auto;margin-right:10px;background:#4361ee;color:#fff;border-color:#4361ee;}';
       document.head.appendChild(stLp);
     }
     // ✅ LPQUOTE: first open of a sub-typed inquiry — build the snapshot server-side, then re-render
@@ -355,11 +375,7 @@
           }
           item['LP Rows'] = JSON.stringify(x.d.rows);
           item['LP Page Key'] = x.d.pageKey || '';
-          x.d.rows.forEach(function (r3) {
-            if (!r3.custom && /^\d+(\.\d+)?$/.test(String(r3.listPrice)) && String(item['LP ' + r3.i + ' Price'] || '').trim() === '') {
-              item['LP ' + r3.i + ' Price'] = String(r3.listPrice);
-            }
-          });
+          // (2026-09-03) List Price is no longer pre-filled into the Price column — see server lp-quote-init.
           ov.remove();
           WHModal.open(opts);   // re-render with the fresh snapshot
         })
@@ -382,7 +398,7 @@
     var rowsHTML = '';
     GROUPS.forEach(function (g, gi) {
       rowsHTML += '<tr class="whm-grp" data-g="' + gi + '"><td colspan="4" class="l"><span class="whm-chev">\u25be</span>' + g.icon + ' ' + g.name + '</td>' +
-        '<td colspan="' + SUP + '"></td>' +
+        '<td colspan="' + supCols.length + '"></td>' +
         (showPrice ? '<td class="r" data-gsub="' + gi + '"></td><td></td>' : '') +
         '</tr>';
       g.buckets.forEach(function (b, bi) {
@@ -405,7 +421,7 @@
           ? periodSelect(fld, get(fld + ' Period') || 'mo', unit, canEditCost)
           : (unit ? '<span class="whm-unit">' + unit + '</span>' : '')) + '</td>';
         // supplier cost columns
-        for (var w = 1; w <= SUP; w++) {
+        supCols.forEach(function (w) {
           if (kind === 'legacy') {
             // single cost lives in the bare field; show it in the selected column, blank elsewhere
             var show = (w === sel);
@@ -418,9 +434,9 @@
               if (bare != null && String(bare).trim() !== '' && noSupplierCosts(fld)) cv = bare; // surface old reused value
             }
             rowsHTML += '<td class="whm-col cost ' + (w === sel ? 'sel' : 'dim') + '" data-w="' + w + '">' +
-              '<input class="whm-cell" data-cost="' + esc(fld) + '" data-w="' + w + '" value="' + esc(cv) + '" placeholder="\u00b7" ' + (canEditCost ? '' : 'disabled') + '></td>';
+              '<input class="whm-cell" data-cost="' + esc(fld) + '" data-w="' + w + '" value="' + esc(cv) + '" placeholder="\u2014" ' + (canEditCost ? '' : 'disabled') + '></td>';
           }
-        }
+        });
         // price + gp (hidden from Sourcing, like TRUCK)
         if (showPrice) {
           rowsHTML += '<td class="whm-pcol"><input class="whm-cell" data-price="' + esc(fld) + '" value="' + esc(get(fld + ' Price')) + '" placeholder="0" ' + (canEditPrice ? '' : 'disabled') + '></td>';
@@ -436,25 +452,23 @@
         var sec = String(r.section || '');
         if (sec !== lastSec) {
           gi++; lastSec = sec;
-          h += '<tr class="whm-grp" data-g="lp' + gi + '"><td colspan="3" class="l"><span class="whm-chev">\u25be</span>\uD83D\uDCCB ' + esc(sec || 'Services') + '</td>' +
-            '<td colspan="' + SUP + '"></td>' +
+          h += '<tr class="whm-grp" data-g="lp' + gi + '"><td class="l"><span class="whm-chev">\u25be</span>' + esc(sec || 'Services') + '</td>' +
+            '<td colspan="' + supCols.length + '"></td>' +
             (showPrice ? '<td class="r" data-gsub="lp' + gi + '"></td><td></td>' : '') + '</tr>';
         }
         var fld = 'LP ' + r.i;
         h += '<tr data-row data-g="lp' + gi + '" data-field="' + esc(fld) + '" data-kind="lp">';
-        h += '<td class="whm-oqcol"></td>';
-        h += '<td class="l">' + (r.custom
-          ? '<input class="whm-cell whm-in-desc" style="text-align:left" data-lpdesc="' + r.i + '" value="' + esc(get(fld + ' Desc')) + '" placeholder="Custom line item description" ' + ((canEditCommon || canEditCost) ? '' : 'disabled') + '>'
-          : esc(r.description) + (r.notes ? ' <span class="whm-lpnote" title="' + esc(r.notes) + '">\u24D8</span>' : '')) + '</td>';
-        h += '<td>' + (r.unit ? '<span class="whm-unit">' + esc(r.unit) + '</span>' : '') + '</td>';
-        for (var w2 = 1; w2 <= SUP; w2++) {
+        h += '<td class="l whm-svc">' + (r.custom
+          ? '<input class="whm-cell whm-in-desc" style="text-align:left" data-lpdesc="' + r.i + '" value="' + esc(get(fld + ' Desc')) + '" placeholder="Add a custom line item" ' + ((canEditCommon || canEditCost) ? '' : 'disabled') + '>'
+          : esc(r.description) + (r.unit ? '<span class="whm-unit">' + esc(r.unit) + '</span>' : '') + (r.notes ? ' <span class="whm-lpnote" title="' + esc(r.notes) + '">\u24D8</span>' : '')) + '</td>';
+        supCols.forEach(function (w2) {
           h += '<td class="whm-col cost ' + (w2 === sel ? 'sel' : 'dim') + '" data-w="' + w2 + '">' +
-            '<input class="whm-cell" data-cost="' + esc(fld) + '" data-w="' + w2 + '" value="' + esc(get(fld + ' Cost S' + w2)) + '" placeholder="\u00b7" ' + (canEditCost ? '' : 'disabled') + '></td>';
-        }
+            '<input class="whm-cell" data-cost="' + esc(fld) + '" data-w="' + w2 + '" value="' + esc(get(fld + ' Cost S' + w2)) + '" placeholder="\u2014" ' + (canEditCost ? '' : 'disabled') + '></td>';
+        });
         if (showPrice) {
-          h += '<td class="whm-pcol"><input class="whm-cell" data-price="' + esc(fld) + '" value="' + esc(get(fld + ' Price')) + '" placeholder="0" ' + (canEditPrice ? '' : 'disabled') + '>' +
-            ((!r.custom && String(r.listPrice).trim() !== '') ? '<div class="whm-lpref">LP ' + esc(r.listPrice) + '</div>' : '') + '</td>';
-          h += '<td class="r"><span class="whm-gp" data-gp="' + esc(fld) + '">\u2014</span></td>';
+          h += '<td class="whm-pcol"><span class="whm-pw"><i class="whm-man" title="Manually set \u2014 will not be overwritten by the auto price"></i><input class="whm-cell" data-price="' + esc(fld) + '" value="' + esc(get(fld + ' Price')) + '" placeholder="" ' + (canEditPrice ? '' : 'disabled') + '></span>' +
+            ((!r.custom && String(r.listPrice).trim() !== '') ? '<div class="whm-lpref">List ' + esc(r.listPrice) + '</div>' : '') + '</td>';
+          h += '<td class="r whm-gpcol"><span class="whm-gp" data-gp="' + esc(fld) + '">\u2014</span></td>';
         }
         h += '</tr>';
       });
@@ -487,6 +501,73 @@
       return el ? num(el.value) : num(selectedCost(mergedItem(), fld, kind, sel));
     }
     function mergedItem() { var m = {}; for (var k in item) m[k] = item[k]; for (var k2 in draft) m[k2] = draft[k2]; return m; }
+
+    // ✅ LPQUOTE (2026-09-03): live mirror of the server's autoPriceLpRows rule so Sales sees the
+    //    vendor-driven price the moment a supplier is picked / a cost changes (server re-derives
+    //    on save; both use price = cost / 0.75, nearest $10 at ≥ $50, nearest $1 below).
+    //    Manual-override protection mirrors the server: only rewrite an empty price or one
+    //    still equal to the last auto value (tracked in data-auto).
+    function lpAutoFrom(costNum) {
+      var raw = costNum / 0.75;
+      if (raw >= 50) { var precise = Math.round(raw * 100) / 100; return String(Math.round(precise / 10) * 10); }
+      return String(Math.max(1, Math.round(raw)));
+    }
+    function applyAutoLp() {
+      if (!lpMode || !canEditPrice) return;
+      var touched = [];
+      ov.querySelectorAll('tr[data-row][data-kind="lp"]').forEach(function (tr) {
+        var fld = tr.getAttribute('data-field');
+        var pEl = tr.querySelector('.whm-cell[data-price]'); if (!pEl || pEl.disabled) return;
+        var cEl = tr.querySelector('.whm-cell[data-cost][data-w="' + sel + '"]');
+        var n = cEl ? num(cEl.value) : 0;
+        if (!(n > 0)) return;                                   // no cost → leave price alone
+        var auto = lpAutoFrom(n), cur = String(pEl.value).trim(), last = pEl.getAttribute('data-auto') || '';
+        if (cur === '' || cur === last) {
+          if (cur !== auto) { pEl.value = auto; set(fld + ' Price', auto); touched.push(fld + ' Price'); }
+          pEl.setAttribute('data-auto', auto);
+        }
+      });
+      return touched;
+    }
+    // ✅ REDESIGN: Sourcing sends the warehouse cost to Sales from inside the modal. Same three
+    //    flags the dashboard's WH-row checkbox writes (costSaved / costSent / costDraft), same
+    //    endpoint (postUpdate) — no new save path.
+    function setSendUI(on) {
+      var wrap = ov.querySelector('[data-sendwrap]'); if (!wrap) return;
+      var cb = wrap.querySelector('[data-sendsales]'), st = wrap.querySelector('[data-sendstate]');
+      cb.checked = !!on; wrap.classList.toggle('on', !!on);
+      st.textContent = on ? 'Sent \u2014 Sales can see this cost' : 'Sales can\u2019t see this cost yet';
+    }
+    function initSend() {
+      var wrap = ov.querySelector('[data-sendwrap]'); if (!wrap) return;
+      var cb = wrap.querySelector('[data-sendsales]');
+      var confirmedWH = isTruthy(item['warehouseSalesConfirmed']) || isTruthy(item['warehouseManagerConfirmed']);
+      cb.disabled = confirmedWH;
+      if (confirmedWH) wrap.title = 'Confirmed by Sales/Manager \u2014 cost can no longer be re-sent from here';
+      setSendUI(cb.checked);
+      cb.addEventListener('change', async function () {
+        var want = cb.checked;
+        if (want) {
+          var anyCost = false; ov.querySelectorAll('.whm-cell[data-cost],.whm-cell[data-costbare]').forEach(function (i) { if (String(i.value).trim() !== '') anyCost = true; });
+          if (!anyCost) { cb.checked = false; window.alert('Enter at least one supplier cost before sending to Sales.'); return; }
+        }
+        cb.disabled = true;
+        var ok = await postUpdate({ 'warehouseCostSaved': 'true', 'warehouseCostSent': want ? 'true' : 'false', 'warehouseCostDraft': want ? 'false' : 'true' });
+        cb.disabled = confirmedWH;
+        if (!ok) { setSendUI(!want); return; }
+        setSendUI(want); flashSaved(want ? '\u2713 sent to Sales' : '\u2713 unsent'); onSaved();
+      });
+    }
+    function initLpToggle() {
+      var cb = ov.querySelector('[data-showlp]'); if (!cb) return;
+      var root = ov.querySelector('.whm');
+      var on = false; try { on = localStorage.getItem('whm_show_lp') === '1'; } catch (e0) {}
+      cb.checked = on; root.classList.toggle('whm-showlp', on);
+      cb.addEventListener('change', function () {
+        root.classList.toggle('whm-showlp', cb.checked);
+        try { localStorage.setItem('whm_show_lp', cb.checked ? '1' : '0'); } catch (e1) {}
+      });
+    }
     function cssEsc(s) { return String(s).replace(/(["\\])/g, '\\$1'); }
 
     function recalc() {
@@ -525,7 +606,14 @@
       var tgpEl = ov.querySelector('[data-tgp]'); if (tgpEl) tgpEl.textContent = gp;
       var nm = supNameFor(sel);
       ov.querySelector('[data-via]').textContent = nm;
-      renderSupStrip();   // ✅ MOCKUP: keep the comparison strip live
+      renderSupStrip();   // ✅ keep the per-supplier header totals live
+      // ✅ REDESIGN: price inputs — auto-derived shows in cobalt, manual override gets the amber dot
+      ov.querySelectorAll('tr[data-row][data-kind="lp"] .whm-cell[data-price]').forEach(function (pEl) {
+        var v = String(pEl.value).trim(), a = pEl.getAttribute('data-auto') || '';
+        var isAuto = v !== '' && v === a;
+        pEl.classList.toggle('auto', isAuto);
+        var pw = pEl.closest('.whm-pw'); if (pw) pw.classList.toggle('manual', v !== '' && !isAuto);
+      });
     }
     function money(v) { return '$' + Math.round(v).toLocaleString(); }
     function supNameFor(w) { var el = ov.querySelector('.whm-sname[data-sname="' + w + '"]'); return (el && el.value.trim()) || ('Supplier ' + w); }
@@ -535,37 +623,31 @@
     //   OnQuote box and are therefore excluded); in LP-snapshot mode every LP row
     //   counts (the snapshot IS the quote). Suppliers with no cost anywhere are hidden.
     function renderSupStrip() {
-      var host = ov.querySelector('[data-supstrip]');
-      if (!host) return;
+      // ✅ REDESIGN: per-supplier totals now live in the column headers (no separate strip).
+      //    Rule (per Lina 2026-08-27): only OnQuote-checked rows count; LP-snapshot rows all count.
       var totals = {}, hasAny = {};
-      for (var w = 1; w <= SUP; w++) { totals[w] = 0; hasAny[w] = false; }
+      supCols.forEach(function (w) { totals[w] = 0; hasAny[w] = false; });
       ov.querySelectorAll('tr[data-row]').forEach(function (tr) {
         var g = String(tr.getAttribute('data-g') || '');
         var oq = tr.querySelector('.whm-oq');
         var counts = (oq && oq.checked) || g.indexOf('lp') === 0;
         tr.querySelectorAll('.whm-cell[data-cost]').forEach(function (inp) {
-          var w2 = +inp.getAttribute('data-w');
+          var w2 = +inp.getAttribute('data-w'); if (!(w2 in totals)) return;
           var v = num(inp.value);
           if (String(inp.value).trim() !== '') hasAny[w2] = true;
           if (counts && v) totals[w2] += v;
         });
       });
-      var visible = [];
-      for (var w3 = 1; w3 <= SUP; w3++) if (hasAny[w3]) visible.push(w3);
-      if (!visible.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
-      host.style.display = '';
       var min = null;
-      visible.forEach(function (w4) { if (totals[w4] > 0 && (min === null || totals[w4] < min)) min = totals[w4]; });
-      var html = '<span class="whm-striplabel">Compare</span>';
-      visible.forEach(function (w5) {
-        var isSel = (w5 === sel), isLow = (min !== null && totals[w5] === min && totals[w5] > 0);
-        html += '<div class="whm-supcard ' + (isSel ? 'sel' : '') + (canEditPrice ? '' : ' nosel') + '" data-supsel="' + w5 + '">' +
-          (isLow ? '<span class="whm-lowest">\u2605 LOWEST</span>' : '') +
-          '<div class="whm-supname2"><span class="whm-supdot"></span>' + esc(supNameFor(w5)) + '</div>' +
-          '<div class="whm-suptotal ' + (totals[w5] > 0 ? '' : 'empty') + '">' + (totals[w5] > 0 ? money(totals[w5]) : '\u2014') + '</div>' +
-        '</div>';
+      supCols.forEach(function (w3) { if (hasAny[w3] && totals[w3] > 0 && (min === null || totals[w3] < min)) min = totals[w3]; });
+      var nWith = supCols.filter(function (w4) { return hasAny[w4] && totals[w4] > 0; }).length;
+      supCols.forEach(function (w5) {
+        var th = ov.querySelector('th.whm-col[data-w="' + w5 + '"]'); if (!th) return;
+        th.classList.toggle('empty', !hasAny[w5]);
+        var tEl = th.querySelector('[data-tot]'), lEl = th.querySelector('[data-low]');
+        if (tEl) tEl.textContent = hasAny[w5] ? money(totals[w5]) : '';
+        if (lEl) lEl.textContent = (nWith > 1 && hasAny[w5] && totals[w5] === min && totals[w5] > 0) ? 'Lowest' : '';
       });
-      host.innerHTML = html;
     }
 
     function applySel() {
@@ -627,9 +709,10 @@
       var payload = { 'Quotation #': quote, 'Saved': 'true' };
       if (role === 'sourcing') {
         payload['warehouseCostSaved'] = 'true';
-        // Saved cost stays Sourcing-only (masked from Sales) until the row's
-        // "Send to Sales" checkbox is ticked, which clears the draft flag.
-        payload['warehouseCostDraft'] = 'true';
+        // Saved cost stays Sourcing-only (masked from Sales) until "Send cost to Sales" is
+        // ticked, which clears the draft flag. A send/unsend request carries the draft flag
+        // itself, so don't override it there. (Server invariant: Draft=true forces Sent=false.)
+        if (!('warehouseCostDraft' in fields)) payload['warehouseCostDraft'] = 'true';
       } else {
         // Sales/Manager: only a real PRICE edit commits the quote and locks Sourcing.
         // Picking a supplier, editing the Note or common info must NOT lock Sourcing.
@@ -657,6 +740,9 @@
           credentials: 'same-origin', body: JSON.stringify(payload)
         });
         if (!res.ok) { var t = await res.text(); console.error('WH save failed:', t); flashSaved(''); return false; }
+        // ✅ REDESIGN: any Sourcing cost save re-drafts the scope (server forces Sent=false) —
+        //    mirror that on the in-modal "Send cost to Sales" box so it never shows stale "sent".
+        if (role === 'sourcing' && !('warehouseCostDraft' in fields)) setSendUI(false);
         return true;
       } catch (e) { console.error('WH save error:', e); return false; }
     }
@@ -675,7 +761,7 @@
     /* ---- events ---- */
     ov.addEventListener('change', function (e) {
       var r = e.target.closest('input[name="whm-selwh"]');
-      if (r) { sel = +r.value; set('Selected Supplier', String(sel)); applySel(); recalc(); autosave(['Selected Supplier']); return; }
+      if (r) { sel = +r.value; set('Selected Supplier', String(sel)); applySel(); var autoKeys = applyAutoLp() || []; recalc(); autosave(['Selected Supplier'].concat(autoKeys)); return; }
       if (e.target.matches('[data-svc]')) {
         // ✅ SUBTYPE: service type single-select (mirrors the inquiry form)
         if (e.target.checked) ov.querySelectorAll('[data-svc]').forEach(function (pc) { if (pc !== e.target) pc.checked = false; });
@@ -716,9 +802,7 @@
               item['Service Subtypes'] = newSub;
               item['LP Rows'] = JSON.stringify(x.d.rows);
               item['LP Page Key'] = x.d.pageKey || '';
-              x.d.rows.forEach(function (r4) {
-                if (!r4.custom && /^\d+(\.\d+)?$/.test(String(r4.listPrice))) item['LP ' + r4.i + ' Price'] = String(r4.listPrice);
-              });
+              // (2026-09-03) no List-Price pre-fill on rebuild either
               if (document.body.contains(ov)) { ov.remove(); WHModal.open(opts); }
               onSaved();
             })
@@ -735,11 +819,7 @@
               item['Service Subtypes'] = newSub;
               item['LP Rows'] = JSON.stringify(x.d.rows);
               item['LP Page Key'] = x.d.pageKey || '';
-              x.d.rows.forEach(function (r5) {
-                if (!r5.custom && /^\d+(\.\d+)?$/.test(String(r5.listPrice)) && String(item['LP ' + r5.i + ' Price'] || '').trim() === '') {
-                  item['LP ' + r5.i + ' Price'] = String(r5.listPrice);
-                }
-              });
+              // (2026-09-03) no List-Price pre-fill on first sub-option selection either
               if (document.body.contains(ov)) { ov.remove(); WHModal.open(opts); }
               onSaved();
             })
@@ -756,6 +836,7 @@
         return;
       }
       var keys = trackField(e.target);
+      if (e.target.hasAttribute('data-cost')) keys = keys.concat(applyAutoLp() || []);   // ✅ LPQUOTE: cost edit → live auto price
       recalc();
       if (keys.length) autosave(keys);
     });
@@ -783,10 +864,12 @@
       }
       // ✅ MOCKUP: click a comparison card = pick that supplier (reuses the existing
       //   radio change pipeline: set + applySel + recalc + autosave, zero new save logic)
-      var supCard = e.target.closest('[data-supsel]');
-      if (supCard && canEditPrice) {
-        var rw = ov.querySelector('input[name="whm-selwh"][value="' + supCard.getAttribute('data-supsel') + '"]');
-        if (rw && !rw.checked) { rw.checked = true; rw.dispatchEvent(new Event('change', { bubbles: true })); }
+      // ✅ REDESIGN: clicking anywhere on a supplier header picks it (Sales/Manager); the radio's
+      //    existing change pipeline (set + applySel + auto price + recalc + autosave) does the work.
+      var supTh = e.target.closest('th.whm-col');
+      if (supTh && canEditPrice && !e.target.matches('input')) {
+        var rw = ov.querySelector('input[name="whm-selwh"][value="' + supTh.getAttribute('data-w') + '"]');
+        if (rw && !rw.checked && !rw.disabled) { rw.checked = true; rw.dispatchEvent(new Event('change', { bubbles: true })); }
         return;
       }
       // ✅ MOCKUP: group header toggles its rows (accordion)
@@ -811,6 +894,19 @@
 
     applySel();
     applyLockUI();
+    initLpToggle();
+    initSend();
+    // seed data-auto for rows whose saved price already equals the auto value (so later
+    // supplier/cost changes may still update them); prices differing from auto are treated
+    // as manual and left alone. No draft/save is triggered here.
+    (function seedAuto() {
+      if (!lpMode) return;
+      ov.querySelectorAll('tr[data-row][data-kind="lp"]').forEach(function (tr) {
+        var pEl = tr.querySelector('.whm-cell[data-price]'); var cEl = tr.querySelector('.whm-cell[data-cost][data-w="' + sel + '"]');
+        var n = cEl ? num(cEl.value) : 0; if (!pEl || !(n > 0)) return;
+        var auto = lpAutoFrom(n); if (String(pEl.value).trim() === auto) pEl.setAttribute('data-auto', auto);
+      });
+    })();
     recalc();
   };
 })();

@@ -6,7 +6,6 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const fetch = require('node-fetch');
-const nodemailer = require('nodemailer');
 require('dotenv').config();
 console.log("🚀 THIS IS UPGRADE SERVER - NEW DB ONLY");
 
@@ -532,7 +531,6 @@ function applyTruckingUnits(doc) {
   setIfEmpty(doc, 'Toll Unit', 'Container');
   setIfEmpty(doc, 'Reefer Fee Unit', 'Container');
   setIfEmpty(doc, 'Bond Fee Unit', 'Container');
-  setIfEmpty(doc, 'Drop Fee Unit', 'Container');   // ✅ Drop Fee (2026-08-27)
 }
 
 // ==================== Warehouse redesign (additive, backward-compatible) ====================
@@ -603,9 +601,9 @@ const WH_SUPPLIER_COUNT = 5;
 // module-level constants above so the two stay in sync automatically.
 const DELQ_TRUCK_FIELDS = [
   'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-  'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee',
+  'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee',
   'Adjusted Price', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
-  'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price',
+  'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price',
   'Price'
 ];
 
@@ -861,8 +859,6 @@ function applyTruckingAutoPrices(prevDoc, doc) {
     return String(Math.round(n + 30));
   });
 
-  // ✅ Drop Fee (2026-08-27): NO auto-price by design — Sales enters the price manually (per Lina).
-
   // Bond Fee Price = Cost + $30
   autoPriceTruckingItem(prevDoc, doc, 'Bond Fee', 'Bond Fee Price', (c) => {
     const n = toNumber(c);
@@ -888,6 +884,41 @@ function applyWarehouseAutoPrices(prevDoc, doc) {
 
   for (const it of items) {
     autoPriceWarehouseItem(prevDoc, doc, it.cost, it.price);
+  }
+}
+
+// ✅ LPQUOTE (2026-09-03, per Lina): auto-price the dynamic List-Price rows from the SELECTED
+// vendor's cost, same 25% GP rule as the fixed buckets (price = cost / 0.75), with the same
+// manual-override protection (only rewrite when the price is empty or still equals the
+// previous auto value). Differences from autoPriceWarehouseItem, on purpose:
+//   • reads the selected supplier's cost directly ('LP n Cost S<sel>') so a stale mirrored
+//     'LP n Cost' can never feed the price;
+//   • an EMPTY cost leaves the price untouched (never clears it) — Sales may price a row
+//     before Sourcing has a cost, and old quotes keep their pre-filled list prices;
+//   • rows the user explicitly cleared this request (clearSet) are left empty;
+//   • rounding: nearest $10 at ≥ $50 (beautifyPrice), nearest $1 below that, min $1 — the
+//     nearest-10 rule would round small per-unit items (e.g. $3 cost) down to $0.
+function lpAutoPriceFrom(costNum) {
+  const raw = costNum / 0.75;
+  if (raw >= 50) return String(beautifyPrice(raw));
+  return String(Math.max(1, Math.round(raw)));
+}
+function autoPriceLpRows(prevDoc, doc, clearSet) {
+  const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
+  const safeWrite = (k, v) => { doc[k] = v; if (isMongoDoc) doc.set(k, v); };
+  const selOf = d => { const s = parseInt(String((d && d['Selected Supplier']) || '1'), 10); return (s >= 1 && s <= WH_SUPPLIER_COUNT) ? s : 1; };
+  const sel = selOf(doc), prevSel = selOf(prevDoc);
+  const lpN = lpRowCount(doc);
+  for (let i = 1; i <= lpN; i++) {
+    const priceField = 'LP ' + i + ' Price';
+    if (clearSet && clearSet.has(priceField)) continue;           // explicit clear wins
+    const n = toNumber(doc['LP ' + i + ' Cost S' + sel]);
+    if (!Number.isFinite(n) || n <= 0) continue;                   // no cost → leave price as is
+    const newAuto = lpAutoPriceFrom(n);
+    const pn = toNumber(prevDoc ? prevDoc['LP ' + i + ' Cost S' + prevSel] : undefined);
+    const oldAuto = (Number.isFinite(pn) && pn > 0) ? lpAutoPriceFrom(pn) : '';
+    const cur = String(doc[priceField] == null ? '' : doc[priceField]).trim();
+    if (cur === '' || cur === oldAuto) safeWrite(priceField, newAuto);
   }
 }
 
@@ -1303,7 +1334,6 @@ app.post('/inquiries', async (req, res) => {
       'Over Weight': raw['Over Weight'] || '',
       'Chassis Split': raw['Chassis Split'] || '',
       'Toll': raw['Toll'] || '',
-      'Drop Fee': raw['Drop Fee'] || '',
       'Reefer Fee': raw['Reefer Fee'] || '',
       'Bond Fee': raw['Bond Fee'] || '',
 
@@ -1314,7 +1344,6 @@ app.post('/inquiries', async (req, res) => {
       'Over Weight Price': raw['Over Weight Price'] || '',
       'Chassis Split Price': raw['Chassis Split Price'] || '',
       'Toll Price': raw['Toll Price'] || '',
-      'Drop Fee Price': raw['Drop Fee Price'] || '',
       'Reefer Fee Price': raw['Reefer Fee Price'] || '',
       'Bond Fee Price': raw['Bond Fee Price'] || '',
 
@@ -1326,7 +1355,6 @@ app.post('/inquiries', async (req, res) => {
       'Chassis Split Unit': raw['Chassis Split Unit'] || '',
       'Over Weight Unit': raw['Over Weight Unit'] || '',
       'Toll Unit': raw['Toll Unit'] || '',
-      'Drop Fee Unit': raw['Drop Fee Unit'] || '',
       'Reefer Fee Unit': raw['Reefer Fee Unit'] || '',
       'Bond Fee Unit': raw['Bond Fee Unit'] || '',
 
@@ -1522,14 +1550,14 @@ app.get('/inquiries', async (req, res) => {
       // ✅ Strip cost data AND auto-calculated prices that Sourcing hasn't "sent" yet
       const truckCostFields = [
         'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Carrier',
+        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier',
         'Vendor Note'
       ];
       const truckPriceFields = [
         'Price', 'GP', 'Adjusted Price', 'Adjusted GP',
         'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
         'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price',
-        'Bond Fee Price', 'Drop Fee Price'
+        'Bond Fee Price'
       ];
       const whCostFields = [
         'Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee',
@@ -1636,7 +1664,7 @@ app.get('/api/quotation-print', async (req, res) => {
     // Trucking price/unit fields — stripped entirely while sourcing draft is unsent
     if (!truckDraft) {
       const truckBuckets = ['Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Layover'];
+        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Layover'];
       ['Adjusted Price', 'Price', 'Base Rate Unit'].forEach(f => { if (doc[f] != null) out[f] = doc[f]; });
       truckBuckets.forEach(b => {
         if (doc[b + ' Price'] != null) out[b + ' Price'] = doc[b + ' Price'];
@@ -1934,13 +1962,11 @@ app.post('/api/lp-quote-init', async (req, res) => {
     rows.push({ i: rows.length + 1, section: 'Others', description: '', unit: '', listPrice: '', minChg: '', notes: '', custom: true });
     rows.push({ i: rows.length + 1, section: 'Others', description: '', unit: '', listPrice: '', minChg: '', notes: '', custom: true });
 
-    // Persist snapshot + prefill Sales price with the numeric master price (empty stays empty)
+    // Persist snapshot ONLY. (2026-09-03, per Lina) The TTS List Price is a REFERENCE and is
+    // no longer pre-filled into 'LP n Price': Sales price is auto-derived from the selected
+    // vendor's cost (autoPriceLpRows below, 25% GP) and the list price is shown on demand via
+    // the modal's "Show TTS List Price" toggle. Existing quotes keep whatever they already have.
     const set = { 'LP Rows': JSON.stringify(rows), 'LP Page Key': pageKey };
-    rows.forEach(r => {
-      if (!r.custom && /^\d+(\.\d+)?$/.test(String(r.listPrice)) && (force || String(doc['LP ' + r.i + ' Price'] || '').trim() === '')) {
-        set['LP ' + r.i + ' Price'] = String(r.listPrice);
-      }
-    });
     await Inquiry.updateOne({ 'Quotation #': q }, { $set: set });
     return res.json({ rows, pageKey, existing: false });
   } catch (err) {
@@ -2001,11 +2027,11 @@ app.post('/inquiries/update', async (req, res) => {
     // ===== Field buckets (scope-aware) =====
     const TRUCK_COST_FIELDS = [
       'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-      'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Carrier'
+      'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier'
     ];
     const TRUCK_PRICE_FIELDS = [
       'Adjusted Price', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
-      'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price', 'Carrier',
+      'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Carrier',
       'Price', 'GP', 'Adjusted GP'
     ];
     const WH_COST_FIELDS = [
@@ -2374,6 +2400,7 @@ if (blocked.length) {
     // Auto for other items (preserve manual overrides based on prevSnapshot)
     applyTruckingAutoPrices(prevSnapshot, existing);
     applyWarehouseAutoPrices(prevSnapshot, existing);
+    autoPriceLpRows(prevSnapshot, existing, clearSet);   // ✅ LPQUOTE: vendor-cost-driven price for List-Price rows
     computeWarehouseTotals(existing);
 
     // ========= Save =========
@@ -2543,15 +2570,6 @@ app.post('/api/push-to-gofreight', async (req, res) => {
       unit: 'SPL',
       remark: 'IF APPLICABLE'
     }
-    // ✅ Drop Fee (2026-08-27): code confirmed as LTLRG-DROP, but the numeric GF ref
-    //    is NOT yet confirmed. DO NOT enable until the ref is verified in GF
-    //    (same procedure as the 7 refs above). Uncomment and fill ref to enable:
-    // ,'Drop Fee Price': {
-    //   ref: 'TODO-CONFIRM',   // LTLRG-DROP — look up the numeric id in GF freight codes
-    //   desc: 'Drayage Surcharge- Drop Fee',
-    //   unit: 'CNT',
-    //   remark: 'IF APPLICABLE'
-    // }
   };
 
   const chargeItems = [];
@@ -2794,7 +2812,6 @@ app.post('/duplicate_inquiry', async (req, res) => {
     duplicated['Toll'] = '';
     duplicated['Reefer Fee'] = '';
     duplicated['Bond Fee'] = '';
-    duplicated['Drop Fee'] = '';
 
     duplicated['Price'] = '';
     duplicated['GP'] = '';
@@ -2812,7 +2829,6 @@ app.post('/duplicate_inquiry', async (req, res) => {
     duplicated['Toll Price'] = '';
     duplicated['Reefer Fee Price'] = '';
     duplicated['Bond Fee Price'] = '';
-    duplicated['Drop Fee Price'] = '';
 
     duplicated['Order Processing'] = duplicated['Order Processing'] || '';
     duplicated['Inbound'] = duplicated['Inbound'] || '';
@@ -3216,123 +3232,6 @@ app.post('/public/inquiries', async (req, res) => {
   } catch (err) {
     console.error('[ERROR] /public/inquiries failed:', err);
     return res.status(500).json({ success: false, message: err.message || 'Server error' });
-  }
-});
-
-// ===== Carrier Application form (carrier.html) — sends an email to sourcing@totalsolutionus.com =====
-// Requires GMAIL_USER + GMAIL_APP_PASSWORD env vars (Gmail SMTP via a 16-char Google
-// "App Password" — the Workspace account needs 2-Step Verification on to generate one).
-let carrierMailTransporter = null;
-function getCarrierMailTransporter() {
-  if (carrierMailTransporter) return carrierMailTransporter;
-  const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
-  if (!user || !pass) return null;
-  carrierMailTransporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user, pass }
-  });
-  return carrierMailTransporter;
-}
-
-// carrier.html is served from the main site (a different domain than this Render app),
-// so this route needs CORS enabled for that origin.
-const CARRIER_APPLY_ALLOWED_ORIGINS = new Set([
-  'https://www.totalsolutionus.com',
-  'https://totalsolutionus.com'
-]);
-function setCarrierApplyCors(req, res) {
-  const origin = req.headers.origin;
-  if (origin && CARRIER_APPLY_ALLOWED_ORIGINS.has(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Vary', 'Origin');
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-}
-app.options('/public/carrier-apply', (req, res) => {
-  setCarrierApplyCors(req, res);
-  res.sendStatus(204);
-});
-
-app.post('/public/carrier-apply', async (req, res) => {
-  setCarrierApplyCors(req, res);
-  try {
-    const raw = req.body || {};
-
-    // ===== Anti-spam guard (same helpers/thresholds as /public/inquiries) =====
-    if (portalRateLimited(req)) {
-      return res.status(429).json({ success: false, message: 'Too many requests. Please try again later.' });
-    }
-    // Honeypot — hidden field real users never see/fill. If filled, it's a bot:
-    // drop silently (fake success so it stops retrying), send nothing.
-    if (String(raw.website || '').trim()) {
-      return res.json({ success: true });
-    }
-    // Time-trap — a human can't complete this form in under 3s.
-    const elapsedMs = Number(raw.elapsedMs);
-    if (!Number.isFinite(elapsedMs) || elapsedMs < 3000) {
-      return res.status(400).json({ success: false, message: 'Form submitted too quickly. Please try again.' });
-    }
-
-    // ===== Field validation =====
-    const company = String(raw.company || '').trim();
-    const contact = String(raw.contact || '').trim();
-    const mc = String(raw.mc || '').trim();
-    const dot = String(raw.dot || '').trim();
-    const email = String(raw.email || '').trim();
-    const phone = String(raw.phone || '').trim();
-    let equipment = raw.equipment;
-    if (!Array.isArray(equipment)) equipment = equipment ? [equipment] : [];
-    const fleetSize = String(raw.fleet_size || '').trim();
-    const serviceArea = String(raw.service_area || '').trim();
-    const notes = String(raw.notes || '').trim();
-
-    if (!company || !contact || !mc || !dot || !phone) {
-      return res.status(400).json({ success: false, message: 'Please complete all required fields.' });
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
-    }
-    if (!equipment.length) {
-      return res.status(400).json({ success: false, message: 'Please select at least one equipment type.' });
-    }
-    // Length caps + reject links in free-text, same spirit as the RFQ form's field sanity check.
-    if ([company, contact, notes].some(s => s.length > 500) || /https?:\/\//i.test(notes)) {
-      return res.status(400).json({ success: false, message: 'Please shorten your input and remove any links.' });
-    }
-
-    const transporter = getCarrierMailTransporter();
-    if (!transporter) {
-      console.error('[CARRIER-APPLY] GMAIL_USER / GMAIL_APP_PASSWORD not configured — cannot send email.');
-      return res.status(500).json({ success: false, message: 'Submission could not be sent. Please email sourcing@totalsolutionus.com directly.' });
-    }
-
-    const bodyLines = [
-      `Company: ${company}`,
-      `Contact: ${contact}`,
-      `MC #: ${mc}`,
-      `DOT #: ${dot}`,
-      `Email: ${email}`,
-      `Phone: ${phone}`,
-      `Equipment: ${equipment.join(', ')}`,
-      fleetSize ? `Fleet size: ${fleetSize}` : '',
-      serviceArea ? `Service area: ${serviceArea}` : '',
-      notes ? `Notes: ${notes}` : ''
-    ].filter(Boolean).join('\n');
-
-    await transporter.sendMail({
-      from: process.env.GMAIL_USER,
-      to: 'sourcing@totalsolutionus.com',
-      replyTo: email,
-      subject: `New Carrier Application — ${company}`,
-      text: bodyLines
-    });
-
-    return res.json({ success: true });
-  } catch (err) {
-    console.error('[CARRIER-APPLY] Error:', err?.message || err);
-    return res.status(500).json({ success: false, message: 'Something went wrong. Please try again or email sourcing@totalsolutionus.com directly.' });
   }
 });
 

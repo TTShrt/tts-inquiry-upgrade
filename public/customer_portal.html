@@ -506,9 +506,13 @@
 
         <div style="margin-top: 24px;">
           <!-- Cloudflare Turnstile widget. Replace data-sitekey with your real SITE key from Cloudflare. -->
-          <div class="cf-turnstile" data-sitekey="0x4AAAAAAEbw9747i7k6ga6R" data-theme="light" style="margin-bottom:14px;"></div>
+          <div class="cf-turnstile"
+               data-sitekey="0x4AAAAAAEbw9747i7k6ga6R"
+               data-theme="light"
+               data-expired-callback="onTurnstileExpired"
+               style="margin-bottom:14px;"></div>
 
-          <button type="submit" class="btn-submit">Submit Inquiry</button>
+          <button type="submit" class="btn-submit" id="submitBtn">Submit Inquiry</button>
         </div>
 
       </form>
@@ -567,8 +571,20 @@
     // Anti-spam time-trap: record when the form became ready (used to reject instant bot submits).
     window.__rfqLoadedAt = Date.now();
 
+    // Turnstile tokens expire (~5 min). If a long form-fill causes an auto-refresh to fail silently,
+    // this callback surfaces it to the user instead of letting them discover it only after Submit.
+    function onTurnstileExpired() {
+      setResult('bad', '⚠️ Verification expired (the form was open too long). Please click the checkbox above to re-verify, then submit again.');
+    }
+
     document.getElementById('rfqForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+
+      const submitBtn = document.getElementById('submitBtn');
+      if (submitBtn.disabled) return; // guard against double-click / double-submit (which reuses the same Turnstile token and fails)
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+
       const form = e.target;
       const fd = new FormData(form);
       const data = Object.fromEntries(fd.entries());
@@ -617,6 +633,8 @@
 
         if (missing.length) {
           setResult('bad', '⚠️ Warehouse service requires these fields: <b>' + missing.join(', ') + '</b>. Please complete them and submit again.');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit Inquiry';
           return;
         }
       }
@@ -692,6 +710,9 @@
         whBlock.style.display = 'none';
       } catch (err) {
         setResult('bad', '❌ Network error: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Inquiry';
       }
     });
   </script>

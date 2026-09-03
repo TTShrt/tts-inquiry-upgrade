@@ -3505,7 +3505,10 @@
 
       async function loadInquiries() {
         try {
-          const res = await fetch('/inquiries', { credentials: 'same-origin' });
+          // ✅ MEMWATCH: a search goes to the server (?q=) so only the matching families are
+          //    returned, instead of pulling the full window and filtering in the browser.
+          const _q = String(window.searchTerm || '').trim();
+          const res = await fetch('/inquiries' + (_q ? '?q=' + encodeURIComponent(_q) : ''), { credentials: 'same-origin' });
           if (window.handleAuthError(res)) return;   // ✅ AUTH
           const raw = await res.text();
           let data = null;
@@ -3607,6 +3610,18 @@
               console.log('[socket] skipping reload (unsaved edits in progress)');
               return;
             }
+            // ✅ MEMWATCH: coalesce socket-triggered reloads. Several tabs/users each reloading the
+            //    full list on every 'inquiryUpdated' is what spikes server memory; one reload per
+            //    3 s per tab is plenty for a shared dashboard.
+            const nowTs = Date.now();
+            if (window._lastReloadAt && nowTs - window._lastReloadAt < 3000) {
+              if (!window._reloadPending) {
+                window._reloadPending = true;
+                setTimeout(async () => { window._reloadPending = false; window._lastReloadAt = Date.now(); await loadInquiries(); }, 3000 - (nowTs - window._lastReloadAt));
+              }
+              return;
+            }
+            window._lastReloadAt = nowTs;
             await loadInquiries();
           });
         } catch (e) {

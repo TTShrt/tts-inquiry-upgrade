@@ -46,6 +46,26 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
+// ✅ MEMWATCH (2026-09-03): GET /inquiries response cache.
+//    Every dashboard tab reloads the full list on each 'inquiryUpdated' broadcast; with a few
+//    users × a few tabs that meant several 1,700-row reads + JSON serialisations landing at once,
+//    which is what pushed the V8 heap past its limit (two "Reached heap limit" aborts today).
+//    Cache the SERIALISED response string per (role, groups, q, days) for a few seconds so
+//    concurrent readers share one DB read and one string. Any 'inquiryUpdated' broadcast bumps
+//    the version, so nobody ever sees a stale list after a save.
+const LIST_CACHE_TTL_MS = 5000;
+let listVersion = 0;
+const listCache = new Map();
+{
+  const _emit = io.emit.bind(io);
+  io.emit = function (ev) { if (ev === 'inquiryUpdated') { listVersion++; listCache.clear(); } return _emit.apply(io, arguments); };
+}
+function listCacheSend(res, key, payloadObj) {
+  const s = JSON.stringify(payloadObj);
+  listCache.set(key, { v: listVersion, at: Date.now(), s });
+  return res.type('application/json').send(s);
+}
+
 const PORT = process.env.PORT || 3000;
 
 app.use(cookieParser(process.env.COOKIE_SECRET));
@@ -531,6 +551,7 @@ function applyTruckingUnits(doc) {
   setIfEmpty(doc, 'Toll Unit', 'Container');
   setIfEmpty(doc, 'Reefer Fee Unit', 'Container');
   setIfEmpty(doc, 'Bond Fee Unit', 'Container');
+  setIfEmpty(doc, 'Drop Fee Unit', 'Container');   // ✅ Drop Fee (2026-08-27)
 }
 
 // ==================== Warehouse redesign (additive, backward-compatible) ====================
@@ -601,9 +622,9 @@ const WH_SUPPLIER_COUNT = 5;
 // module-level constants above so the two stay in sync automatically.
 const DELQ_TRUCK_FIELDS = [
   'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-  'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee',
+  'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee',
   'Adjusted Price', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
-  'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price',
+  'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price',
   'Price'
 ];
 
@@ -858,6 +879,8 @@ function applyTruckingAutoPrices(prevDoc, doc) {
     if (!Number.isFinite(n)) return '';
     return String(Math.round(n + 30));
   });
+
+  // ✅ Drop Fee (2026-08-27): NO auto-price by design — Sales enters the price manually (per Lina).
 
   // Bond Fee Price = Cost + $30
   autoPriceTruckingItem(prevDoc, doc, 'Bond Fee', 'Bond Fee Price', (c) => {
@@ -1334,6 +1357,7 @@ app.post('/inquiries', async (req, res) => {
       'Over Weight': raw['Over Weight'] || '',
       'Chassis Split': raw['Chassis Split'] || '',
       'Toll': raw['Toll'] || '',
+      'Drop Fee': raw['Drop Fee'] || '',
       'Reefer Fee': raw['Reefer Fee'] || '',
       'Bond Fee': raw['Bond Fee'] || '',
 
@@ -1344,6 +1368,7 @@ app.post('/inquiries', async (req, res) => {
       'Over Weight Price': raw['Over Weight Price'] || '',
       'Chassis Split Price': raw['Chassis Split Price'] || '',
       'Toll Price': raw['Toll Price'] || '',
+      'Drop Fee Price': raw['Drop Fee Price'] || '',
       'Reefer Fee Price': raw['Reefer Fee Price'] || '',
       'Bond Fee Price': raw['Bond Fee Price'] || '',
 
@@ -1355,6 +1380,7 @@ app.post('/inquiries', async (req, res) => {
       'Chassis Split Unit': raw['Chassis Split Unit'] || '',
       'Over Weight Unit': raw['Over Weight Unit'] || '',
       'Toll Unit': raw['Toll Unit'] || '',
+      'Drop Fee Unit': raw['Drop Fee Unit'] || '',
       'Reefer Fee Unit': raw['Reefer Fee Unit'] || '',
       'Bond Fee Unit': raw['Bond Fee Unit'] || '',
 
@@ -1491,6 +1517,16 @@ app.get('/inquiries', async (req, res) => {
     // ✅ read source
     if (!mongoReady) return res.json([]);   // 关键：Mongo不通就不要用mock
 
+    // ✅ MEMWATCH: serve from the short-lived response cache when nothing changed meanwhile
+    const listKey = [role, salesGroup, String(req.query.q || '').trim(), String(req.query.days || '')].join('|');
+    {
+      const hit = listCache.get(listKey);
+      if (hit && hit.v === listVersion && (Date.now() - hit.at) < LIST_CACHE_TTL_MS) {
+        console.log('[READ] /inquiries role=' + (role || '?') + ' cache=1');
+        return res.type('application/json').send(hit.s);
+      }
+    }
+
     // ✅ Push the role filter into the query (sales uses the salesGroup_1 index) instead of
     // fetching every doc and filtering in JS. Verified equivalent to the in-JS filters below:
     // stored values are clean ('true' only; exact group names, no case/space variants), and
@@ -1499,6 +1535,7 @@ app.get('/inquiries', async (req, res) => {
     let queryFilter = {};
     if (role === 'sourcing') queryFilter = { 'Submitted To Sourcing': 'true' };
     else if ((role === 'sales' || role === 'ops_view') && salesGroup) queryFilter = { salesGroup: { $in: groupList(salesGroup) } };
+    const roleFilter = { ...queryFilter };   // ✅ MEMWATCH: kept for the family expansion below
 
     // ✅ WIN90: default view = last N days only (by _id timestamp — createdAt missing on all docs,
     // verified V3). A non-empty q searches the FULL history instead (no date boundary), mirroring
@@ -1513,9 +1550,16 @@ app.get('/inquiries', async (req, res) => {
       // Always try ZIP + Customer ID by prefix; ALSO try the quotation family when the input
       // parses as a quote number. 5-digit ZIPs (e.g. 98203) parse as quote numbers too, so
       // exclusive branching would shadow ZIP search — a single $or covers both readings.
+      // ✅ MEMWATCH (2026-09-03): the dashboards now send their search here instead of pulling the
+      //    full window and filtering locally. Match what their local filter matched — substring,
+      //    case-insensitive, on Quotation # / External # / To ZIP / To — so nothing users could
+      //    find before becomes unfindable. (Family prefix for quote-number input is kept below.)
       const winOr = [
-        { 'To ZIP': { $regex: '^' + winEsc(winQ) } },
-        { 'Customer ID': { $regex: '^' + winEsc(winQ), $options: 'i' } }
+        { 'To ZIP': { $regex: winEsc(winQ), $options: 'i' } },
+        { 'Customer ID': { $regex: winEsc(winQ), $options: 'i' } },
+        { 'To': { $regex: winEsc(winQ), $options: 'i' } },
+        { 'External Quotation #': { $regex: winEsc(winQ), $options: 'i' } },
+        { 'Quotation #': { $regex: winEsc(winQ), $options: 'i' } }
       ];
       if (winM) {
         const winBase = String(winM[1]).padStart(6, '0').slice(-6);
@@ -1529,17 +1573,28 @@ app.get('/inquiries', async (req, res) => {
       ) };
     }
 
-    const inquiries = await Inquiry.find(queryFilter).lean();
+    let inquiries = await Inquiry.find(queryFilter).lean();
+    // ✅ MEMWATCH: family expansion — a search hit on any line brings back its whole family
+    //    (main + all carrier/route sub-lines), exactly like the dashboards' local filter did,
+    //    so a matched main never renders without its sub-lines.
+    if (winQ && inquiries.length) {
+      const bases = new Set();
+      inquiries.forEach(d => { const p = String(d['Parent Quotation #'] || '').trim(); bases.add(p || String(d['Quotation #'] || '').trim()); });
+      const famKeys = Array.from(bases).filter(Boolean);
+      if (famKeys.length) {
+        inquiries = await Inquiry.find({ ...roleFilter, $or: [ { 'Quotation #': { $in: famKeys } }, { 'Parent Quotation #': { $in: famKeys } } ] }).lean();
+      }
+    }
     console.log('[READ] /inquiries role=' + (role || '?') + ' rows=' + inquiries.length + (winQ ? ' q=1' : ''));   // ✅ MEMWATCH
 
     // ✅ manager sees all
     if (role === 'manager') {
-      return res.json(inquiries);
+      return listCacheSend(res, listKey, inquiries);
     }
 
     // ✅ sourcing sees only "Submitted To Sourcing" inquiries
     if (role === 'sourcing') {
-      return res.json(inquiries.filter(it => String(it['Submitted To Sourcing'] || '').toLowerCase().trim() === 'true'));
+      return listCacheSend(res, listKey, inquiries.filter(it => String(it['Submitted To Sourcing'] || '').toLowerCase().trim() === 'true'));
     }
 
     // ✅ sales/ops_view: filter by salesGroup + mask unsent costs
@@ -1550,14 +1605,14 @@ app.get('/inquiries', async (req, res) => {
       // ✅ Strip cost data AND auto-calculated prices that Sourcing hasn't "sent" yet
       const truckCostFields = [
         'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier',
+        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Carrier',
         'Vendor Note'
       ];
       const truckPriceFields = [
         'Price', 'GP', 'Adjusted Price', 'Adjusted GP',
         'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
         'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price',
-        'Bond Fee Price'
+        'Bond Fee Price', 'Drop Fee Price'
       ];
       const whCostFields = [
         'Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee',
@@ -1600,7 +1655,7 @@ app.get('/inquiries', async (req, res) => {
         return doc;
       });
 
-      return res.json(masked);
+      return listCacheSend(res, listKey, masked);
     }
 
     // fallback: no group = nothing
@@ -1664,7 +1719,7 @@ app.get('/api/quotation-print', async (req, res) => {
     // Trucking price/unit fields — stripped entirely while sourcing draft is unsent
     if (!truckDraft) {
       const truckBuckets = ['Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Layover'];
+        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Layover'];
       ['Adjusted Price', 'Price', 'Base Rate Unit'].forEach(f => { if (doc[f] != null) out[f] = doc[f]; });
       truckBuckets.forEach(b => {
         if (doc[b + ' Price'] != null) out[b + ' Price'] = doc[b + ' Price'];
@@ -2027,11 +2082,11 @@ app.post('/inquiries/update', async (req, res) => {
     // ===== Field buckets (scope-aware) =====
     const TRUCK_COST_FIELDS = [
       'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-      'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Carrier'
+      'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Carrier'
     ];
     const TRUCK_PRICE_FIELDS = [
       'Adjusted Price', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
-      'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Carrier',
+      'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price', 'Carrier',
       'Price', 'GP', 'Adjusted GP'
     ];
     const WH_COST_FIELDS = [
@@ -2570,6 +2625,15 @@ app.post('/api/push-to-gofreight', async (req, res) => {
       unit: 'SPL',
       remark: 'IF APPLICABLE'
     }
+    // ✅ Drop Fee (2026-08-27): code confirmed as LTLRG-DROP, but the numeric GF ref
+    //    is NOT yet confirmed. DO NOT enable until the ref is verified in GF
+    //    (same procedure as the 7 refs above). Uncomment and fill ref to enable:
+    // ,'Drop Fee Price': {
+    //   ref: 'TODO-CONFIRM',   // LTLRG-DROP — look up the numeric id in GF freight codes
+    //   desc: 'Drayage Surcharge- Drop Fee',
+    //   unit: 'CNT',
+    //   remark: 'IF APPLICABLE'
+    // }
   };
 
   const chargeItems = [];
@@ -2597,10 +2661,11 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     return res.status(400).json({ error: 'No locked price fields found on ' + quotationId + ' — nothing to push.' });
   }
 
-  // ✅ ORDER FIX: GoFreight renders charge lines newest-first (last item in the array ends up
-  // at the TOP of the charge group). Sending in natural order (Hauling → Chassis → ... → Split)
-  // therefore displayed reversed. Reverse before sending so GF shows Hauling Fee first.
-  chargeItems.reverse();
+  // ✅ ORDER FIX v2 (2026-08-27): the earlier assumption ("GF renders the LAST array item at
+  // the top") was wrong — live pushes show GF renders the array IN ORDER (first item = top row).
+  // The previous chargeItems.reverse() therefore displayed the group upside-down (Chassis Split
+  // first, Hauling last). Removed: send in natural order so Hauling Fee appears first.
+  // (Previous line kept for history: chargeItems.reverse();)
 
   // ✅ Resolve the GF quotation ref from OUR OWN database — NOT from a GF lookup-by-quotation_no
   // call, because GoFreight's public API has no such endpoint (confirmed against the official
@@ -2812,6 +2877,7 @@ app.post('/duplicate_inquiry', async (req, res) => {
     duplicated['Toll'] = '';
     duplicated['Reefer Fee'] = '';
     duplicated['Bond Fee'] = '';
+    duplicated['Drop Fee'] = '';
 
     duplicated['Price'] = '';
     duplicated['GP'] = '';
@@ -2829,6 +2895,7 @@ app.post('/duplicate_inquiry', async (req, res) => {
     duplicated['Toll Price'] = '';
     duplicated['Reefer Fee Price'] = '';
     duplicated['Bond Fee Price'] = '';
+    duplicated['Drop Fee Price'] = '';
 
     duplicated['Order Processing'] = duplicated['Order Processing'] || '';
     duplicated['Inbound'] = duplicated['Inbound'] || '';

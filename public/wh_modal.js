@@ -320,8 +320,8 @@
 
         '<div class="whm-tablewrap"><table class="whm-table' + (lpMode ? ' whm-lp' : '') + '">' +
           '<colgroup>' +
-            (lpMode ? '<col style="width:34%">' : '<col style="width:26px"><col style="width:150px"><col style="width:88px"><col style="width:70px">') +
-            supCols.map(function (w) { return '<col class="whm-supc" data-w="' + w + '">'; }).join('') +
+            (lpMode ? '<col style="width:46%">' : '<col style="width:26px"><col style="width:150px"><col style="width:88px"><col style="width:70px">') +
+            supCols.map(function (w) { return '<col class="whm-supc" data-w="' + w + '" style="width:' + (w === sel ? 118 : 96) + 'px">'; }).join('') +
             (showPrice ? '<col style="width:118px"><col style="width:58px">' : '') +
           '</colgroup>' +
           '<thead><tr>' +
@@ -651,6 +651,8 @@
     }
 
     function applySel() {
+      // ✅ REDESIGN: the selected supplier column is a touch wider than the reference ones
+      ov.querySelectorAll('col.whm-supc').forEach(function (col) { col.style.width = (+col.getAttribute('data-w') === sel ? 118 : 96) + 'px'; });
       ov.querySelectorAll('.whm-col').forEach(function (c) {
         var w = +c.getAttribute('data-w');
         c.classList.toggle('sel', w === sel);

@@ -4533,7 +4533,9 @@
 
         window.loadInquiries = async function () {
           try {
-            const res = await fetch('/inquiries', { credentials: 'same-origin' });
+            // ✅ MEMWATCH: a search goes to the server (?q=) so only the matching families are returned
+            const _q = String(window.searchTerm || '').trim();
+            const res = await fetch('/inquiries' + (_q ? '?q=' + encodeURIComponent(_q) : ''), { credentials: 'same-origin' });
             if (window.handleAuthError(res)) return;   // ✅ AUTH
 
             const raw = await res.text(); // ✅ 先读 text，避免 json() 直接炸
@@ -4662,6 +4664,16 @@
                 console.log('[socket] skipping reload (unsaved edits in progress)');
                 return;
               }
+              // ✅ MEMWATCH: coalesce socket-triggered reloads (one per 3 s per tab)
+              const nowTs = Date.now();
+              if (window._lastReloadAt && nowTs - window._lastReloadAt < 3000) {
+                if (!window._reloadPending) {
+                  window._reloadPending = true;
+                  setTimeout(async () => { window._reloadPending = false; window._lastReloadAt = Date.now(); if (typeof window.loadInquiries === 'function') await window.loadInquiries(); }, 3000 - (nowTs - window._lastReloadAt));
+                }
+                return;
+              }
+              window._lastReloadAt = nowTs;
               if (typeof window.loadInquiries === 'function') {
                 await window.loadInquiries();
               }

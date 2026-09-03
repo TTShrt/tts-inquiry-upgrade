@@ -3418,7 +3418,9 @@ ${qDel}`)) return;
 
         async function loadInquiries() {
           try {
-            const res = await fetch('/inquiries', { credentials: 'same-origin' });
+            // ✅ MEMWATCH: a search goes to the server (?q=) so only the matching families are returned
+            const _q = String((typeof searchTerm !== 'undefined' ? searchTerm : window.searchTerm) || '').trim();
+            const res = await fetch('/inquiries' + (_q ? '?q=' + encodeURIComponent(_q) : ''), { credentials: 'same-origin' });
             if (window.handleAuthError(res)) return;   // ✅ AUTH
 
             const raw = await res.text();   // ✅ 先拿 text

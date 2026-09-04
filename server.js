@@ -6,6 +6,7 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const fetch = require('node-fetch');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 console.log("🚀 THIS IS UPGRADE SERVER - NEW DB ONLY");
 
@@ -45,26 +46,6 @@ let mockInquiries = [
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
-
-// ✅ MEMWATCH (2026-09-03): GET /inquiries response cache.
-//    Every dashboard tab reloads the full list on each 'inquiryUpdated' broadcast; with a few
-//    users × a few tabs that meant several 1,700-row reads + JSON serialisations landing at once,
-//    which is what pushed the V8 heap past its limit (two "Reached heap limit" aborts today).
-//    Cache the SERIALISED response string per (role, groups, q, days) for a few seconds so
-//    concurrent readers share one DB read and one string. Any 'inquiryUpdated' broadcast bumps
-//    the version, so nobody ever sees a stale list after a save.
-const LIST_CACHE_TTL_MS = 5000;
-let listVersion = 0;
-const listCache = new Map();
-{
-  const _emit = io.emit.bind(io);
-  io.emit = function (ev) { if (ev === 'inquiryUpdated') { listVersion++; listCache.clear(); } return _emit.apply(io, arguments); };
-}
-function listCacheSend(res, key, payloadObj) {
-  const s = JSON.stringify(payloadObj);
-  listCache.set(key, { v: listVersion, at: Date.now(), s });
-  return res.type('application/json').send(s);
-}
 
 const PORT = process.env.PORT || 3000;
 
@@ -910,41 +891,6 @@ function applyWarehouseAutoPrices(prevDoc, doc) {
   }
 }
 
-// ✅ LPQUOTE (2026-09-03, per Lina): auto-price the dynamic List-Price rows from the SELECTED
-// vendor's cost, same 25% GP rule as the fixed buckets (price = cost / 0.75), with the same
-// manual-override protection (only rewrite when the price is empty or still equals the
-// previous auto value). Differences from autoPriceWarehouseItem, on purpose:
-//   • reads the selected supplier's cost directly ('LP n Cost S<sel>') so a stale mirrored
-//     'LP n Cost' can never feed the price;
-//   • an EMPTY cost leaves the price untouched (never clears it) — Sales may price a row
-//     before Sourcing has a cost, and old quotes keep their pre-filled list prices;
-//   • rows the user explicitly cleared this request (clearSet) are left empty;
-//   • rounding: nearest $10 at ≥ $50 (beautifyPrice), nearest $1 below that, min $1 — the
-//     nearest-10 rule would round small per-unit items (e.g. $3 cost) down to $0.
-function lpAutoPriceFrom(costNum) {
-  const raw = costNum / 0.75;
-  if (raw >= 50) return String(beautifyPrice(raw));
-  return String(Math.max(1, Math.round(raw)));
-}
-function autoPriceLpRows(prevDoc, doc, clearSet) {
-  const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
-  const safeWrite = (k, v) => { doc[k] = v; if (isMongoDoc) doc.set(k, v); };
-  const selOf = d => { const s = parseInt(String((d && d['Selected Supplier']) || '1'), 10); return (s >= 1 && s <= WH_SUPPLIER_COUNT) ? s : 1; };
-  const sel = selOf(doc), prevSel = selOf(prevDoc);
-  const lpN = lpRowCount(doc);
-  for (let i = 1; i <= lpN; i++) {
-    const priceField = 'LP ' + i + ' Price';
-    if (clearSet && clearSet.has(priceField)) continue;           // explicit clear wins
-    const n = toNumber(doc['LP ' + i + ' Cost S' + sel]);
-    if (!Number.isFinite(n) || n <= 0) continue;                   // no cost → leave price as is
-    const newAuto = lpAutoPriceFrom(n);
-    const pn = toNumber(prevDoc ? prevDoc['LP ' + i + ' Cost S' + prevSel] : undefined);
-    const oldAuto = (Number.isFinite(pn) && pn > 0) ? lpAutoPriceFrom(pn) : '';
-    const cur = String(doc[priceField] == null ? '' : doc[priceField]).trim();
-    if (cur === '' || cur === oldAuto) safeWrite(priceField, newAuto);
-  }
-}
-
 function applyBaseRateAutoPriceAndGP(doc) {
   console.log('[GP FIX] applyBaseRateAutoPriceAndGP 被呼叫');
 
@@ -1517,16 +1463,6 @@ app.get('/inquiries', async (req, res) => {
     // ✅ read source
     if (!mongoReady) return res.json([]);   // 关键：Mongo不通就不要用mock
 
-    // ✅ MEMWATCH: serve from the short-lived response cache when nothing changed meanwhile
-    const listKey = [role, salesGroup, String(req.query.q || '').trim(), String(req.query.days || '')].join('|');
-    {
-      const hit = listCache.get(listKey);
-      if (hit && hit.v === listVersion && (Date.now() - hit.at) < LIST_CACHE_TTL_MS) {
-        console.log('[READ] /inquiries role=' + (role || '?') + ' cache=1');
-        return res.type('application/json').send(hit.s);
-      }
-    }
-
     // ✅ Push the role filter into the query (sales uses the salesGroup_1 index) instead of
     // fetching every doc and filtering in JS. Verified equivalent to the in-JS filters below:
     // stored values are clean ('true' only; exact group names, no case/space variants), and
@@ -1535,7 +1471,6 @@ app.get('/inquiries', async (req, res) => {
     let queryFilter = {};
     if (role === 'sourcing') queryFilter = { 'Submitted To Sourcing': 'true' };
     else if ((role === 'sales' || role === 'ops_view') && salesGroup) queryFilter = { salesGroup: { $in: groupList(salesGroup) } };
-    const roleFilter = { ...queryFilter };   // ✅ MEMWATCH: kept for the family expansion below
 
     // ✅ WIN90: default view = last N days only (by _id timestamp — createdAt missing on all docs,
     // verified V3). A non-empty q searches the FULL history instead (no date boundary), mirroring
@@ -1550,16 +1485,9 @@ app.get('/inquiries', async (req, res) => {
       // Always try ZIP + Customer ID by prefix; ALSO try the quotation family when the input
       // parses as a quote number. 5-digit ZIPs (e.g. 98203) parse as quote numbers too, so
       // exclusive branching would shadow ZIP search — a single $or covers both readings.
-      // ✅ MEMWATCH (2026-09-03): the dashboards now send their search here instead of pulling the
-      //    full window and filtering locally. Match what their local filter matched — substring,
-      //    case-insensitive, on Quotation # / External # / To ZIP / To — so nothing users could
-      //    find before becomes unfindable. (Family prefix for quote-number input is kept below.)
       const winOr = [
-        { 'To ZIP': { $regex: winEsc(winQ), $options: 'i' } },
-        { 'Customer ID': { $regex: winEsc(winQ), $options: 'i' } },
-        { 'To': { $regex: winEsc(winQ), $options: 'i' } },
-        { 'External Quotation #': { $regex: winEsc(winQ), $options: 'i' } },
-        { 'Quotation #': { $regex: winEsc(winQ), $options: 'i' } }
+        { 'To ZIP': { $regex: '^' + winEsc(winQ) } },
+        { 'Customer ID': { $regex: '^' + winEsc(winQ), $options: 'i' } }
       ];
       if (winM) {
         const winBase = String(winM[1]).padStart(6, '0').slice(-6);
@@ -1573,28 +1501,17 @@ app.get('/inquiries', async (req, res) => {
       ) };
     }
 
-    let inquiries = await Inquiry.find(queryFilter).lean();
-    // ✅ MEMWATCH: family expansion — a search hit on any line brings back its whole family
-    //    (main + all carrier/route sub-lines), exactly like the dashboards' local filter did,
-    //    so a matched main never renders without its sub-lines.
-    if (winQ && inquiries.length) {
-      const bases = new Set();
-      inquiries.forEach(d => { const p = String(d['Parent Quotation #'] || '').trim(); bases.add(p || String(d['Quotation #'] || '').trim()); });
-      const famKeys = Array.from(bases).filter(Boolean);
-      if (famKeys.length) {
-        inquiries = await Inquiry.find({ ...roleFilter, $or: [ { 'Quotation #': { $in: famKeys } }, { 'Parent Quotation #': { $in: famKeys } } ] }).lean();
-      }
-    }
+    const inquiries = await Inquiry.find(queryFilter).lean();
     console.log('[READ] /inquiries role=' + (role || '?') + ' rows=' + inquiries.length + (winQ ? ' q=1' : ''));   // ✅ MEMWATCH
 
     // ✅ manager sees all
     if (role === 'manager') {
-      return listCacheSend(res, listKey, inquiries);
+      return res.json(inquiries);
     }
 
     // ✅ sourcing sees only "Submitted To Sourcing" inquiries
     if (role === 'sourcing') {
-      return listCacheSend(res, listKey, inquiries.filter(it => String(it['Submitted To Sourcing'] || '').toLowerCase().trim() === 'true'));
+      return res.json(inquiries.filter(it => String(it['Submitted To Sourcing'] || '').toLowerCase().trim() === 'true'));
     }
 
     // ✅ sales/ops_view: filter by salesGroup + mask unsent costs
@@ -1655,7 +1572,7 @@ app.get('/inquiries', async (req, res) => {
         return doc;
       });
 
-      return listCacheSend(res, listKey, masked);
+      return res.json(masked);
     }
 
     // fallback: no group = nothing
@@ -2017,11 +1934,13 @@ app.post('/api/lp-quote-init', async (req, res) => {
     rows.push({ i: rows.length + 1, section: 'Others', description: '', unit: '', listPrice: '', minChg: '', notes: '', custom: true });
     rows.push({ i: rows.length + 1, section: 'Others', description: '', unit: '', listPrice: '', minChg: '', notes: '', custom: true });
 
-    // Persist snapshot ONLY. (2026-09-03, per Lina) The TTS List Price is a REFERENCE and is
-    // no longer pre-filled into 'LP n Price': Sales price is auto-derived from the selected
-    // vendor's cost (autoPriceLpRows below, 25% GP) and the list price is shown on demand via
-    // the modal's "Show TTS List Price" toggle. Existing quotes keep whatever they already have.
+    // Persist snapshot + prefill Sales price with the numeric master price (empty stays empty)
     const set = { 'LP Rows': JSON.stringify(rows), 'LP Page Key': pageKey };
+    rows.forEach(r => {
+      if (!r.custom && /^\d+(\.\d+)?$/.test(String(r.listPrice)) && (force || String(doc['LP ' + r.i + ' Price'] || '').trim() === '')) {
+        set['LP ' + r.i + ' Price'] = String(r.listPrice);
+      }
+    });
     await Inquiry.updateOne({ 'Quotation #': q }, { $set: set });
     return res.json({ rows, pageKey, existing: false });
   } catch (err) {
@@ -2455,7 +2374,6 @@ if (blocked.length) {
     // Auto for other items (preserve manual overrides based on prevSnapshot)
     applyTruckingAutoPrices(prevSnapshot, existing);
     applyWarehouseAutoPrices(prevSnapshot, existing);
-    autoPriceLpRows(prevSnapshot, existing, clearSet);   // ✅ LPQUOTE: vendor-cost-driven price for List-Price rows
     computeWarehouseTotals(existing);
 
     // ========= Save =========
@@ -2661,11 +2579,10 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     return res.status(400).json({ error: 'No locked price fields found on ' + quotationId + ' — nothing to push.' });
   }
 
-  // ✅ ORDER FIX v2 (2026-08-27): the earlier assumption ("GF renders the LAST array item at
-  // the top") was wrong — live pushes show GF renders the array IN ORDER (first item = top row).
-  // The previous chargeItems.reverse() therefore displayed the group upside-down (Chassis Split
-  // first, Hauling last). Removed: send in natural order so Hauling Fee appears first.
-  // (Previous line kept for history: chargeItems.reverse();)
+  // ✅ ORDER FIX: GoFreight renders charge lines newest-first (last item in the array ends up
+  // at the TOP of the charge group). Sending in natural order (Hauling → Chassis → ... → Split)
+  // therefore displayed reversed. Reverse before sending so GF shows Hauling Fee first.
+  chargeItems.reverse();
 
   // ✅ Resolve the GF quotation ref from OUR OWN database — NOT from a GF lookup-by-quotation_no
   // call, because GoFreight's public API has no such endpoint (confirmed against the official
@@ -3299,6 +3216,123 @@ app.post('/public/inquiries', async (req, res) => {
   } catch (err) {
     console.error('[ERROR] /public/inquiries failed:', err);
     return res.status(500).json({ success: false, message: err.message || 'Server error' });
+  }
+});
+
+// ===== Carrier Application form (carrier.html) — sends an email to sourcing@totalsolutionus.com =====
+// Requires GMAIL_USER + GMAIL_APP_PASSWORD env vars (Gmail SMTP via a 16-char Google
+// "App Password" — the Workspace account needs 2-Step Verification on to generate one).
+let carrierMailTransporter = null;
+function getCarrierMailTransporter() {
+  if (carrierMailTransporter) return carrierMailTransporter;
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
+  if (!user || !pass) return null;
+  carrierMailTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user, pass }
+  });
+  return carrierMailTransporter;
+}
+
+// carrier.html is served from the main site (a different domain than this Render app),
+// so this route needs CORS enabled for that origin.
+const CARRIER_APPLY_ALLOWED_ORIGINS = new Set([
+  'https://www.totalsolutionus.com',
+  'https://totalsolutionus.com'
+]);
+function setCarrierApplyCors(req, res) {
+  const origin = req.headers.origin;
+  if (origin && CARRIER_APPLY_ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+app.options('/public/carrier-apply', (req, res) => {
+  setCarrierApplyCors(req, res);
+  res.sendStatus(204);
+});
+
+app.post('/public/carrier-apply', async (req, res) => {
+  setCarrierApplyCors(req, res);
+  try {
+    const raw = req.body || {};
+
+    // ===== Anti-spam guard (same helpers/thresholds as /public/inquiries) =====
+    if (portalRateLimited(req)) {
+      return res.status(429).json({ success: false, message: 'Too many requests. Please try again later.' });
+    }
+    // Honeypot — hidden field real users never see/fill. If filled, it's a bot:
+    // drop silently (fake success so it stops retrying), send nothing.
+    if (String(raw.website || '').trim()) {
+      return res.json({ success: true });
+    }
+    // Time-trap — a human can't complete this form in under 3s.
+    const elapsedMs = Number(raw.elapsedMs);
+    if (!Number.isFinite(elapsedMs) || elapsedMs < 3000) {
+      return res.status(400).json({ success: false, message: 'Form submitted too quickly. Please try again.' });
+    }
+
+    // ===== Field validation =====
+    const company = String(raw.company || '').trim();
+    const contact = String(raw.contact || '').trim();
+    const mc = String(raw.mc || '').trim();
+    const dot = String(raw.dot || '').trim();
+    const email = String(raw.email || '').trim();
+    const phone = String(raw.phone || '').trim();
+    let equipment = raw.equipment;
+    if (!Array.isArray(equipment)) equipment = equipment ? [equipment] : [];
+    const fleetSize = String(raw.fleet_size || '').trim();
+    const serviceArea = String(raw.service_area || '').trim();
+    const notes = String(raw.notes || '').trim();
+
+    if (!company || !contact || !mc || !dot || !phone) {
+      return res.status(400).json({ success: false, message: 'Please complete all required fields.' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+    }
+    if (!equipment.length) {
+      return res.status(400).json({ success: false, message: 'Please select at least one equipment type.' });
+    }
+    // Length caps + reject links in free-text, same spirit as the RFQ form's field sanity check.
+    if ([company, contact, notes].some(s => s.length > 500) || /https?:\/\//i.test(notes)) {
+      return res.status(400).json({ success: false, message: 'Please shorten your input and remove any links.' });
+    }
+
+    const transporter = getCarrierMailTransporter();
+    if (!transporter) {
+      console.error('[CARRIER-APPLY] GMAIL_USER / GMAIL_APP_PASSWORD not configured — cannot send email.');
+      return res.status(500).json({ success: false, message: 'Submission could not be sent. Please email sourcing@totalsolutionus.com directly.' });
+    }
+
+    const bodyLines = [
+      `Company: ${company}`,
+      `Contact: ${contact}`,
+      `MC #: ${mc}`,
+      `DOT #: ${dot}`,
+      `Email: ${email}`,
+      `Phone: ${phone}`,
+      `Equipment: ${equipment.join(', ')}`,
+      fleetSize ? `Fleet size: ${fleetSize}` : '',
+      serviceArea ? `Service area: ${serviceArea}` : '',
+      notes ? `Notes: ${notes}` : ''
+    ].filter(Boolean).join('\n');
+
+    await transporter.sendMail({
+      from: process.env.GMAIL_USER,
+      to: 'sourcing@totalsolutionus.com',
+      replyTo: email,
+      subject: `New Carrier Application — ${company}`,
+      text: bodyLines
+    });
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[CARRIER-APPLY] Error:', err?.message || err);
+    return res.status(500).json({ success: false, message: 'Something went wrong. Please try again or email sourcing@totalsolutionus.com directly.' });
   }
 });
 

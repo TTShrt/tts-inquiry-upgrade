@@ -601,12 +601,15 @@ const WH_SUPPLIER_COUNT = 5;
 // /inquiries/update's local TRUCK_COST_FIELDS/TRUCK_PRICE_FIELDS so that route's
 // scope is never touched. WH side reuses the existing WH_ALL_BUCKETS/WH_TEMPLATE_BUCKETS
 // module-level constants above so the two stay in sync automatically.
-const DELQ_TRUCK_FIELDS = [
+// ✅ DELGROUP rule (per Lina, 2026-09-04): deletability is decided by Sourcing's Cost only.
+// Price fields are ignored on purpose — several Price fields (Chassis/Yard Storage/Driver
+// Waiting/Pre-Pull Price) get a system default auto-filled the moment an inquiry is created,
+// before Sourcing ever touches it, so checking Price would block deletion of untouched/junk
+// submissions. Kept as a separate constant (not reusing DELQ_TRUCK_FIELDS name) so any other
+// caller expecting the old cost+price field list is unaffected.
+const DELQ_TRUCK_COST_FIELDS = [
   'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-  'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee',
-  'Adjusted Price', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
-  'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price',
-  'Price'
+  'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee'
 ];
 
 function delqEmptyVal(v) {
@@ -614,25 +617,26 @@ function delqEmptyVal(v) {
 }
 
 function delqTruckLineEmpty(doc) {
-  return DELQ_TRUCK_FIELDS.every(f => delqEmptyVal(doc[f]));
+  return DELQ_TRUCK_COST_FIELDS.every(f => delqEmptyVal(doc[f]));
 }
 
 function delqWhLineEmpty(doc) {
+  // ✅ DELGROUP rule (per Lina, 2026-09-04): Cost only, Price ignored — see comment above
+  // DELQ_TRUCK_COST_FIELDS for why. Same rule applied consistently to the WH side.
   for (const b of WH_ALL_BUCKETS) {
-    if (!delqEmptyVal(doc[b]) || !delqEmptyVal(doc[b + ' Price'])) return false;
+    if (!delqEmptyVal(doc[b])) return false;
   }
   for (const b of WH_TEMPLATE_BUCKETS) {
     for (let s = 1; s <= WH_SUPPLIER_COUNT; s++) {
       if (!delqEmptyVal(doc[b + ' Cost S' + s])) return false;
     }
   }
-  // ✅ LPQUOTE: dynamic List-Price rows also count as cost/price
+  // ✅ LPQUOTE: dynamic List-Price rows — Cost only, same rule
   try {
     const lpArr = JSON.parse(String(doc['LP Rows'] || '[]'));
     if (Array.isArray(lpArr)) {
       for (const r of lpArr) {
         if (!delqEmptyVal(doc['LP ' + r.i + ' Cost'])) return false;
-        if (!delqEmptyVal(doc['LP ' + r.i + ' Price'])) return false;
         for (let s = 1; s <= WH_SUPPLIER_COUNT; s++) {
           if (!delqEmptyVal(doc['LP ' + r.i + ' Cost S' + s])) return false;
         }

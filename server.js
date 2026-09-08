@@ -9,6 +9,7 @@ const cookieParser = require('cookie-parser');
 const fetch = require('node-fetch');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
+const { createEntrySecurity, configureProxy, clientIp, normalizeInquiry, SESSION_COOKIE, SESSION_MS, COOKIE_OPTIONS } = require('./security/entry-security.cjs');
 console.log("🚀 THIS IS UPGRADE SERVER - NEW DB ONLY");
 
 const USE_MOCK = process.env.USE_MOCK === 'true';
@@ -50,21 +51,30 @@ const io = socketIo(server);
 
 const PORT = process.env.PORT || 3000;
 
+// Entry security: roles still come from the existing users table; identity comes from a revocable session.
+configureProxy(app, process.env);
+const entrySecurity = createEntrySecurity({
+  env: process.env, fetch, mock: USE_MOCK, getUsers: () => users,
+  getCollection: () => conn && conn.readyState === 1 ? conn.collection('web_sessions') : null
+});
+const sessionSockets = new Map();
 app.use(cookieParser(process.env.COOKIE_SECRET));
-// ✅ #1 auth hardening: trust ONLY signed cookies. cookie-parser puts verified signed
-// cookies in req.signedCookies; forged/tampered unsigned cookies never appear there.
-// Pointing req.cookies at the verified set makes every existing req.cookies.x read
-// forgery-proof — role / salesGroup / username can no longer be edited client-side.
-app.use((req, _res, next) => { req.cookies = req.signedCookies || {}; next(); });
-// ✅ Offboarding guard: a verified cookie is only honored while its username still exists in
-// `users`. Deleting or renaming a user in `users` (+ deploy) invalidates that person's existing
-// cookie on their very next request — not just future logins. Runs per-request; `users` is
-// initialized at module load (below) before any request is served, so referencing it here is safe.
-app.use((req, _res, next) => {
-  const uname = req.cookies && req.cookies.username;
-  const user = users.find(u => u.username === uname);
-  req.cookies = user ? { username: user.username, role: user.role, salesGroup: user.salesGroup || '' } : {};
-  next();
+app.use(async (req, res, next) => {
+  req.cookies = {};
+  const token = req.signedCookies?.[SESSION_COOKIE];
+  if (token || ['/user', '/login', '/logout'].includes(req.path)) res.set('Cache-Control', 'no-store');
+  if (!token) return next();
+  try {
+    const session = await entrySecurity.resolveSession(token);
+    if (session) {
+      req.authSession = session;
+      const user = session.user;
+      req.cookies = { username: user.username, role: user.role, salesGroup: user.salesGroup || '' };
+    }
+    next();
+  } catch (_) {
+    return res.status(503).json({ success: false, message: 'Login service temporarily unavailable. Please try again later.' });
+  }
 });
 
 // ==============================
@@ -438,20 +448,45 @@ function conflict(res, message) {
   return res.status(409).json({ success: false, message: message || 'This quotation changed while you were editing. Reload it and try again.' });
 }
 
-// Authenticate sockets with the same signed username and current account definition.
+// Sockets use the same database-backed, expiring session as HTTP requests.
 io.use((socket, next) => {
-  cookieParser(process.env.COOKIE_SECRET)(socket.request, {}, () => {
-    const username = socket.request.signedCookies?.username;
-    const user = users.find(u => u.username === username);
-    if (!user) return next(new Error('Not authenticated'));
-    socket.data = socket.data || {};
-    socket.data.username = user.username;
-    next();
+  cookieParser(process.env.COOKIE_SECRET)(socket.request, {}, async () => {
+    try {
+      const session = await entrySecurity.resolveSession(socket.request.signedCookies?.[SESSION_COOKIE]);
+      if (!session) return next(new Error('Not authenticated'));
+      socket.data = socket.data || {};
+      socket.data.username = session.user.username;
+      socket.data.authSession = session;
+      next();
+    } catch (_) { next(new Error('Authentication unavailable')); }
   });
 });
 io.on('connection', socket => {
+  const session = socket.data.authSession;
   const user = users.find(u => u.username === socket.data.username);
-  if (!user) return socket.disconnect(true);
+  if (!user || !session || session.expiresAt <= Date.now()) return socket.disconnect(true);
+  if (!sessionSockets.has(session.id)) sessionSockets.set(session.id, new Set());
+  sessionSockets.get(session.id).add(socket);
+  const expiryTimer = setTimeout(() => socket.disconnect(true), session.expiresAt - Date.now());
+  expiryTimer.unref?.();
+  // Recheck shared storage so logout on another instance also closes the socket (within 60s).
+  let checking = false;
+  const checkTimer = setInterval(async () => {
+    if (checking) return;
+    checking = true;
+    try {
+      if (!await entrySecurity.resolveSession(socket.request.signedCookies?.[SESSION_COOKIE])) socket.disconnect(true);
+    } catch (_) { socket.disconnect(true); }
+    finally { checking = false; }
+  }, 60000);
+  checkTimer.unref?.();
+  socket.on('disconnect', () => {
+    clearTimeout(expiryTimer);
+    clearInterval(checkTimer);
+    const sockets = sessionSockets.get(session.id);
+    sockets?.delete(socket);
+    if (sockets && !sockets.size) sessionSockets.delete(session.id);
+  });
   if (user.role === 'manager') socket.join('role:manager');
   if (user.role === 'sourcing') socket.join('role:sourcing');
   if (user.role === 'sales' || user.role === 'ops_view') {
@@ -1166,7 +1201,6 @@ function detectAnyChange(existing, incoming, fields) {
   return false;
 }
 
-const loginAttempts = new Map();
 async function verifyPassword(password, encoded) {
   if (typeof password !== 'string' || password.length > 1024) return false;
   const parts = String(encoded || '').split('$');
@@ -1176,28 +1210,28 @@ async function verifyPassword(password, encoded) {
   return expected.length === actual.length && crypto.timingSafeEqual(actual, expected);
 }
 app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  console.log('[DEBUG] /login called with username:', username);
-
-  const now = Date.now();
-  for (const [key, entry] of loginAttempts) if (entry.until <= now) loginAttempts.delete(key);
-  const ip = (req.ip || req.socket?.remoteAddress || 'unknown') + ':' + String(username || '').slice(0, 128);
-  const entry = loginAttempts.get(ip) || { count: 0, until: now + 15 * 60 * 1000 };
-  if (entry.count >= 20) return res.status(429).json({ success: false, message: 'Too many login attempts. Please try again later.' });
-  entry.count++;
-  if (loginAttempts.size < 10000 || loginAttempts.has(ip)) loginAttempts.set(ip, entry);
+  const { username, password } = req.body || {};
+  if (entrySecurity.loginRateLimited(req, typeof username === 'string' ? username : '')) {
+    return res.status(429).json({ success: false, message: 'Too many login attempts. Please try again later.' });
+  }
+  if (typeof username !== 'string' || username.length > 128 || typeof password !== 'string' || password.length > 1024) {
+    return res.status(400).json({ success: false, message: 'Invalid login request.' });
+  }
   const user = users.find(u => u.username === username);
   let valid = false;
   try { valid = await verifyPassword(password, (user || users[0]).passwordHash); }
   catch (err) { return res.status(503).json({ success: false, message: 'Login temporarily unavailable.' }); }
   if (!user || !valid) return res.json({ success: false, message: 'Invalid credentials' });
-  loginAttempts.delete(ip);
-
-  // ✅ cookies — SameSite:Lax ensures cookies are sent on same-origin POST/GET in all browsers (Chrome, Edge, Firefox, Safari)
-  const cookieOpts = { sameSite: 'Lax', httpOnly: true, secure: true, signed: true, maxAge: 8 * 60 * 60 * 1000 };
-  res.cookie('username', user.username, cookieOpts);
-  res.cookie('role', user.role, cookieOpts);
-  res.cookie('salesGroup', user.salesGroup || '', cookieOpts);
+  try {
+    if (!process.env.COOKIE_SECRET) throw new Error('Cookie signing unavailable');
+    // Re-login rotates this browser's previous token; no user-wide logout or role change.
+    await entrySecurity.revokeSession(req.signedCookies?.[SESSION_COOKIE]);
+    const session = await entrySecurity.createSession(user);
+    res.cookie(SESSION_COOKIE, session.token, { ...COOKIE_OPTIONS, maxAge: SESSION_MS });
+    ['username', 'role', 'salesGroup'].forEach(name => res.clearCookie(name, { path: '/' }));
+  } catch (_) {
+    return res.status(503).json({ success: false, message: 'Login temporarily unavailable.' });
+  }
 
   const role = String(user.role || '').toLowerCase();
 
@@ -3253,11 +3287,18 @@ app.get('/user', async (req, res) => {
   res.json({ username, role, salesGroup: salesGroup || '', email: emailFor(username, salesGroup) });   // ✅ EMAIL
 });
 
-app.get('/logout', (req, res) => {
-  res.clearCookie('username');
-  res.clearCookie('role');
-  res.clearCookie('salesGroup'); // ✅ add
-  return res.redirect('/index.html');
+app.get('/logout', async (req, res) => {
+  try {
+    await entrySecurity.revokeSession(req.signedCookies?.[SESSION_COOKIE]);
+    if (req.authSession) {
+      for (const socket of sessionSockets.get(req.authSession.id) || []) socket.disconnect(true);
+    }
+    res.clearCookie(SESSION_COOKIE, COOKIE_OPTIONS);
+    ['username', 'role', 'salesGroup'].forEach(name => res.clearCookie(name, { path: '/' }));
+    return res.redirect('/index.html');
+  } catch (_) {
+    return res.status(503).send('Logout temporarily unavailable. Please try again.');
+  }
 });
 
 /* =========================================================
@@ -3289,28 +3330,59 @@ function regionAssignment(region) {
 }
 
 // Public endpoint (NO cookies required)
-// ---- Customer portal anti-spam: simple in-memory per-IP rate limit ----
-const portalSubmitLog = new Map(); // ip -> [timestamps within window]
-const PORTAL_RL_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const PORTAL_RL_MAX = 5;                     // max submissions per IP per window
-function portalClientIp(req) {
-  const xff = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  return xff || req.socket?.remoteAddress || 'unknown';
-}
-function portalRateLimited(req) {
-  const ip = portalClientIp(req);
-  const now = Date.now();
-  const arr = (portalSubmitLog.get(ip) || []).filter(t => now - t < PORTAL_RL_WINDOW_MS);
-  if (arr.length >= PORTAL_RL_MAX) { portalSubmitLog.set(ip, arr); return true; }
-  arr.push(now);
-  portalSubmitLog.set(ip, arr);
-  return false;
-}
+// Shared with carrier submissions: trust only Express's configured proxy chain.
+const portalClientIp = clientIp;
+const portalRateLimited = entrySecurity.portalRateLimited;
+const PORTAL_FIELD_ALIASES = [
+  ["email", "Email"],
+  ["region", "Region"],
+  ["companyName", "Company Name"],
+  ["contactName", "Contact Name"],
+  ["phone", "Phone"],
+  ["customerId", "Customer ID"],
+  ["inquiryType", "Inquiry Type"],
+  ["containerSize", "Container Size"],
+  ["dryVanType", "Dry Van Type"],
+  ["legalOverWeight", "Legal or Over Weight"],
+  ["grossWeight", "Gross Weight"],
+  ["liveOrDrop", "Live or Drop"],
+  ["from", "From"],
+  ["toCity", "To City"],
+  ["toState", "To State"],
+  ["toZip", "To ZIP"],
+  ["to", "To"],
+  ["qty", "QTY"],
+  ["commodity", "Commodity"],
+  ["packageType", "Package Type"],
+  ["packagesPerContainer", "Packages Per Container"],
+  ["hazmat", "Hazmat"],
+  ["reefer", "Reefer"],
+  ["bonded", "Bonded"],
+  ["serviceTypes", "Service Types"],
+  ["serviceSubtypes", "Service Subtypes"],
+  ["eta", "ETA"],
+  ["numContainers", "# of Containers"],
+  ["needWarehouseService", "Need Warehouse Service"],
+  ["warehouseServices", "Warehouse Services"],
+  ["warehouseServiceDetail", "Warehouse Service Detail"],
+  ["estimatedPallets", "Estimated Pallets"],
+  ["estimatedBoxes", "Estimated Boxes"],
+  ["estimatedSkuCount", "Estimated SKU Count"],
+  ["storageDuration", "Storage Duration"],
+  ["storageDurationUnit", "Storage Duration Unit"],
+  ["warehouseNote", "Warehouse Note"],
+  ["note", "Note"],
+  ["truckInquiryNote", "Truck Inquiry Note"]
+];
 
 app.post('/public/inquiries', async (req, res) => {
   try {
     if (!USE_MOCK && !dbReady(res)) return;
-    const raw = req.body || {};
+    const submitted = req.body;
+    if (!submitted || typeof submitted !== 'object' || Array.isArray(submitted)) {
+      return res.status(400).json({ success: false, message: 'Please submit a valid form.' });
+    }
+    let raw;
 
     // ===== Anti-spam guard (this endpoint is public) =====
     // 1) Per-IP rate limit — caps floods from a single source.
@@ -3319,48 +3391,23 @@ app.post('/public/inquiries', async (req, res) => {
     }
     // 2) Honeypot — a hidden field real users never see. If filled, it's a bot: drop
     //    silently (fake success so it stops retrying) and save nothing.
-    if (String(raw.website || '').trim()) {
+    if (String(submitted.website || '').trim()) {
       return res.json({ success: true, portalRef: genPortalRef(), assignedSales: '—' });
     }
-    // 3) Time-trap — a human can't complete this form in under 3s; a direct POST won't carry a valid value.
-    const elapsedMs = Number(raw.elapsedMs);
+    // 3) Elapsed time is a client-controlled spam heuristic, not proof of a human user.
+    const elapsedMs = Number(submitted.elapsedMs);
     if (!Number.isFinite(elapsedMs) || elapsedMs < 3000) {
       return res.status(400).json({ success: false, message: 'Form submitted too quickly. Please try again.' });
     }
-    // 3.5) Cloudflare Turnstile — verify the bot-challenge token. Only enforced when the
-    //      TURNSTILE_SECRET_KEY env var is set, so deploying before you configure it won't break the form.
-    const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET_KEY;
-    if (TURNSTILE_SECRET) {
-      const tsToken = String(raw['cf-turnstile-response'] || raw.turnstileToken || '').trim();
-      if (!tsToken) {
-        return res.status(400).json({ success: false, message: 'Please complete the verification and try again.' });
-      }
-      try {
-        const tsRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({ secret: TURNSTILE_SECRET, response: tsToken, remoteip: portalClientIp(req) })
-        });
-        const tsJson = await tsRes.json();
-        if (!tsJson.success) {
-          return res.status(400).json({ success: false, message: 'Verification failed. Please reload and try again.' });
-        }
-      } catch (e) {
-        // Fail-open on a transient network error so a Cloudflare hiccup doesn't drop a real lead;
-        // the honeypot / time-trap / rate-limit layers above still apply.
-        console.warn('[PORTAL] Turnstile verify error (allowing through):', e?.message || e);
-      }
-    }
-    // 4) Field sanity — strict email format, length caps, and reject links in free-text fields.
-    const emailStr = String(raw.email || raw['Email'] || '').trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) {
+    // Normalize aliases before validation; unknown fields cannot set internal workflow/price fields.
+    try { raw = normalizeInquiry(submitted, PORTAL_FIELD_ALIASES); }
+    catch (err) { return res.status(400).json({ success: false, message: err.message }); }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw.email.trim())) {
       return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
     }
-    const tooLong = v => String(v || '').length > 1000;
-    const hasLink = v => /(https?:\/\/|www\.|\[url)/i.test(String(v || ''));
-    if ([raw.companyName, raw.contactName, raw.from, raw.note, raw.warehouseNote].some(tooLong) ||
-        [raw.companyName, raw.contactName, raw.note, raw.warehouseNote].some(hasLink)) {
-      return res.status(400).json({ success: false, message: 'Submission rejected. Please remove links and shorten long fields.' });
+    const verificationError = await entrySecurity.verifyTurnstile(submitted, req);
+    if (verificationError) {
+      return res.status(verificationError.status).json({ success: false, message: verificationError.message });
     }
     // ===== end anti-spam guard =====
 
@@ -3491,7 +3538,7 @@ app.post('/public/inquiries', async (req, res) => {
     return res.json({ success: true, portalRef, assignedSales, salesGroup, quotationId: saved['Quotation #'] });
   } catch (err) {
     console.error('[ERROR] /public/inquiries failed:', err);
-    return res.status(500).json({ success: false, message: err.message || 'Server error' });
+    return res.status(500).json({ success: false, message: 'Unable to save your inquiry. Please try again later.' });
   }
 });
 

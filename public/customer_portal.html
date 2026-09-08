@@ -560,11 +560,12 @@
       }
     })();
 
-    function setResult(type, html) {
+    function setResult(type, message) {
       const box = document.getElementById('resultBox');
       box.className = type === 'ok' ? 'ok' : 'bad';
       box.style.display = 'block';
-      box.innerHTML = html;
+      box.textContent = String(message);
+      box.style.whiteSpace = 'pre-line';
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -632,7 +633,7 @@
         }
 
         if (missing.length) {
-          setResult('bad', '⚠️ Warehouse service requires these fields: <b>' + missing.join(', ') + '</b>. Please complete them and submit again.');
+          setResult('bad', '⚠️ Warehouse service requires these fields: ' + missing.join(', ') + '. Please complete them and submit again.');
           submitBtn.disabled = false;
           submitBtn.textContent = 'Submit Inquiry';
           return;
@@ -689,28 +690,32 @@
       // Anti-spam: how long the form was open (server rejects sub-3s / missing).
       data.elapsedMs = Date.now() - (window.__rfqLoadedAt || 0);
 
+      if (!String(data['cf-turnstile-response'] || '').trim()) {
+        setResult('bad', 'Please complete the verification before submitting.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Inquiry';
+        return;
+      }
       try {
         const res = await fetch('/public/inquiries', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
-        const j = await res.json();
+        const j = await res.json().catch(() => ({}));
         if (!res.ok || !j.success) {
-          setResult('bad', '❌ Submit failed: ' + (j.message || res.status));
+          setResult('bad', '❌ Submit failed: ' + (j.message || (res.status === 429 ? 'Too many requests. Please try again later.' : 'Service temporarily unavailable. Please try again later.')));
           return;
         }
-        setResult('ok', `
-          <div style="font-weight:700; font-size:0.9rem; margin-bottom:6px;">✅ Request received!</div>
-          <div>Reference ID: <span class="ref">${j.portalRef}</span></div>
-          <div style="margin-top:4px;">Assigned Sales: <strong>${j.assignedSales}</strong></div>
-        `);
+        setResult('ok', `✅ Request received!\nReference ID: ${j.portalRef || ''}\nAssigned Sales: ${j.assignedSales || ''}`);
         form.reset();
         needWH.checked = false;
         whBlock.style.display = 'none';
       } catch (err) {
-        setResult('bad', '❌ Network error: ' + err.message);
+        setResult('bad', '❌ Connection interrupted. Your request may have reached us. Please confirm receipt before submitting it again.');
       } finally {
+        // Tokens are single-use, including attempts that verified but failed while saving.
+        try { window.turnstile?.reset(); } catch (_) {}
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Inquiry';
       }

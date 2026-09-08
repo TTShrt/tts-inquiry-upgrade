@@ -118,7 +118,7 @@ var _authRedirecting = false;   // same guard name/pattern as the dashboards' ha
 var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
 
 function qlHandleAuthError(status) {
-  if (status !== 401 && status !== 403) return false;
+  if (status !== 401) return false;
   if (_authRedirecting) return true;
   _authRedirecting = true;
   alert('登录已过期或没有权限，请重新登录。\nSession expired or not authorized. Please log in again.');
@@ -158,7 +158,7 @@ function qlRenderLine(g, line) {
   return '<div class="linecard">' +
     '<div class="lrow1"><span class="lroute">' + route + '</span>' +
     '<span class="ltype">' + esc(line.inquiryType || '') + (line.containerSize ? ' · ' + esc(line.containerSize) : '') + '</span>' +
-    '<button class="lbtn" onclick="event.stopPropagation();window.open(\'/quotation_print.html?q=' + encodeURIComponent(line.line) + '\',\'_blank\')">PDF</button></div>' +
+    (qlRole === 'ops_view' ? '' : '<button class="lbtn" onclick="event.stopPropagation();window.open(\'/quotation_print.html?q=' + encodeURIComponent(line.line) + '\',\'_blank\')">PDF</button>') + '</div>' +
     '<div class="lrow2">' +
     '<span><span class="lbl">Adj. price </span><span style="font-weight:600;">' + (line.adjPrice ? '$' + esc(line.adjPrice) : '—') + '</span></span>' +
     '<span><span class="lbl">GP </span>' + qlGPHtml(line) + '</span>' +
@@ -215,6 +215,7 @@ function qlToggle(rowEl) {
 async function qlToggleGF(cb) {
   var base = cb.getAttribute('data-base');
   var want = cb.checked;
+  if (!want && !confirm('This clears the local GF confirmation only; it does not remove charges from GoFreight. Continue?')) { cb.checked = true; return; }
   cb.disabled = true;
   try {
     var r = await fetch('/api/mark-pushed-gf', {
@@ -224,14 +225,9 @@ async function qlToggleGF(cb) {
     });
     if (qlHandleAuthError(r.status)) return;
     var d = await r.json();
-    if (!r.ok || !d.success) throw new Error(d.error || ('HTTP ' + r.status));
-    var g = qlGroups.find(function (x) { return x.base === base; });
-    if (g) {
-      g.pushedToGF = want; g.pushedToGFAt = new Date().toISOString();
-      if (want && g.status === 'Confirmed') g.status = 'Sent';
-      if (want === false && g.status === 'Sent') g.status = 'Confirmed';
-    }
-    qlRender();
+    if (!r.ok || !d.success) throw new Error(d.error || d.message || ('HTTP ' + r.status));
+    await qlLoad();
+
   } catch (e) {
     cb.checked = !want;
     alert('更新失败 / Update failed: ' + e.message);
@@ -266,6 +262,7 @@ async function qlDeleteGroup(btn) {
 }
 
 async function qlLoad() {
+  var requestId = window._qlRequestId = (window._qlRequestId || 0) + 1;
   document.getElementById('metaTxt').textContent = 'Loading…';
   var p = new URLSearchParams();
   p.set('days', document.getElementById('daysSel').value);
@@ -277,6 +274,7 @@ async function qlLoad() {
     if (qlHandleAuthError(r.status)) return;
     var d = await r.json();
     if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    if (requestId !== window._qlRequestId) return;
     qlRole = d.role || '';
     qlGroups = d.groups || [];
 

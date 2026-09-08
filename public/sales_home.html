@@ -232,9 +232,10 @@
 
     async function loadKPI() {
       try {
-        const r = await fetch('/api/kpi');
+        const r = await fetch('/api/kpi', { credentials: 'same-origin' });
+        if (r.status === 401) { window.location.href = '/index.html'; return; }
         const d = await r.json();
-        if (d.error) throw new Error(d.error);
+        if (!r.ok || d.error || d.success === false) throw new Error(d.error || d.message || 'Unable to load data.');
 
         document.getElementById('kpi-total').textContent = d.total ?? '—';
         document.getElementById('kpi-month').textContent = `This month: ${d.thisMonth ?? 0}`;
@@ -267,6 +268,15 @@
       }
     }
 
+    fetch('/user', { credentials: 'same-origin' }).then(async r => {
+      if (r.status === 401) { window.location.href = '/index.html'; return; }
+      if (!r.ok) return;
+      const user = await r.json();
+      document.getElementById('username').textContent = user.username || '';
+      if (user.role === 'ops_view') {
+        document.querySelectorAll('a[onclick]').forEach(a => { if ((a.getAttribute('onclick') || '').includes('openForm')) a.style.display = 'none'; });
+      }
+    }).catch(() => {});
     loadKPI();
   </script>
 </body>

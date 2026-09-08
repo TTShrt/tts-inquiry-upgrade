@@ -85,7 +85,7 @@
   function selectedCost(item, field, kind, sel) {
     if (kind === 'legacy') return item[field];
     var v = item[field + ' Cost S' + sel];
-    if (v != null && String(v).trim() !== '') return v;
+    if (Array.from({length: SUP}, function (_, i) { return field + ' Cost S' + (i + 1); }).some(function (k) { return item[k] !== undefined; })) return v == null ? '' : v;
     // old reused docs: value lives in the bare field, no supplier columns yet
     return item[field];
   }
@@ -95,8 +95,11 @@
   WHModal.totals = function (item) {
     item = item || {};
     var sel = selIdx(item), cost = 0, price = 0;
-    GROUPS.forEach(function (g) {
+    var hasLp = false; try { hasLp = JSON.parse(String(item['LP Rows'] || '[]')).length > 0; } catch (_) {}
+    var hasSelection = Object.keys(item).some(function (k) { return k.endsWith(' OnQuote'); });
+    if (!hasLp) GROUPS.forEach(function (g) {
       g.buckets.forEach(function (b) {
+        if (hasSelection && b[4] !== 'legacy' && !isTruthy(item[b[1] + ' OnQuote'])) return;
         cost += num(selectedCost(item, b[1], b[4], sel));
         price += num(item[b[1] + ' Price']);
       });
@@ -106,7 +109,7 @@
     try { lpArr = JSON.parse(String(item['LP Rows'] || '[]')); if (!Array.isArray(lpArr)) lpArr = []; } catch (eT) { lpArr = []; }
     lpArr.forEach(function (r) {
       var c = item['LP ' + r.i + ' Cost S' + sel];
-      if (c === undefined || c === null || String(c).trim() === '') c = item['LP ' + r.i + ' Cost'];
+      c = selectedCost(item, 'LP ' + r.i, 'template', sel);
       cost += num(c);
       price += num(item['LP ' + r.i + ' Price']);
     });
@@ -237,6 +240,13 @@
 
     injectStyles();
 
+    var saveQueue = Promise.resolve(true);
+    var saveFailed = false;
+    var changedSinceOpen = !!opts._templateChanged;
+    delete opts._templateChanged;
+    var closing = false;
+    var disposed = false;
+    var templateBusy = false;
     var draft = {};                            // changed fields pending save
     var sel = selIdx(item);
     function get(f) { return (f in draft) ? draft[f] : (item[f] == null ? '' : item[f]); }
@@ -364,22 +374,25 @@
     }
     // ✅ LPQUOTE: first open of a sub-typed inquiry — build the snapshot server-side, then re-render
     if (lpPending) {
+      templateBusy = true; ov.inert = true;
       fetch('/api/lp-quote-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ q: quote }) })
         .then(function (rr) { return rr.json().then(function (dd) { return { ok: rr.ok, d: dd }; }); })
         .then(function (x) {
           if (!document.body.contains(ov)) return;   // modal was closed meanwhile
           if (!x.ok) {
             var tdErr = ov.querySelector('tr td[colspan="20"]');
-            if (tdErr) tdErr.textContent = (x.d && x.d.error) || 'Failed to prepare the quote template.';
+            if (tdErr) tdErr.textContent = (x.d && (x.d.error || x.d.message)) || 'Failed to prepare the quote template.';
             return;
           }
           item['LP Rows'] = JSON.stringify(x.d.rows);
           item['LP Page Key'] = x.d.pageKey || '';
-          // (2026-09-03) List Price is no longer pre-filled into the Price column — see server lp-quote-init.
-          ov.remove();
+          if (x.d.data) Object.assign(item, x.d.data); // Use the same saved prices/totals as the server.
+          opts._templateChanged = true;
+          dispose();
           WHModal.open(opts);   // re-render with the fresh snapshot
         })
-        .catch(function (e3) { console.error('lp-quote-init error:', e3); });
+        .catch(function (e3) { console.error('lp-quote-init error:', e3); })
+        .finally(function () { templateBusy = false; ov.inert = false; });
     }
 
     /* small HTML builders used above */
@@ -409,7 +422,7 @@
 
         rowsHTML += '<tr data-row data-g="' + gi + '" data-field="' + esc(fld) + '" data-kind="' + kind + '">';
         rowsHTML += '<td class="whm-oqcol">' + (kind === 'template'
-          ? '<input type="checkbox" class="whm-oq" data-onquote="' + esc(fld) + '" ' + (get(fld + ' OnQuote') === 'true' ? 'checked' : '') + (canEditCommon ? '' : ' disabled') + '>'
+          ? '<input type="checkbox" class="whm-oq" data-onquote="' + esc(fld) + '" ' + (isTruthy(get(fld + ' OnQuote')) ? 'checked' : '') + (canEditCommon ? '' : ' disabled') + '>'
           : '') + '</td>';
         rowsHTML += '<td class="l ' + (kind === 'legacy' ? 'whm-exist' : '') + '">' + esc(label) + '</td>';
         // qty
@@ -513,6 +526,7 @@
       return String(Math.max(1, Math.round(raw)));
     }
     function applyAutoLp() {
+      if (!canEditPrice) return [];
       if (!lpMode || !canEditPrice) return;
       var touched = [];
       ov.querySelectorAll('tr[data-row][data-kind="lp"]').forEach(function (tr) {
@@ -551,11 +565,12 @@
           var anyCost = false; ov.querySelectorAll('.whm-cell[data-cost],.whm-cell[data-costbare]').forEach(function (i) { if (String(i.value).trim() !== '') anyCost = true; });
           if (!anyCost) { cb.checked = false; window.alert('Enter at least one supplier cost before sending to Sales.'); return; }
         }
+        clearTimeout(saveTimer);
         cb.disabled = true;
         var ok = await postUpdate({ 'warehouseCostSaved': 'true', 'warehouseCostSent': want ? 'true' : 'false', 'warehouseCostDraft': want ? 'false' : 'true' });
         cb.disabled = confirmedWH;
         if (!ok) { setSendUI(!want); return; }
-        setSendUI(want); flashSaved(want ? '\u2713 sent to Sales' : '\u2713 unsent'); onSaved();
+        setSendUI(want); flashSaved(want ? '\u2713 sent to Sales' : '\u2713 unsent');
       });
     }
     function initLpToggle() {
@@ -572,6 +587,8 @@
 
     function recalc() {
       var tc = 0, tp = 0;
+      var explicitSelection = Object.keys(mergedItem()).some(function (k) { return k.endsWith(' OnQuote'); });
+      function counts(tr) { return lpMode || tr.getAttribute('data-kind') === 'legacy' || !explicitSelection || isTruthy(get(tr.getAttribute('data-field') + ' OnQuote')); }
       ov.querySelectorAll('tr[data-row]').forEach(function (tr) {
         var fld = tr.getAttribute('data-field'), kind = tr.getAttribute('data-kind');
         var c = curSelectedCostFor(fld, kind);
@@ -582,13 +599,13 @@
           if (p > 0 && (c || p)) { var g = (p - c) / p * 100; gpEl.textContent = Math.round(g) + '%'; gpEl.style.color = g >= 0 ? '#15803d' : '#b91c1c'; }
           else { gpEl.textContent = '\u2014'; gpEl.style.color = '#9aa1ab'; }
         }
-        if (c || p) { tc += c; tp += p; }
+        if (counts(tr) && (c || p)) { tc += c; tp += p; }
       });
       // group subtotals (price)
       GROUPS.forEach(function (g, gi) {
         var sub = 0;
         ov.querySelectorAll('tr[data-row][data-g="' + gi + '"]').forEach(function (tr) {
-          var pEl = tr.querySelector('.whm-cell[data-price]'); if (pEl) sub += num(pEl.value);
+          var pEl = tr.querySelector('.whm-cell[data-price]'); if (pEl && counts(tr)) sub += num(pEl.value);
         });
         var cell = ov.querySelector('[data-gsub="' + gi + '"]'); if (cell) cell.textContent = sub ? money(sub) : '';
       });
@@ -664,10 +681,13 @@
     function applyLockUI() {
       var lb = String(get('WH Locked By') || '').toLowerCase().trim();
       var locked = (lb === 'sales' || lb === 'manager');
-      ov.querySelectorAll('input[name="whm-selwh"]').forEach(function (r) { r.disabled = !canEditPrice || locked; });
-      ov.querySelectorAll('.whm-sname').forEach(function (s) { s.disabled = !canEditCost || locked; });
-      ov.querySelectorAll('.whm-cell[data-cost],.whm-cell[data-costbare]').forEach(function (c) { c.disabled = !canEditCost || locked; });
-      ov.querySelectorAll('.whm-cell[data-price]').forEach(function (p) { p.disabled = !canEditPrice || locked; });
+      var confirmed = role === 'sourcing' ? (isTruthy(item.warehouseSalesConfirmed) || isTruthy(item.warehouseManagerConfirmed)) : role === 'sales' && isTruthy(item.warehouseManagerConfirmed);
+      var frozen = locked || confirmed;
+      ov.querySelectorAll('input[name="whm-selwh"]').forEach(function (r) { r.disabled = !canEditPrice || frozen; });
+      ov.querySelectorAll('.whm-sname').forEach(function (s) { s.disabled = !canEditCost || frozen; });
+      ov.querySelectorAll('.whm-cell[data-cost],.whm-cell[data-costbare]').forEach(function (c) { c.disabled = !canEditCost || frozen; });
+      ov.querySelectorAll('.whm-cell[data-price]').forEach(function (p) { p.disabled = !canEditPrice || frozen; });
+      ov.querySelectorAll('[data-svcsub]').forEach(function (cb) { cb.disabled = !canEditCommon || frozen; });
       var st = ov.querySelector('[data-lockstate]');
       if (st) st.textContent = locked ? ('\uD83D\uDD12 Locked by ' + (lb === 'manager' ? 'Manager' : 'Sales')) : '';
       var b = ov.querySelector('[data-lock]');
@@ -684,6 +704,7 @@
 
     /* ---- change tracking + autosave ---- */
     function trackField(el) {
+      if (!el || el.disabled || el.readOnly) return [];
       var f = el.getAttribute('data-field');
       if (f) { set(f, el.value); return [f]; }
       if (el.hasAttribute('data-lpdesc')) { set('LP ' + el.getAttribute('data-lpdesc') + ' Desc', el.value); return ['LP ' + el.getAttribute('data-lpdesc') + ' Desc']; }   // ✅ LPQUOTE
@@ -707,7 +728,12 @@
     var saveTimer = null;
     function flashSaved(txt) { var el = ov.querySelector('[data-savestate]'); el.textContent = txt; if (txt) setTimeout(function () { if (el.textContent === txt) el.textContent = ''; }, 2500); }
 
-    async function postUpdate(fields) {
+    function postUpdate(fields) {
+      var snapshot = Object.assign({}, draft, fields);
+      saveQueue = saveQueue.then(function () { return sendUpdate(snapshot); }, function () { return sendUpdate(snapshot); });
+      return saveQueue;
+    }
+    async function sendUpdate(fields) {
       var payload = { 'Quotation #': quote, 'Saved': 'true' };
       if (role === 'sourcing') {
         payload['warehouseCostSaved'] = 'true';
@@ -741,23 +767,92 @@
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin', body: JSON.stringify(payload)
         });
-        if (!res.ok) { var t = await res.text(); console.error('WH save failed:', t); flashSaved(''); return false; }
-        // ✅ REDESIGN: any Sourcing cost save re-drafts the scope (server forces Sent=false) —
-        //    mirror that on the in-modal "Send cost to Sales" box so it never shows stale "sent".
-        if (role === 'sourcing' && !('warehouseCostDraft' in fields)) setSendUI(false);
+        var result;
+        try { result = await res.json(); } catch (_) { throw new Error('The server returned an invalid save response.'); }
+        if (!res.ok || result.success === false) throw new Error(result.message || result.error || 'Save failed.');
+        var blocked = result.blocked || [];
+        var blockedNames = blocked.map(function (b) { return b.field; });
+        if (result.data) Object.assign(item, result.data);
+        Object.keys(fields).forEach(function (k) {
+          if (blockedNames.indexOf(k) === -1 && draft[k] === fields[k]) delete draft[k];
+        });
+        changedSinceOpen = true;
+        if (blocked.length) throw new Error('Some changes were not saved: ' + blockedNames.join(', ') + '. Check the quote lock and your permissions.');
+        saveFailed = false;
+        if (role === 'sourcing') setSendUI(isTruthy(item.warehouseCostSent));
         return true;
-      } catch (e) { console.error('WH save error:', e); return false; }
+      } catch (e) {
+        saveFailed = true;
+        console.error('WH save error:', e);
+        var state = ov.querySelector('[data-savestate]');
+        if (state) { state.textContent = 'Not saved — click Save to retry'; state.title = e.message; }
+        return false;
+      }
     }
 
     function autosave(changedKeys) {
-      if (!changedKeys.length) return;
-      var patch = {};
-      changedKeys.forEach(function (k) { patch[k] = draft[k]; });
+      if (!changedKeys.length || disposed) return;
       clearTimeout(saveTimer);
+      flashSaved('Saving…');
       saveTimer = setTimeout(async function () {
-        var ok = await postUpdate(patch);
-        if (ok) { flashSaved('\u2713 saved'); onSaved(); }
+        saveTimer = null;
+        var ok = await postUpdate(draft);
+        if (ok) flashSaved('✓ saved');
       }, 300);
+    }
+
+    function dispose() {
+      disposed = true;
+      clearTimeout(saveTimer);
+      document.removeEventListener('keydown', onEscape);
+      window.removeEventListener('beforeunload', beforeUnload);
+      ov.remove();
+    }
+    function beforeUnload(ev) {
+      if (Object.keys(draft).length || saveFailed || templateBusy) { ev.preventDefault(); ev.returnValue = ''; }
+    }
+    function onEscape(ev) { if (ev.key === 'Escape') close(); }
+    async function close() {
+      if (closing || disposed || templateBusy) return;
+      closing = true;
+      // Capture the focused input even when Close was activated without a blur event.
+      var active = document.activeElement;
+      if (active && ov.contains(active) && active.matches('.whm-cell,.whm-in,.whm-sel,.whm-sname,.whm-perd,textarea')) trackField(active);
+      clearTimeout(saveTimer);
+      await saveQueue;
+      var ok = !Object.keys(draft).length || await postUpdate(draft);
+      if (!ok || saveFailed) { closing = false; window.alert('Some changes have not been saved. Please keep this window open and retry Save.'); return; }
+      dispose();
+      if (changedSinceOpen) onSaved();
+    }
+
+    async function switchTemplate(newSub, force, target, previous) {
+      if (templateBusy) return;
+      templateBusy = true;
+      ov.inert = true;
+      clearTimeout(saveTimer);
+      try {
+        await saveQueue;
+        if (Object.keys(draft).length && !(await postUpdate(draft))) throw new Error('Save your current changes before changing the template.');
+        var rr = await fetch('/api/lp-quote-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ q: quote, force: force, sub: newSub }) });
+        var result = await rr.json();
+        if (!rr.ok) throw new Error(result.error || result.message || 'Unable to change the template.');
+        // Reload the authoritative record because the server also initializes prices.
+        var latest = await fetch('/inquiries?q=' + encodeURIComponent(quote), { credentials: 'same-origin' });
+        if (!latest.ok) throw new Error('Template changed, but the refreshed quote could not be loaded. Close and reopen the quote.');
+        var records = await latest.json();
+        var fresh = records.find(function (d) { return d['Quotation #'] === quote; });
+        if (!fresh) throw new Error('Updated quote not found. Please reload.');
+        Object.keys(item).forEach(function (k) { delete item[k]; });
+        Object.assign(item, fresh);
+        opts._templateChanged = true;
+        dispose();
+        WHModal.open(opts);
+      } catch (e) {
+        target.checked = false;
+        previous.forEach(function (cb) { cb.checked = true; });
+        window.alert(e.message);
+      } finally { templateBusy = false; ov.inert = false; }
     }
 
     /* ---- events ---- */
@@ -795,37 +890,11 @@
             prevChecked.forEach(function (cb) { cb.checked = true; });
             return;
           }
-          rebuildServiceSubtypes(); autosave(['Service Subtypes']);
-          fetch('/api/lp-quote-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ q: quote, force: true, sub: newSub }) })
-            .then(function (rr) { return rr.json().then(function (dd) { return { ok: rr.ok, d: dd }; }); })
-            .then(function (x) {
-              if (!x.ok) { window.alert((x.d && x.d.error) || 'Failed to rebuild the quote template.'); return; }
-              for (var kk in item) { if (kk.indexOf('LP ') === 0) delete item[kk]; }
-              item['Service Subtypes'] = newSub;
-              item['LP Rows'] = JSON.stringify(x.d.rows);
-              item['LP Page Key'] = x.d.pageKey || '';
-              // (2026-09-03) no List-Price pre-fill on rebuild either
-              if (document.body.contains(ov)) { ov.remove(); WHModal.open(opts); }
-              onSaved();
-            })
-            .catch(function (e4) { console.error('lp rebuild error:', e4); });
+          switchTemplate(newSub, true, e.target, prevChecked);
           return;
         }
-        // ✅ LPQUOTE: first-time sub selection on an inquiry with no snapshot — build it now and re-render
         if (newKey && !curKey) {
-          rebuildServiceSubtypes(); autosave(['Service Subtypes']);
-          fetch('/api/lp-quote-init', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ q: quote, sub: newSub }) })
-            .then(function (rr) { return rr.json().then(function (dd) { return { ok: rr.ok, d: dd }; }); })
-            .then(function (x) {
-              if (!x.ok) { window.alert((x.d && x.d.error) || 'Failed to prepare the quote template.'); return; }
-              item['Service Subtypes'] = newSub;
-              item['LP Rows'] = JSON.stringify(x.d.rows);
-              item['LP Page Key'] = x.d.pageKey || '';
-              // (2026-09-03) no List-Price pre-fill on first sub-option selection either
-              if (document.body.contains(ov)) { ov.remove(); WHModal.open(opts); }
-              onSaved();
-            })
-            .catch(function (e5) { console.error('lp first-init error:', e5); });
+          switchTemplate(newSub, false, e.target, prevChecked);
           return;
         }
         rebuildServiceSubtypes(); autosave(['Service Subtypes']); return;
@@ -850,10 +919,10 @@
       }
     }, true);
     ov.addEventListener('input', function (e) {
+      if (e.target.matches('.whm-cell,.whm-in,.whm-sel,.whm-sname,.whm-perd,textarea')) trackField(e.target);
       if (e.target.matches('.whm-cell[data-cost],.whm-cell[data-costbare],.whm-cell[data-price]')) recalc();
     });
 
-    function close() { clearTimeout(saveTimer); ov.remove(); }
     ov.addEventListener('click', function (e) {
       if (e.target === ov) return close();
       var lockBtn = e.target.closest('[data-lock]');
@@ -861,7 +930,7 @@
         var next = (lockBtn.getAttribute('data-act') === 'lock') ? role : '';
         set('WH Locked By', next);
         applyLockUI();
-        postUpdate({ 'WH Locked By': next }).then(function (ok) { if (ok) { flashSaved('\u2713 saved'); onSaved(); } });
+        postUpdate({ 'WH Locked By': next }).then(function (ok) { if (ok) { flashSaved('\u2713 saved'); } else { delete draft['WH Locked By']; applyLockUI(); } });
         return;
       }
       // ✅ MOCKUP: click a comparison card = pick that supplier (reuses the existing
@@ -889,10 +958,12 @@
         // commit everything in draft at once
         rebuildServiceTypes();
         if (Object.keys(draft).length === 0) { flashSaved('\u2713 nothing to save'); return; }
-        postUpdate(draft).then(function (ok) { if (ok) { flashSaved('\u2713 saved'); onSaved(); } });
+        clearTimeout(saveTimer);
+        postUpdate(draft).then(function (ok) { if (ok) { flashSaved('\u2713 saved'); } });
       }
     });
-    document.addEventListener('keydown', function esckey(ev) { if (ev.key === 'Escape') { close(); document.removeEventListener('keydown', esckey); } });
+    document.addEventListener('keydown', onEscape);
+    window.addEventListener('beforeunload', beforeUnload);
 
     applySel();
     applyLockUI();

@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const mongoose = require('mongoose');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -61,9 +62,8 @@ app.use((req, _res, next) => { req.cookies = req.signedCookies || {}; next(); })
 // initialized at module load (below) before any request is served, so referencing it here is safe.
 app.use((req, _res, next) => {
   const uname = req.cookies && req.cookies.username;
-  if (uname && !users.some(u => u.username === uname)) {
-    req.cookies = {}; // username no longer exists → treat as logged out (downstream guards 403/redirect)
-  }
+  const user = users.find(u => u.username === uname);
+  req.cookies = user ? { username: user.username, role: user.role, salesGroup: user.salesGroup || '' } : {};
   next();
 });
 
@@ -170,7 +170,7 @@ if (!USE_MOCK && MONGO_URI) {
   console.log('⚠️ MongoDB skipped (USE_MOCK or missing MONGO_URI)');
 }
 
-const inquirySchema = new mongoose.Schema({}, { strict: false });
+const inquirySchema = new mongoose.Schema({}, { strict: false, optimisticConcurrency: true });
 const Inquiry = conn ? conn.model('Inquiry', inquirySchema, 'inquiries') : null;
 /**
  * Passwords: made intentionally harder to guess.
@@ -188,7 +188,7 @@ const users = [
   // ==============================
   {
     username: 'Lina Lee',
-    password: 'ttshrt@11121',
+    passwordHash: 'scrypt$e1dfac5478a6ccda78a8364f0ac4337a$726366cfd5e10bfe4b850f2b984b1d6f676ffee440de28a00caa996c928e02aeb67ae3834dd86e0d7f8fa50ba85f2fb4fe4b21af8257d60130c3dc0397efe292',
     role: 'manager'
   },
 
@@ -197,19 +197,19 @@ const users = [
   // ==============================
   {
     username: 'Adam Chen',
-    password: 'salestwn2025',
+    passwordHash: 'scrypt$31bdcaa8e2d48f4bd847bae02c0b9b00$84b60b7a0129684d1106ba748992e4ce9c27ced9f1df31b16ffc9fa9980d16350c43c1a1bca0225936b71caf4c5c604681d81364a5c1b601b17a523eed15988d',
     role: 'sales',
     salesGroup: 'TEAM3'
   },
   {
     username: 'OPM TEAM3',
-    password: 'opm3#2025',
+    passwordHash: 'scrypt$ece19be0dc96ae2a83e61467dffd7194$edc21d2ff572f001072e20acb2df2a59c158cca102b2998d904f8368b22384568b0feba6a00cfbb0c618f2608fd45efb8405e006efb6e137129ff8e2ba0e6e49',
     role: 'sales',
     salesGroup: 'TEAM3'
   },
   {
     username: 'OPS TEAM3',
-    password: 'ops3#2025',
+    passwordHash: 'scrypt$8f2048bfc92faa48e3d61662f4a7be5c$1eadb01ba21808a22e899dc2def8e93a619e5c9726ceb9bf1df717d4ccccfd7e12fbebee01a9385ef5e1474054e6b573b887f538005aaf440b0c0296f7b818c1',
     role: 'ops_view',
     salesGroup: 'TEAM3'
   },
@@ -219,19 +219,19 @@ const users = [
   // ==============================
   {
     username: 'Niurka Guzman',
-    password: 'pass5561hou',
+    passwordHash: 'scrypt$5bd0a1856c907c48cc98de078b134da3$55c3ccea83170e0964ddd6d36b4e6f497288f8c1629d02f5edf2d09da94b25a358116047665cf3c792d447b516f075f35d0abbe46834d8fbf2515e243660e5f4',
     role: 'sales',
     salesGroup: 'TEAM1'
   },
   {
     username: 'OPM TEAM1',
-    password: 'opm1#2025',
+    passwordHash: 'scrypt$febb61bc09259ef27f6f0c4ca7eccdba$cef9223d9604ed45ec866f0f4885a92b4b58b52c9713348c20b7b5c7d9726ce1ae928270fe0fd3c73bf9b24445d8371d06fb9e879dcc877526ed9a14c0fe09bd',
     role: 'sales',
     salesGroup: 'TEAM1'
   },
   {
     username: 'OPS TEAM1',
-    password: 'ops1#2025',
+    passwordHash: 'scrypt$8e3f867f8948fe11cb780b9bd8369281$ba6a5c7fa4aa289ab775e299958f19c6f4f06726049fd19d67053920408ae138a2495283b2ffd85e7d3c374dd295babbf425ffc374944cb60a44ecfd8e5a49be',
     role: 'ops_view',
     salesGroup: 'TEAM1'
   },
@@ -241,19 +241,19 @@ const users = [
   // ==============================
   {
     username: 'Ellen Lin',
-    password: 'xmnpass2808',
+    passwordHash: 'scrypt$3bcead88da9995680221333cb5b18766$12b9ba4d16e115a3a8a3518e448ec9d9e06c4c9921c8447ffef354f93a985dc935028e669a46978b88252edc34913a136d90d92cb6795cb1353abecfd9414453',
     role: 'sales',
     salesGroup: 'TEAM2'
   },
   {
     username: 'OPM TEAM2',
-    password: 'opm2#2025',
+    passwordHash: 'scrypt$e588caf8cfab177d31beabd376bc48d8$b9dd86bd5f02100d74bb39a757087e2028a909dea5621f8bb3509f2e500194c4879b69e5c0bea68bc7601b36adc255ed228740672bf3dcc3c4629fe3f8b53e46',
     role: 'sales',
     salesGroup: 'TEAM2'
   },
   {
     username: 'OPS TEAM2',
-    password: 'ops2#2025',
+    passwordHash: 'scrypt$37190724dd295e3aff928762ce95596d$412b81ffcedf889f8c565ddcbbdb30c1e77871da73244647673781e90f81a0c08d7a93b6a1feaca870995a16444b2b58aceb60a6ab8474987868f97283f3df0d',
     role: 'ops_view',
     salesGroup: 'TEAM2'
   },
@@ -263,7 +263,7 @@ const users = [
   // ==============================
   {
     username: 'Aurora Peng',
-    password: 'aurorapTTS@082026',
+    passwordHash: 'scrypt$9eec869a172a5c3e3002f1712f0c6502$701bc099c9436ea5ebedfd348259a6ee584366b4edfeca2a49e72ecc899bfa135a65d0e59e78f1f0b8a5ca171a7e6cfdab53f87aaa11d0dc1f774ec85b48ea90',
     role: 'sales',
     salesGroup: 'TEAM2,TEAM3'
   },
@@ -273,7 +273,7 @@ const users = [
   // ==============================
   {
     username: 'Matthew Maultsby',
-    password: 'sourcing5544',
+    passwordHash: 'scrypt$7ffd457652074e2600cb81fece59f784$1b33120af6ff74c13c625574e660e6f3e102bb3c0ebc0d62463c0fb2a41557c7cf6ed85e522a704f9ddf898a685a3082c286cc64d9e9aa81c7fb1871891c73c8',
     role: 'sourcing'
   }
 
@@ -294,6 +294,193 @@ const USER_EMAILS = {
 // through every filter below is IDENTICAL to before.
 function groupList(sg) {
   return String(sg || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+// Shared by every quotation mutation. Never trust a client-supplied team.
+function maskInquiryDocs(items, role) {
+  if (role !== 'sales' && role !== 'ops_view') return items;
+      const truckCostFields = [
+        'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
+        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Carrier',
+        'Vendor Note'
+      ];
+      const truckPriceFields = [
+        'Price', 'GP', 'Adjusted Price', 'Adjusted GP',
+        'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
+        'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price',
+        'Bond Fee Price', 'Drop Fee Price'
+      ];
+      const whCostFields = [
+        'Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee',
+        'Storage', 'Outbound', 'WH Vendor Note'
+      ];
+      const whPriceFields = [
+        'Order Processing Price', 'Inbound Price', 'Sorting Price',
+        'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price',
+        'Vendor'
+      ];
+      // ▼ WH redesign: also mask new bucket costs, the 5 supplier costs, and the cost total
+      WH_NEW_BUCKETS.forEach(b => { whCostFields.push(b[1]); whPriceFields.push(b[1] + ' Price'); });
+      WH_TEMPLATE_BUCKETS.forEach(b => { for (let s = 1; s <= WH_SUPPLIER_COUNT; s++) whCostFields.push(b + ' Cost S' + s); });
+      whCostFields.push('WH Cost Total');
+      whPriceFields.push('Label Price', 'Cross Dock Price');
+
+      return items.map(it => {
+        const doc = { ...it };
+
+        // ✅ Only mask when a NEW draft flag is explicitly set
+        // truckingCostDraft='true' means Sourcing just saved but hasn't sent yet
+        // Old data has no draft flag → always shows (backward compatible)
+        if (String(doc['truckingCostDraft'] || '').toLowerCase().trim() === 'true') {
+          truckCostFields.forEach(f => { doc[f] = ''; });
+          truckPriceFields.forEach(f => { doc[f] = ''; });
+        }
+        if (String(doc['warehouseCostDraft'] || '').toLowerCase().trim() === 'true') {
+          whCostFields.forEach(f => { doc[f] = ''; });
+          whPriceFields.forEach(f => { doc[f] = ''; });
+        }
+        // ✅ LPQUOTE: dynamic List-Price row costs/prices obey the same draft mask
+        if (String(doc['warehouseCostDraft'] || '').toLowerCase().trim() === 'true') {
+          const lpN2 = lpRowCount(doc);
+          for (let i = 1; i <= lpN2; i++) {
+            doc['LP ' + i + ' Cost'] = '';
+            doc['LP ' + i + ' Price'] = '';
+            for (let s2 = 1; s2 <= WH_SUPPLIER_COUNT; s2++) doc['LP ' + i + ' Cost S' + s2] = '';
+          }
+        }
+        return doc;
+      });
+}
+function hasConfirmedQuotePrice(doc, scope) {
+  const truck = (isTruthy(doc.truckingSalesConfirmed) || isTruthy(doc.truckingManagerConfirmed)) && !isTruthy(doc.truckingCostDraft) && String(doc['Adjusted Price'] ?? '').trim() !== '';
+  const whPrice = String(doc['WH Price Total'] ?? '').trim() !== '' || WH_ALL_BUCKETS.some(b => String(doc[b + ' Price'] ?? '').trim() !== '') || Object.keys(doc).some(k => /^LP \d+ Price$/.test(k) && String(doc[k] ?? '').trim() !== '');
+  const wh = (isTruthy(doc.warehouseSalesConfirmed) || isTruthy(doc.warehouseManagerConfirmed)) && !isTruthy(doc.warehouseCostDraft) && whPrice;
+  return scope === 'TRUCK' ? truck : scope === 'WH' ? wh : truck || wh;
+}
+function canAccessInquiry(req, doc) {
+  const role = req.cookies?.role;
+  if (role === 'manager') return true;
+  if (role === 'sourcing') return isTruthy(doc['Submitted To Sourcing']);
+  if (role === 'sales' || role === 'ops_view') {
+    return groupList(req.cookies.salesGroup).includes(String(doc.salesGroup || '').trim());
+  }
+  return false;
+}
+function requireInquiryAccess(req, res, doc) {
+  if (canAccessInquiry(req, doc)) return true;
+  res.status(403).json({ success: false, error: 'This quotation is outside your permitted scope.', message: 'This quotation is outside your permitted scope.' });
+  return false;
+}
+function dbReady(res) {
+  if (conn && conn.readyState === 1 && Inquiry) return true;
+  res.status(503).json({ success: false, message: 'Database temporarily unavailable. Your existing data has not been cleared.' });
+  return false;
+}
+function revisionFilter(doc) {
+  return { _id: doc._id, __v: doc.__v == null ? { $exists: false } : doc.__v };
+}
+function gfBusy(doc) {
+  return ['pending', 'uncertain'].includes(String(doc['GF Push State'] || ''));
+}
+// Carrier alternatives share one durable push key; lettered routes remain separate.
+function gfRouteKey(q) {
+  const m = String(q || '').trim().match(/^(\d{1,6})([A-Z])?(?:-([A-Z]|\d+))?$/i);
+  if (!m) return '';
+  return m[1].padStart(6, '0') + (m[2] || '').toUpperCase();
+}
+function gfRouteFilter(key) {
+  return { 'Quotation #': { $regex: '^' + key + '(?:-(?:[A-Z]|[0-9]+))?$', $options: 'i' } };
+}
+function gfLedger() { return conn.collection('gf_pushes'); }
+async function gfRouteState(key) {
+  const ledger = await gfLedger().findOne({ _id: key });
+  if (ledger && ledger.state !== 'ready') return ledger;
+  const siblings = await Inquiry.find(gfRouteFilter(key)).lean();
+  const sent = siblings.find(d => isTruthy(d['Pushed To GF']));
+  const busy = siblings.find(gfBusy);
+  if (sent || busy) {
+    const d = sent || busy;
+    const historical = { _id: key, state: sent ? 'succeeded' : d['GF Push State'], startedAt: d['GF Push Started At'] || '', sourceQuotation: d['Quotation #'], token: d['GF Push Token'] || 'legacy' };
+    try {
+      if (ledger) { const { _id, ...fields } = historical; await gfLedger().updateOne({ _id: key, state: 'ready' }, { $set: fields }); }
+      else await gfLedger().insertOne(historical);
+    } catch (err) { if (err.code !== 11000) throw err; }
+    return await gfLedger().findOne({ _id: key });
+  }
+  return ledger;
+}
+async function overlayGfRoutes(docs) {
+  if (!docs.length) return docs;
+  const keys = [...new Set(docs.map(d => gfRouteKey(d['Quotation #'])).filter(Boolean))];
+  if (!keys.length) return docs;
+  const ledger = await gfLedger().find({ _id: { $in: keys } }).toArray();
+  const states = new Map(ledger.map(d => [d._id, d]));
+  // Include alternatives outside a date/row limit when deriving legacy status.
+  const legacyKeys = keys.filter(key => !states.has(key) || states.get(key).state === 'ready');
+  const legacy = legacyKeys.length ? await Inquiry.find({ $or: legacyKeys.map(gfRouteFilter), $and: [{ $or: [
+    { 'Pushed To GF': { $in: ['true', true] } }, { 'GF Push State': { $in: ['pending', 'uncertain'] } }
+  ] }] }, { 'Quotation #': 1, 'Pushed To GF': 1, 'GF Push State': 1, 'GF Push Started At': 1 }).lean() : [];
+  for (const d of legacy) {
+    const key = gfRouteKey(d['Quotation #']);
+    if (!states.has(key) || states.get(key).state === 'ready') states.set(key, { state: isTruthy(d['Pushed To GF']) ? 'succeeded' : d['GF Push State'], startedAt: d['GF Push Started At'] });
+    else if (isTruthy(d['Pushed To GF']) && !ledger.some(l => l._id === key && l.state !== 'ready')) states.set(key, { state: 'succeeded' });
+  }
+  return docs.map(d => {
+    const state = states.get(gfRouteKey(d['Quotation #']));
+    if (!state || state.state === 'ready') return d;
+    return { ...d, 'Pushed To GF': state.state === 'succeeded' ? 'true' : 'false', 'GF Push State': state.state, 'GF Push Started At': state.startedAt || '', 'GF Push Source Quotation': state.sourceQuotation || '' };
+  });
+}
+async function syncGfRoute(key, fields) {
+  await Inquiry.updateMany(gfRouteFilter(key), { $set: fields, $inc: { __v: 1 } });
+}
+function conflict(res, message) {
+  return res.status(409).json({ success: false, message: message || 'This quotation changed while you were editing. Reload it and try again.' });
+}
+
+// Authenticate sockets with the same signed username and current account definition.
+io.use((socket, next) => {
+  cookieParser(process.env.COOKIE_SECRET)(socket.request, {}, () => {
+    const username = socket.request.signedCookies?.username;
+    const user = users.find(u => u.username === username);
+    if (!user) return next(new Error('Not authenticated'));
+    socket.data = socket.data || {};
+    socket.data.username = user.username;
+    next();
+  });
+});
+io.on('connection', socket => {
+  const user = users.find(u => u.username === socket.data.username);
+  if (!user) return socket.disconnect(true);
+  if (user.role === 'manager') socket.join('role:manager');
+  if (user.role === 'sourcing') socket.join('role:sourcing');
+  if (user.role === 'sales' || user.role === 'ops_view') {
+    groupList(user.salesGroup).forEach(g => socket.join('team:' + g));
+  }
+});
+const inquiryReads = new Map();
+let inquiryReadEpoch = 0;
+function readInquiryList(filter) {
+  const key = inquiryReadEpoch + ':' + JSON.stringify(filter);
+  if (inquiryReads.has(key)) return inquiryReads.get(key);
+  const promise = Promise.resolve(Inquiry.find(filter).lean()).then(overlayGfRoutes).finally(() => inquiryReads.delete(key));
+  inquiryReads.set(key, promise);
+  return promise;
+}
+function broadcastInquiry(quotationId, knownDoc) {
+  inquiryReadEpoch++;
+  const send = doc => {
+    let target = io.to('role:manager');
+    if (doc) {
+      if (isTruthy(doc['Submitted To Sourcing'])) target = target.to('role:sourcing');
+      groupList(doc.salesGroup).forEach(g => { target = target.to('team:' + g); });
+    }
+    target.emit('inquiryUpdated', { quotationId });
+  };
+  if (knownDoc) return send(knownDoc);
+  if (!Inquiry || !conn || conn.readyState !== 1) return send(null);
+  Inquiry.findOne({ 'Quotation #': quotationId }, { salesGroup: 1, 'Submitted To Sourcing': 1 }).lean()
+    .then(send).catch(err => console.warn('[notification]', err.message));
 }
 
 function emailFor(username, salesGroup) {
@@ -660,6 +847,17 @@ function delqLineLocked(doc) {
 
 // Ensure new WH fields exist with sane defaults (idempotent; safe on old docs).
 function applyWarehouseDefaults(doc) {
+  // Migrate legacy single-cost values before adding blank supplier columns. Otherwise
+  // syncSelectedSupplierCost mistakes new defaults for an intentional cleared supplier.
+  for (const name of WH_TEMPLATE_BUCKETS) {
+    const hasSupplierColumns = Array.from({ length: WH_SUPPLIER_COUNT }, (_, i) => name + ' Cost S' + (i + 1)).some(k => doc[k] !== undefined);
+    if (!hasSupplierColumns && String(doc[name] ?? '').trim() !== '') {
+      const key = name + ' Cost S1';
+      doc[key] = doc[name];
+      if (typeof doc.set === 'function') doc.set(key, doc[name]);
+    }
+  }
+
   setIfEmpty(doc, 'Selected Supplier', '1');
   for (let s = 1; s <= WH_SUPPLIER_COUNT; s++) setIfEmpty(doc, 'Supplier ' + s + ' Name', '');
   setIfEmpty(doc, 'ETA', '');
@@ -689,18 +887,18 @@ function syncSelectedSupplierCost(doc) {
   const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
   for (const name of WH_TEMPLATE_BUCKETS) {
     const v = doc[name + ' Cost S' + sel];
-    if (v !== undefined && v !== null && String(v).trim() !== '') {
-      doc[name] = v;
-      if (isMongoDoc) doc.set(name, v);
+    if (Array.from({length: WH_SUPPLIER_COUNT}, (_, i) => name + ' Cost S' + (i + 1)).some(k => doc[k] !== undefined)) {
+      doc[name] = v == null ? '' : v;
+      if (isMongoDoc) doc.set(name, doc[name]);
     }
   }
   // ✅ LPQUOTE: same mirroring for dynamic List-Price rows
   const lpN = lpRowCount(doc);
   for (let i = 1; i <= lpN; i++) {
     const lv = doc['LP ' + i + ' Cost S' + sel];
-    if (lv !== undefined && lv !== null && String(lv).trim() !== '') {
-      doc['LP ' + i + ' Cost'] = lv;
-      if (isMongoDoc) doc.set('LP ' + i + ' Cost', lv);
+    if (Array.from({length: WH_SUPPLIER_COUNT}, (_, n) => 'LP ' + i + ' Cost S' + (n + 1)).some(k => doc[k] !== undefined)) {
+      doc['LP ' + i + ' Cost'] = lv == null ? '' : lv;
+      if (isMongoDoc) doc.set('LP ' + i + ' Cost', doc['LP ' + i + ' Cost']);
     }
   }
 }
@@ -712,7 +910,11 @@ function computeWarehouseTotals(doc) {
     return isFinite(n) ? n : 0;
   };
   let cost = 0, price = 0;
-  for (const name of WH_ALL_BUCKETS) { cost += num(doc[name]); price += num(doc[name + ' Price']); }
+  const hasSelection = Object.keys(doc.toObject ? doc.toObject() : doc).some(k => k.endsWith(' OnQuote'));
+  if (!lpRowCount(doc)) for (const name of WH_ALL_BUCKETS) {
+    if (hasSelection && !WH_LEGACY_BUCKETS.includes(name) && !isTruthy(doc[name + ' OnQuote'])) continue;
+    cost += num(doc[name]); price += num(doc[name + ' Price']);
+  }
   // ✅ LPQUOTE: dynamic List-Price rows count into the WH totals
   const lpN = lpRowCount(doc);
   for (let i = 1; i <= lpN; i++) { cost += num(doc['LP ' + i + ' Cost']); price += num(doc['LP ' + i + ' Price']); }
@@ -964,12 +1166,32 @@ function detectAnyChange(existing, incoming, fields) {
   return false;
 }
 
+const loginAttempts = new Map();
+async function verifyPassword(password, encoded) {
+  if (typeof password !== 'string' || password.length > 1024) return false;
+  const parts = String(encoded || '').split('$');
+  if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
+  const actual = await new Promise((resolve, reject) => crypto.scrypt(password, parts[1], 64, (err, key) => err ? reject(err) : resolve(key)));
+  const expected = Buffer.from(parts[2], 'hex');
+  return expected.length === actual.length && crypto.timingSafeEqual(actual, expected);
+}
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   console.log('[DEBUG] /login called with username:', username);
 
-  const user = users.find(u => u.username === username && u.password === password);
-  if (!user) return res.json({ success: false, message: 'Invalid credentials' });
+  const now = Date.now();
+  for (const [key, entry] of loginAttempts) if (entry.until <= now) loginAttempts.delete(key);
+  const ip = (req.ip || req.socket?.remoteAddress || 'unknown') + ':' + String(username || '').slice(0, 128);
+  const entry = loginAttempts.get(ip) || { count: 0, until: now + 15 * 60 * 1000 };
+  if (entry.count >= 20) return res.status(429).json({ success: false, message: 'Too many login attempts. Please try again later.' });
+  entry.count++;
+  if (loginAttempts.size < 10000 || loginAttempts.has(ip)) loginAttempts.set(ip, entry);
+  const user = users.find(u => u.username === username);
+  let valid = false;
+  try { valid = await verifyPassword(password, (user || users[0]).passwordHash); }
+  catch (err) { return res.status(503).json({ success: false, message: 'Login temporarily unavailable.' }); }
+  if (!user || !valid) return res.json({ success: false, message: 'Invalid credentials' });
+  loginAttempts.delete(ip);
 
   // ✅ cookies — SameSite:Lax ensures cookies are sent on same-origin POST/GET in all browsers (Chrome, Edge, Firefox, Safari)
   const cookieOpts = { sameSite: 'Lax', httpOnly: true, secure: true, signed: true, maxAge: 8 * 60 * 60 * 1000 };
@@ -1010,6 +1232,9 @@ async function findInquiryByQuote(quote) {
 
 // ══════ KPI Dashboard API ══════
 app.get('/api/kpi', async (req, res) => {
+  if (!req.cookies?.username) return res.status(401).json({ success: false, message: 'Please sign in again.' });
+  if (!['sales', 'ops_view', 'sourcing', 'manager'].includes(req.cookies.role)) return res.status(403).json({ success: false, message: 'Not authorized.' });
+  if (!dbReady(res)) return;
   try {
     const role = String(req.cookies.role || '').toLowerCase();
     const username = String(req.cookies.username || '');
@@ -1028,11 +1253,25 @@ app.get('/api/kpi', async (req, res) => {
       truckingSalesConfirmed: 1, truckingManagerConfirmed: 1,
       warehouseSalesConfirmed: 1, warehouseManagerConfirmed: 1,
       truckingCostSent: 1, warehouseCostSent: 1,
-      truckingCostSaved: 1, warehouseCostSaved: 1
+      truckingCostSaved: 1, warehouseCostSaved: 1, 'Submitted To Sourcing': 1,
+      'Adjusted Price': 1, 'WH Price Total': 1, truckingCostDraft: 1, warehouseCostDraft: 1
     };
 
     // Get all main lines (no dash-suffix = main quotation)
-    const allDocs = await Inquiry.find({}, KPI_PROJECTION).lean();
+    let kpiFilter = {};
+    if (role === 'sales' || role === 'ops_view') {
+      const myGroups = groupList(salesGroup);
+      const groupUsers = salesGroup ? users.filter(u => groupList(u.salesGroup).some(g => myGroups.includes(g))).map(u => u.username) : [username];
+      kpiFilter = { $or: [
+        { salesGroup: { $in: myGroups } },
+        { $and: [ { salesGroup: { $in: ['', null] } }, { $or: [
+          { 'Assigned Sales': { $in: groupUsers } },
+          { 'Assigned Sales': { $in: ['', null] }, username: { $in: groupUsers } }
+        ] } ] }
+      ] };
+    }
+    if (role === 'sourcing') kpiFilter['Submitted To Sourcing'] = 'true';
+    const allDocs = await Inquiry.find(kpiFilter, KPI_PROJECTION).lean();
     console.log('[READ] /api/kpi rows=' + allDocs.length);   // ✅ MEMWATCH: full-collection load
 
     // Filter main lines only (e.g. 004790, not 004790-1)
@@ -1045,9 +1284,7 @@ app.get('/api/kpi', async (req, res) => {
     const isTrue = v => String(v || '').toLowerCase().trim() === 'true';
 
     // Combined status helpers (check BOTH truck and warehouse)
-    const isConfirmed = d => isTrue(d.truckingSalesConfirmed) || isTrue(d.truckingManagerConfirmed)
-                          || isTrue(d.warehouseSalesConfirmed) || isTrue(d.warehouseManagerConfirmed)
-                          || isTrue(d['Selected']);
+    const isConfirmed = d => hasConfirmedQuotePrice(d);
     const isCostSent = d => isTrue(d.truckingCostSent) || isTrue(d.warehouseCostSent);
     const isCostSaved = d => isTrue(d.truckingCostSaved) || isTrue(d.warehouseCostSaved);
     const thisMonth = new Date();
@@ -1149,7 +1386,7 @@ app.get('/api/kpi', async (req, res) => {
 
     } else if (role === 'manager') {
       const isMgrConfirmed = d => isTrue(d.truckingManagerConfirmed) || isTrue(d.warehouseManagerConfirmed);
-      const isSalesConfirmed = d => isTrue(d.truckingSalesConfirmed) || isTrue(d.warehouseSalesConfirmed) || isTrue(d['Selected']);
+      const isSalesConfirmed = d => hasConfirmedQuotePrice(d) && (isTrue(d.truckingSalesConfirmed) || isTrue(d.warehouseSalesConfirmed));
       const pendingApproval = docs.filter(d => isSalesConfirmed(d) && !isMgrConfirmed(d)).length;
       const managerConfirmed = docs.filter(d => isMgrConfirmed(d)).length;
       const awaitingSourcing = docs.filter(d => !isCostSent(d)).length;
@@ -1200,6 +1437,7 @@ app.post('/inquiries', async (req, res) => {
 
   try {
     const raw = req.body || {};
+    if (!USE_MOCK && !dbReady(res)) return;
 
     // ✅ Inherit salesGroup from parent (for Sourcing adding sub-lines)
     let inheritedGroup = ''
@@ -1207,6 +1445,8 @@ app.post('/inquiries', async (req, res) => {
     const parentQ = String(raw['Parent Quotation #'] || raw.parentQuotation || '').trim();
     if (parentQ) {
       const parentDoc = await findInquiryByQuote(parentQ);
+      if (!parentDoc) return res.status(404).json({ success: false, message: 'Parent quotation not found.' });
+      if (!requireInquiryAccess(req, res, parentDoc)) return;
       inheritedGroup = String(parentDoc?.salesGroup || '').trim();
       inheritedSubmitted = String(parentDoc?.['Submitted To Sourcing'] || '').trim();
     }
@@ -1232,6 +1472,8 @@ app.post('/inquiries', async (req, res) => {
         inheritedGroup ||
         '';
     }
+
+    if (parentQ) finalSalesGroup = inheritedGroup;
 
     // 構建保存的資料（保留你原有的 raw 映射邏輯）
     const data = {
@@ -1433,9 +1675,9 @@ app.post('/inquiries', async (req, res) => {
       saved = await inquiry.save();
     }
 
-    io.emit('inquiryUpdated', { quotationId: saved['Quotation #'] });
+    broadcastInquiry(saved['Quotation #'], saved);
 
-    return res.json({ success: true, data: saved });
+    return res.json({ success: true, data: maskInquiryDocs([JSON.parse(JSON.stringify(saved))], role)[0] });
 
   } catch (err) {
     // ✅ Duplicate-key race guard: with the unique index on 'Quotation #', a double-click
@@ -1454,6 +1696,9 @@ app.post('/inquiries', async (req, res) => {
 
 
 app.get('/inquiries', async (req, res) => {
+  if (!req.cookies?.username) return res.status(401).json({ success: false, message: 'Please sign in again.' });
+  if (!['sales', 'ops_view', 'sourcing', 'manager'].includes(req.cookies.role)) return res.status(403).json({ success: false, message: 'Not authorized.' });
+  if (!dbReady(res)) return;
   // ✅ Prevent Edge/Chrome from caching API responses — ensures fresh data on every fetch
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -1465,7 +1710,7 @@ app.get('/inquiries', async (req, res) => {
 
     // ✅ read source
     // ✅ read source
-    if (!mongoReady) return res.json([]);   // 关键：Mongo不通就不要用mock
+    if (!mongoReady) return res.status(503).json({ success: false, message: 'Database temporarily unavailable.' });   // 关键：Mongo不通就不要用mock
 
     // ✅ Push the role filter into the query (sales uses the salesGroup_1 index) instead of
     // fetching every doc and filtering in JS. Verified equivalent to the in-JS filters below:
@@ -1505,7 +1750,7 @@ app.get('/inquiries', async (req, res) => {
       ) };
     }
 
-    const inquiries = await Inquiry.find(queryFilter).lean();
+    const inquiries = await readInquiryList(queryFilter);
     console.log('[READ] /inquiries role=' + (role || '?') + ' rows=' + inquiries.length + (winQ ? ' q=1' : ''));   // ✅ MEMWATCH
 
     // ✅ manager sees all
@@ -1524,57 +1769,7 @@ app.get('/inquiries', async (req, res) => {
       const filtered = inquiries.filter(it => _myGroups.includes(String(it.salesGroup || '').trim()));
 
       // ✅ Strip cost data AND auto-calculated prices that Sourcing hasn't "sent" yet
-      const truckCostFields = [
-        'Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting',
-        'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Carrier',
-        'Vendor Note'
-      ];
-      const truckPriceFields = [
-        'Price', 'GP', 'Adjusted Price', 'Adjusted GP',
-        'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price',
-        'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price',
-        'Bond Fee Price', 'Drop Fee Price'
-      ];
-      const whCostFields = [
-        'Order Processing', 'Inbound', 'Sorting', 'Palletizing', 'Pallet Fee',
-        'Storage', 'Outbound', 'WH Vendor Note'
-      ];
-      const whPriceFields = [
-        'Order Processing Price', 'Inbound Price', 'Sorting Price',
-        'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price',
-        'Vendor'
-      ];
-      // ▼ WH redesign: also mask new bucket costs, the 5 supplier costs, and the cost total
-      WH_NEW_BUCKETS.forEach(b => { whCostFields.push(b[1]); whPriceFields.push(b[1] + ' Price'); });
-      WH_TEMPLATE_BUCKETS.forEach(b => { for (let s = 1; s <= WH_SUPPLIER_COUNT; s++) whCostFields.push(b + ' Cost S' + s); });
-      whCostFields.push('WH Cost Total');
-      whPriceFields.push('Label Price', 'Cross Dock Price');
-
-      const masked = filtered.map(it => {
-        const doc = { ...it };
-
-        // ✅ Only mask when a NEW draft flag is explicitly set
-        // truckingCostDraft='true' means Sourcing just saved but hasn't sent yet
-        // Old data has no draft flag → always shows (backward compatible)
-        if (String(doc['truckingCostDraft'] || '').toLowerCase().trim() === 'true') {
-          truckCostFields.forEach(f => { doc[f] = ''; });
-          truckPriceFields.forEach(f => { doc[f] = ''; });
-        }
-        if (String(doc['warehouseCostDraft'] || '').toLowerCase().trim() === 'true') {
-          whCostFields.forEach(f => { doc[f] = ''; });
-          whPriceFields.forEach(f => { doc[f] = ''; });
-        }
-        // ✅ LPQUOTE: dynamic List-Price row costs/prices obey the same draft mask
-        if (String(doc['warehouseCostDraft'] || '').toLowerCase().trim() === 'true') {
-          const lpN2 = lpRowCount(doc);
-          for (let i = 1; i <= lpN2; i++) {
-            doc['LP ' + i + ' Cost'] = '';
-            doc['LP ' + i + ' Price'] = '';
-            for (let s2 = 1; s2 <= WH_SUPPLIER_COUNT; s2++) doc['LP ' + i + ' Cost S' + s2] = '';
-          }
-        }
-        return doc;
-      });
+      const masked = maskInquiryDocs(filtered, role);
 
       return res.json(masked);
     }
@@ -1669,12 +1864,14 @@ app.get('/api/quotation-print', async (req, res) => {
         if (doc[b + ' Unit'] != null) out[b + ' Unit'] = doc[b + ' Unit'];
         if (doc[b + ' Qty'] != null) out[b + ' Qty'] = doc[b + ' Qty'];
         if (doc[b + ' Period'] != null) out[b + ' Period'] = doc[b + ' Period'];
+        if (doc[b + ' OnQuote'] != null) out[b + ' OnQuote'] = doc[b + ' OnQuote'];
       });
     }
 
     // Nothing exportable at all → tell the user why instead of printing an empty sheet
     const hasMain = String(out['Adjusted Price'] || out['Price'] || '').trim() !== '';
-    const hasWh = WH_ALL_BUCKETS.some(b => String(out[b + ' Price'] || '').trim() !== '');
+    const hasSelection = Object.keys(out).some(k => k.endsWith(' OnQuote'));
+    const hasWh = WH_ALL_BUCKETS.some(b => (!hasSelection || WH_LEGACY_BUCKETS.includes(b) || isTruthy(out[b + ' OnQuote'])) && String(out[b + ' Price'] || '').trim() !== '');
     const hasLp = Object.keys(out).some(k => /^LP \d+ Price$/.test(k) && String(out[k]).trim() !== '');   // ✅ LPQUOTE
     if (!hasMain && !hasWh && !hasLp) {
       return res.status(409).json({ error: 'No prices have been sent to Sales for this quotation yet. Please complete pricing in the system first. \u4EF7\u683C\u5C1A\u672A\u53D1\u9001\u7ED9 Sales\uFF0C\u6682\u65E0\u6CD5\u5BFC\u51FA\u62A5\u4EF7\u5355\u3002' });
@@ -1779,8 +1976,16 @@ app.post('/api/list-price-quotes', async (req, res) => {
       }
       const root = baseQ.replace(/-Updated-\d+$/i, '');
       const rxRoot = root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const n = await conn.collection('list_price_quotes').countDocuments({ quoteNo: new RegExp('^' + rxRoot + '-Updated-\\d+$', 'i') });
-      const quoteNo = root + '-Updated-' + (n + 1);
+      const revisions = await conn.collection('list_price_quotes').find({ quoteNo: new RegExp('^' + rxRoot + '-Updated-\\d+$', 'i') }, { projection: { quoteNo: 1 } }).toArray();
+      const maximum = revisions.reduce((n, r) => Math.max(n, Number(String(r.quoteNo).match(/-Updated-(\d+)$/i)?.[1] || 0)), 0);
+      const counters = conn.collection('counters');
+      const counterKey = 'lp-revision:' + root;
+      try { await counters.updateOne({ _id: counterKey }, { $max: { seq: maximum } }, { upsert: true }); }
+      catch (err) { if (err.code !== 11000) throw err; }
+      let next = await counters.findOneAndUpdate({ _id: counterKey }, { $inc: { seq: 1 } }, { returnDocument: 'after' });
+      if (next && next.value !== undefined) next = next.value;
+      if (!next || !Number.isSafeInteger(next.seq)) throw new Error('Unable to allocate revision number.');
+      const quoteNo = root + '-Updated-' + next.seq;
       const record = {
         quoteNo, revisionOf: root, pageKey, pageTitle: master.title, category: master.category,
         customer: {
@@ -1791,7 +1996,7 @@ app.post('/api/list-price-quotes', async (req, res) => {
           paymentTerm: clip(b.customer && b.customer.paymentTerm, 60)
         },
         validThrough: clip(b.validThrough, 40), gfQuoteNo: clip(b.gfQuoteNo, 60),
-        sections, adjustedCount, username: auth.username, role: auth.role, salesGroup: auth.salesGroup,
+        sections, adjustedCount, username: auth.username, role: auth.role, salesGroup: baseRec.salesGroup,
         createdAt: new Date()
       };
       await conn.collection('list_price_quotes').insertOne(record);
@@ -1843,7 +2048,7 @@ app.get('/api/list-price-quote-detail', async (req, res) => {
     if (!no) return res.status(400).json({ error: 'Missing quotation number.' });
     const rec = await conn.collection('list_price_quotes').findOne({ quoteNo: no });
     if (!rec) return res.status(404).json({ error: 'Record ' + no + ' not found.' });
-    if (auth.role === 'sales' && !groupList(auth.salesGroup).some(g => groupList(rec.salesGroup).includes(g))) {
+    if (['sales', 'ops_view'].includes(auth.role) && !groupList(auth.salesGroup).some(g => groupList(rec.salesGroup).includes(g))) {
       return res.status(403).json({ error: 'This record belongs to another sales group.' });
     }
     return res.json({ record: rec });
@@ -1859,14 +2064,17 @@ app.get('/api/list-price-quotes', async (req, res) => {
   try {
     const auth = lpAuth(req, res); if (!auth) return;
     const qStr = String(req.query.q || '').trim();   // ✅ LPSEARCH
-    const limit = Math.min(parseInt(req.query.limit, 10) || (qStr ? 50 : 10), qStr ? 50 : 20);
-    const filter = (auth.role === 'sales') ? { salesGroup: { $in: [...groupList(auth.salesGroup), auth.salesGroup] } } : {};   // manager & OPS: all groups
+    const limit = Math.max(1, Math.min(parseInt(req.query.limit, 10) || (qStr ? 50 : 10), qStr ? 50 : 20));
+    const groups = groupList(auth.salesGroup);
+    const escapeGroup = g => g.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const filter = ['sales', 'ops_view'].includes(auth.role) ? { salesGroup: groups.length ? { $regex: '(^|,)(' + groups.map(escapeGroup).join('|') + ')(,|$)' } : { $in: [] } } : {};
+
     if (qStr) {
       const rx = new RegExp(qStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       filter.$or = [{ quoteNo: rx }, { 'customer.company': rx }, { gfQuoteNo: rx }];
     }
     const recs = await conn.collection('list_price_quotes')
-      .find(filter, { projection: { quoteNo: 1, pageTitle: 1, pageKey: 1, 'customer.company': 1, username: 1, createdAt: 1, adjustedCount: 1 } })
+      .find(filter, { projection: { quoteNo: 1, pageTitle: 1, pageKey: 1, 'customer.company': 1, username: 1, createdAt: 1, adjustedCount: 1, gfQuoteNo: 1 } })
       .sort({ createdAt: -1 }).limit(limit).toArray();
     return res.json({ records: recs });
   } catch (err) {
@@ -1891,25 +2099,32 @@ app.post('/api/lp-quote-init', async (req, res) => {
     const doc = await Inquiry.findOne({ 'Quotation #': q }).lean();
     if (!doc) return res.status(404).json({ error: 'Quotation not found.' });
 
+    if (!requireInquiryAccess(req, res, doc)) return;
+    if (gfBusy(doc)) return conflict(res, 'GoFreight push is pending or needs reconciliation.');
+
     // Already snapshotted -> return as-is, unless the caller forces a rebuild (sub-option switched)
-    const force = !!((req.body || {}).force);
+    const force = (req.body || {}).force === true;
+    let unset = {};
+    if (force && !['sales', 'manager'].includes(role)) return res.status(403).json({ error: 'Only Sales or Manager may rebuild the template.' });
     if (String(doc['LP Rows'] || '').trim()) {
       if (!force) {
         try {
-          return res.json({ rows: JSON.parse(doc['LP Rows']), pageKey: doc['LP Page Key'] || '', existing: true });
+          return res.json({ rows: JSON.parse(doc['LP Rows']), pageKey: doc['LP Page Key'] || '', existing: true, data: maskInquiryDocs([doc], role)[0] });
         } catch (e) { /* corrupted snapshot: fall through and rebuild */ }
       } else {
         // wipe the old dynamic rows completely before rebuilding
         let oldRows = [];
         try { oldRows = JSON.parse(doc['LP Rows']); } catch (e2) { oldRows = []; }
-        const unset = { 'LP Rows': 1, 'LP Page Key': 1 };
+        unset = {};
         (Array.isArray(oldRows) ? oldRows : []).forEach(r => {
-          ['Cost', 'Price', 'Qty', 'Desc'].forEach(sfx => { unset['LP ' + r.i + ' ' + sfx] = 1; });
+          ['Cost', 'Price', 'Qty', 'Desc', 'OnQuote'].forEach(sfx => { unset['LP ' + r.i + ' ' + sfx] = 1; });
           for (let s2 = 1; s2 <= WH_SUPPLIER_COUNT; s2++) unset['LP ' + r.i + ' Cost S' + s2] = 1;
         });
-        await Inquiry.updateOne({ 'Quotation #': q }, { $unset: unset });
+        // Apply the removal only after the replacement has been validated.
       }
     }
+
+    if (String(doc['WH Locked By'] || '').trim() || isTruthy(doc.warehouseSalesConfirmed) || isTruthy(doc.warehouseManagerConfirmed)) return conflict(res, 'Unlock the warehouse quote before changing its template.');
 
     // ✅ LPQUOTE: the modal passes the just-selected sub-option directly — it wins over the
     // (possibly not-yet-autosaved) DB value, eliminating the debounce race.
@@ -1939,14 +2154,26 @@ app.post('/api/lp-quote-init', async (req, res) => {
     rows.push({ i: rows.length + 1, section: 'Others', description: '', unit: '', listPrice: '', minChg: '', notes: '', custom: true });
 
     // Persist snapshot + prefill Sales price with the numeric master price (empty stays empty)
-    const set = { 'LP Rows': JSON.stringify(rows), 'LP Page Key': pageKey };
+    const set = { 'LP Rows': JSON.stringify(rows), 'LP Page Key': pageKey, 'Service Subtypes': sub };
     rows.forEach(r => {
       if (!r.custom && /^\d+(\.\d+)?$/.test(String(r.listPrice)) && (force || String(doc['LP ' + r.i + ' Price'] || '').trim() === '')) {
         set['LP ' + r.i + ' Price'] = String(r.listPrice);
       }
     });
-    await Inquiry.updateOne({ 'Quotation #': q }, { $set: set });
-    return res.json({ rows, pageKey, existing: false });
+    if (force) Object.assign(set, { warehouseCostSaved: 'false', warehouseCostSent: 'false', warehouseCostDraft: 'true' });
+    const rebuilt = { ...doc };
+    Object.keys(unset).forEach(k => delete rebuilt[k]);
+    Object.assign(rebuilt, set);
+    computeWarehouseTotals(rebuilt);
+    set['WH Cost Total'] = rebuilt['WH Cost Total'];
+    set['WH Price Total'] = rebuilt['WH Price Total'];
+    Object.keys(set).forEach(k => { delete unset[k]; });
+    const change = { $set: set, $inc: { __v: 1 } };
+    if (Object.keys(unset).length) change.$unset = unset;
+    const result = await Inquiry.updateOne(revisionFilter(doc), change);
+    if (!(result.matchedCount ?? result.n)) return conflict(res);
+    broadcastInquiry(q, doc);
+    return res.json({ rows, pageKey, existing: false, data: maskInquiryDocs([{ ...rebuilt, ...set, __v: (doc.__v || 0) + 1 }], role)[0] });
   } catch (err) {
     console.error('❌ /api/lp-quote-init error:', err);
     return res.status(500).json({ error: 'Server error while preparing the quote template.' });
@@ -1960,6 +2187,7 @@ app.post('/inquiries/update', async (req, res) => {
   }
 
   try {
+    if (!USE_MOCK && !dbReady(res)) return;
     const incoming = req.body || {};
     console.log('[UPDATE] role=', role, 'quotation=', incoming['Quotation #'], 'keys=', Object.keys(incoming || {}));
 
@@ -2119,10 +2347,9 @@ app.post('/inquiries/update', async (req, res) => {
       // which is exactly when pushing happens.
       if (field === 'GF Ref') return role === 'sales' || role === 'manager';
 
-      // ✅ Pushed To GF: Sales & Manager may RESET this flag (the unlock-for-edit flow clears
-      // it so the route can be re-pushed after a price change). Setting it to 'true' remains
-      // exclusive to /api/push-to-gofreight (only after GF actually accepts the charge group) —
-      // enforced by a value guard in the update loop below.
+      // Compatibility with older clients: display-flag resets do not erase the durable
+      // route delivery ledger or permit another GF charge group. Clients cannot set true
+      // through this general update endpoint.
       if (field === 'Pushed To GF') return role === 'sales' || role === 'manager';
 
       if (role === 'sourcing') {
@@ -2196,6 +2423,10 @@ app.post('/inquiries/update', async (req, res) => {
       return res.status(404).json({ success: false, message: loaded.mode === 'mock' ? 'Quotation # not found (mock)' : 'Quotation # not found' });
     }
 
+    if (!requireInquiryAccess(req, res, existing)) return;
+    if (gfBusy(existing)) return conflict(res, 'GoFreight push is pending or needs reconciliation. Edits are temporarily blocked.');
+    if (isTruthy(existing['Pushed To GF'])) await gfRouteState(gfRouteKey(quotationId));
+
     // Snapshot for "auto price keep manual override" logic
     const prevSnapshot = JSON.parse(JSON.stringify(existing));
 
@@ -2233,6 +2464,12 @@ app.post('/inquiries/update', async (req, res) => {
         continue;
       }
 
+      if (typeof v !== 'string' && typeof v !== 'boolean' && !(typeof v === 'number' && Number.isFinite(v))) {
+        blocked.push({ field: k, reason: 'invalid-field-type' }); continue;
+      }
+      // Old clients include unchanged read-only display fields. They are not edits.
+      if (k !== 'WH Locked By' && String(existing[k] ?? '') === String(v)) continue;
+
       // ── Issue 4: WH manual lock field. Validate the lock/unlock transition by role.
       //   set 'sales'   : sales or manager     set 'manager' : manager only
       //   unlock (''): a Manager lock clears only by manager; a Sales lock by sales or manager.
@@ -2240,7 +2477,7 @@ app.post('/inquiries/update', async (req, res) => {
         const cur = String(existing['WH Locked By'] || '').toLowerCase().trim();
         const next = String(v || '').toLowerCase().trim();
         let allow = false;
-        if (next === 'sales') allow = (role === 'sales' || role === 'manager');
+        if (next === 'sales') allow = role === 'manager' || (role === 'sales' && cur !== 'manager');
         else if (next === 'manager') allow = (role === 'manager');
         else if (next === '') allow = (cur === 'manager') ? (role === 'manager') : (role === 'sales' || role === 'manager');
         if (!allow) { blocked.push({ field: k, reason: 'wh-lock-permission' }); continue; }
@@ -2323,15 +2560,10 @@ app.post('/inquiries/update', async (req, res) => {
 
     console.log('[UPDATE BLOCKED]', blocked);
 
-// ✅ Skip blocked fields but continue saving allowed ones for all roles.
-// Returning 403 on the entire save when even ONE field is blocked (e.g. Carrier
-// appears in both TRUCK_COST_FIELDS and TRUCK_PRICE_FIELDS) silently drops
-// Adjusted Price and all other valid fields. Log and move on instead.
-if (blocked.length) {
-  console.warn('[UPDATE] ignored blocked fields for role=' + role + ':',
-    blocked.map(b => b.field + ' (' + b.reason + ')'));
-  // continue with filtered (allowed) fields only
-}
+// Reject actual forbidden changes before any fields are applied.
+    if (blocked.length) return res.status(409).json({
+      success: false, blocked, message: 'Nothing was saved. These fields are locked or not permitted: ' + blocked.map(b => b.field).join(', ')
+    });
 
     // ========= Apply updates =========
     const patch = buildSafePatch(filtered);
@@ -2383,8 +2615,8 @@ if (blocked.length) {
     // ========= Save =========
     if (loaded.mode === 'mock') {
       mockInquiries[loaded.idx] = existing;
-      io.emit('inquiryUpdated', { quotationId });
-      return res.json({ success: true, data: existing });
+      broadcastInquiry(quotationId, existing);
+      return res.json({ success: true, partial: blocked.length > 0, blocked, appliedFields: Object.keys(patch), data: maskInquiryDocs([JSON.parse(JSON.stringify(existing))], role)[0] });
     }
 
     await existing.save();
@@ -2413,9 +2645,9 @@ if (blocked.length) {
             const isParentMongo = typeof parentDoc.set === 'function' && typeof parentDoc.markModified === 'function';
             const pSet = (k, v) => { parentDoc[k] = v; if (isParentMongo) parentDoc.set(k, v); };
 
-            pSet('truckingCostSent', anyTruckSent ? 'true' : 'false');
+            pSet('truckingCostSent', anyTruckSent && !isTruthy(parentDoc['truckingCostDraft']) ? 'true' : 'false');
             pSet('truckingCostSaved', anyTruckSaved ? 'true' : 'false');
-            pSet('warehouseCostSent', anyWhSent ? 'true' : 'false');
+            pSet('warehouseCostSent', anyWhSent && !isTruthy(parentDoc['warehouseCostDraft']) ? 'true' : 'false');
             pSet('warehouseCostSaved', anyWhSaved ? 'true' : 'false');
 
             // Backward compatible flags for older sales logic
@@ -2423,7 +2655,7 @@ if (blocked.length) {
             pSet('Selected', anyCostSent ? 'true' : 'false');
 
             await parentDoc.save();
-            io.emit('inquiryUpdated', { quotationId: parentKey });
+            broadcastInquiry(parentKey, parentDoc);
           }
         }
       } catch (e) {
@@ -2432,10 +2664,11 @@ if (blocked.length) {
     }
 
 
-    io.emit('inquiryUpdated', { quotationId });
-    return res.json({ success: true, data: existing });
+    broadcastInquiry(quotationId, existing);
+    return res.json({ success: true, partial: blocked.length > 0, blocked, appliedFields: Object.keys(patch), data: maskInquiryDocs([JSON.parse(JSON.stringify(existing))], role)[0] });
 
   } catch (err) {
+    if (err.name === 'VersionError' || err.name === 'DocumentNotFoundError') return conflict(res);
     console.error('[ERROR] Update failed:', err);
     return res.status(500).json({
       success: false,
@@ -2447,10 +2680,12 @@ if (blocked.length) {
 
 app.post('/api/push-to-gofreight', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();
-  if (!['sales', 'sourcing', 'manager'].includes(role)) {
+  if (!['sales', 'manager'].includes(role)) {
     return res.status(403).json({ success: false, message: role === 'ops_view' ? 'OPS view-only cannot modify data.' : 'Not authorized.' });
   }
 
+  try {
+  if (!dbReady(res)) return;
   const inquiry = req.body;
   const apiKey = process.env.GOFREIGHT_API_KEY;
   const baseUrl = process.env.GOFREIGHT_API_BASE || 'https://api.core.gofreight.co';
@@ -2466,15 +2701,6 @@ app.post('/api/push-to-gofreight', async (req, res) => {
   const letterMatch = quotationId.match(/^\d+([A-Za-z])$/);
   const subId = dashIdx >= 0 ? quotationId.slice(dashIdx + 1) : (letterMatch ? letterMatch[1] : '');
 
-  // ✅ Duplicate-push guard (per line — a sub-line and its parent push independently)
-  const alreadyPushed = await Inquiry.findOne({
-    'Quotation #': fullQuoteId,
-    'Pushed To GF': 'true'
-  });
-  if (alreadyPushed) {
-    return res.status(200).send('Already pushed');
-  }
-
   // ✅ Fetch the authoritative document from OUR OWN database. Price amounts are read from
   // this saved doc (not from req.body) so we only ever push what's actually confirmed/locked
   // in the system, never an in-progress unsaved edit the frontend happened to send.
@@ -2482,6 +2708,15 @@ app.post('/api/push-to-gofreight', async (req, res) => {
   if (!ownDoc) {
     return res.status(404).json({ error: 'Inquiry not found in database: ' + quotationId });
   }
+  if (!requireInquiryAccess(req, res, ownDoc)) return;
+  const routeKey = gfRouteKey(quotationId);
+  if (!routeKey) return res.status(400).json({ error: 'Invalid quotation number.' });
+  const previousPush = await gfRouteState(routeKey);
+  if (previousPush?.state === 'succeeded') return res.status(200).send('Already pushed');
+  if (['pending', 'uncertain'].includes(previousPush?.state)) return conflict(res, 'This route already has a pending or uncertain GoFreight push. Verify it before retrying.');
+  if (gfBusy(ownDoc)) return conflict(res, 'A GoFreight push is in progress or its result is uncertain. Check GoFreight before retrying.');
+  if (isTruthy(ownDoc.truckingCostDraft) || !(isTruthy(ownDoc.truckingSalesConfirmed) || isTruthy(ownDoc.truckingManagerConfirmed))) return conflict(res, 'Confirm the trucking price after cost has been sent before pushing to GoFreight.');
+  if (!apiKey) return res.status(503).json({ error: 'GoFreight API key is not configured.' });
   if (!ownDoc['Customer ID']) {
     return res.status(400).json({ error: quotationId + ' has no Customer ID on file.' });
   }
@@ -2617,7 +2852,7 @@ app.post('/api/push-to-gofreight', async (req, res) => {
 
     if (!quotationRef && parentId) {
       const parentDoc = await Inquiry.findOne({ 'Quotation #': parentId }).lean();
-      if (parentDoc) quotationRef = String(parentDoc['GF Ref'] || '').trim();
+      if (parentDoc && canAccessInquiry(req, parentDoc)) quotationRef = String(parentDoc['GF Ref'] || '').trim();
     }
 
     // Family-wide search on the ULTIMATE base (strip suffixes repeatedly:
@@ -2632,10 +2867,11 @@ app.post('/api/push-to-gofreight', async (req, res) => {
       }
       const safeBase = ultimateBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const familyDoc = await Inquiry.findOne({
+        salesGroup: ownDoc.salesGroup || '',
         'Quotation #': { $regex: '^' + safeBase + '([A-Za-z]|-|$)' },
         'GF Ref': { $nin: ['', null] }
       }).lean();
-      if (familyDoc) quotationRef = String(familyDoc['GF Ref'] || '').trim();
+      if (familyDoc && canAccessInquiry(req, familyDoc)) quotationRef = String(familyDoc['GF Ref'] || '').trim();
       if (!quotationRef) gfRefMissingOn = ultimateBase + ' (family)';
     }
 
@@ -2666,39 +2902,28 @@ app.post('/api/push-to-gofreight', async (req, res) => {
     ? `From ${fromTxt} to ${toTxt}`
     : (subId ? `Route ${subId}` : 'Destination charges');
 
-  function buildSafePatch(payload) {
-    const patch = {};
-
-    for (const [k, v] of Object.entries(payload || {})) {
-
-      // ❌ 不允许改主键
-      if (k === '_id' || k === 'Quotation #' || k === 'Quotation # ') continue;
-
-      // ✅ boolean 一定允许
-      if (typeof v === 'boolean') {
-        patch[k] = v;
-        continue;
-      }
-
-      // ✅ number 一定允许（包括 0）
-      if (typeof v === 'number') {
-        patch[k] = v;
-        continue;
-      }
-
-      // ✅ string —— 允许空字符串写入
-      if (typeof v === 'string') {
-        patch[k] = v;
-        continue;
-      }
-
-      // 其他类型也允许写入
-      patch[k] = v;
-    }
-
-    return patch;
+  const token = crypto.randomBytes(16).toString('hex');
+  const startedAt = new Date().toISOString();
+  // The collection's built-in unique _id protects different carrier rows and processes.
+  try {
+    await gfLedger().updateOne({ _id: routeKey, state: 'ready' }, { $set: {
+      state: 'pending', token, startedAt, sourceQuotation: quotationId, quotationRef
+    } }, { upsert: true });
+  } catch (err) {
+    if (err.code !== 11000) throw err;
+    const active = await gfLedger().findOne({ _id: routeKey });
+    if (active?.state === 'succeeded') return res.status(200).send('Already pushed');
+    return conflict(res, 'Another carrier in this route is already being pushed or needs verification.');
   }
-
+  const claimFilter = { _id: routeKey, token, state: 'pending' };
+  const claim = await Inquiry.updateOne({ ...revisionFilter(ownDoc), 'Pushed To GF': { $nin: ['true', true] }, 'GF Push State': { $nin: ['pending', 'uncertain'] } }, {
+    $set: { 'GF Push State': 'pending', 'GF Push Token': token, 'GF Push Started At': startedAt }, $inc: { __v: 1 }
+  });
+  if (!(claim.matchedCount ?? claim.n)) {
+    await gfLedger().updateOne(claimFilter, { $set: { state: 'ready' } });
+    return conflict(res, 'This quotation changed. Refresh before trying again.');
+  }
+  broadcastInquiry(quotationId, ownDoc);
   try {
     console.log('[DEBUG] quotationRef:', quotationRef);
     console.log('[DEBUG] routeLabel:', routeLabel);
@@ -2706,6 +2931,7 @@ app.post('/api/push-to-gofreight', async (req, res) => {
 
     const gfRes = await fetch(`${baseUrl}/api/v1/quotations/${quotationRef}/charge-groups`, {
       method: 'POST',
+      timeout: 30000,
       headers: {
         'X-GATEWAY-TOKEN': apiKey,
         'Content-Type': 'application/json'
@@ -2719,48 +2945,73 @@ app.post('/api/push-to-gofreight', async (req, res) => {
 
     const result = await gfRes.text();
 
-    if (!result || result.trim() === '') {
-      console.error('❌ Empty response from GoFreight');
-      return res.status(502).json({
-        error: 'Empty response from GoFreight',
-        gfStatus: gfRes.status,
-        raw: result
-      });
-    }
-
-    let resultJson;
-    try {
-      resultJson = JSON.parse(result);
-    } catch (err) {
-      console.error('❌ JSON parse error:', err);
-      return res.status(500).json({
-        error: 'Invalid JSON returned from GoFreight',
-        raw: result
-      });
-    }
-
-    if (!gfRes.ok) {
-      // ✅ Do NOT mirror GF's status code: a 401/403 FROM GOFREIGHT would trip the
-      // frontend's handleAuthError (which watches for OUR session expiring) and kick
-      // the user to the login page. Wrap all GF-side failures as 502 instead.
-      return res.status(502).json({ gfStatus: gfRes.status, gfError: resultJson });
-    }
-
-    const patch = buildSafePatch(incoming);
-    await Inquiry.updateOne({ 'Quotation #': quotationId }, { $set: patch });
+    // A successful status is success even when the provider sends an empty/non-JSON body.
+    // Non-success/timeout is uncertain: the provider may already have committed a charge group.
+    let resultJson = {};
+    try { resultJson = result ? JSON.parse(result) : {}; } catch (_) { resultJson = { message: result.slice(0, 1000) }; }
+    if (!gfRes.ok) throw new Error('GoFreight returned HTTP ' + gfRes.status + '. Verify the quotation before retrying.');
+    const savedPush = await gfLedger().updateOne(claimFilter, { $set: {
+      state: 'succeeded', completedAt: new Date().toISOString(), by: req.cookies.username,
+      response: result.slice(0, 4000)
+    } });
+    if (!(savedPush.matchedCount ?? savedPush.n)) throw new Error('GoFreight accepted the push but the route status could not be updated.');
+    await syncGfRoute(routeKey, {
+      'Pushed To GF': 'true', 'Pushed To GF At': new Date().toISOString(),
+      'Pushed To GF By': req.cookies.username, 'GF Push State': 'succeeded',
+      'GF Push Error': '', 'GF Push Source Quotation': quotationId
+    });
 
     // ✅ Broadcast like every other save path does — without this, any socket-triggered
     // table re-render (including the GF Ref save moments earlier) redraws the rocket
     // from pre-push data and it shows colored again even though the push succeeded.
-    io.emit('inquiryUpdated', { quotationId });
+    broadcastInquiry(quotationId, ownDoc);
 
     res.status(200).json(resultJson);
   } catch (err) {
+    try {
+      await gfLedger().updateOne(claimFilter, { $set: { state: 'uncertain', error: String(err.message || err).slice(0, 1000) } });
+      const durable = await gfLedger().findOne({ _id: routeKey });
+      await syncGfRoute(routeKey, { 'GF Push State': durable?.state || 'uncertain', 'Pushed To GF': durable?.state === 'succeeded' ? 'true' : 'false', 'GF Push Error': String(err.message || err).slice(0, 1000) });
+    } catch (recordErr) { console.error('GF status recording failed:', recordErr.message); }
+    broadcastInquiry(quotationId, ownDoc);
     console.error('❌ Push to GoFreight failed:', err);
-    res.status(500).json({ error: 'Server error during push', detail: err.message });
+    res.status(502).json({ error: 'Push result needs verification in GoFreight. Do not repeat the push until reconciled.', detail: err.message });
   }
+  } catch (err) { console.error('GF preflight failed:', err.message); return res.status(503).json({ error: 'Unable to prepare GoFreight push. Please retry later.' }); }
 });
 
+
+app.post('/api/reconcile-gf-push', async (req, res) => {
+  if (req.cookies?.role !== 'manager') return res.status(403).json({ success: false, message: 'Manager only.' });
+  try {
+    if (!dbReady(res)) return;
+    const q = String(req.body?.['Quotation #'] || '').trim();
+    const resolution = req.body?.resolution;
+    const note = String(req.body?.note || '').trim();
+    if (!q || !['confirmed_sent', 'confirmed_not_sent'].includes(resolution) || note.length < 5) return res.status(400).json({ success: false, message: 'Quotation, resolution and verification note are required.' });
+    const doc = await Inquiry.findOne({ 'Quotation #': q }).lean();
+    if (!doc) return res.status(404).json({ success: false, message: 'Quotation not found.' });
+    const key = gfRouteKey(q);
+    const state = await gfRouteState(key);
+    if (!state || !['pending', 'uncertain'].includes(state.state)) return conflict(res, 'This route does not need reconciliation.');
+    if (state.state === 'pending' && (!state.startedAt || Date.now() - Date.parse(state.startedAt) < 120000)) return conflict(res, 'Push may still be running. Wait at least two minutes before checking.');
+    const sent = resolution === 'confirmed_sent';
+    const fields = { state: sent ? 'succeeded' : 'ready', reconciledAt: new Date().toISOString(), by: req.cookies.username, note };
+    if (state.legacy) {
+      try { await gfLedger().insertOne({ _id: key, ...fields }); }
+      catch (err) { if (err.code === 11000) return conflict(res); throw err; }
+    } else {
+      const result = await gfLedger().updateOne({ _id: key, state: state.state, token: state.token }, { $set: fields });
+      if (!(result.matchedCount ?? result.n)) return conflict(res);
+    }
+    await syncGfRoute(key, {
+      'Pushed To GF': sent ? 'true' : 'false', 'GF Push State': sent ? 'succeeded' : 'ready',
+      'GF Reconciled At': fields.reconciledAt, 'GF Reconciled By': req.cookies.username, 'GF Reconciliation Note': note
+    });
+    broadcastInquiry(q, doc);
+    return res.json({ success: true });
+  } catch (err) { return res.status(500).json({ success: false, message: 'Reconciliation failed.' }); }
+});
 
 app.post('/duplicate_inquiry', async (req, res) => {
   const role = String(req.cookies?.role || '').toLowerCase();
@@ -2772,9 +3023,12 @@ app.post('/duplicate_inquiry', async (req, res) => {
   if (!quoteId) return res.status(400).json({ success: false, message: 'Missing quoteId' });
 
   try {
+    if (!dbReady(res)) return;
     const original = await Inquiry.findOne({ 'Quotation #': quoteId }).lean();
     if (!original) return res.status(404).json({ success: false, message: 'Quotation # not found' });
 
+    if (!requireInquiryAccess(req, res, original)) return;
+    if (gfBusy(original)) return conflict(res, 'GoFreight push is pending or needs reconciliation.');
     const baseId = quoteId.split('-')[0];
     const escapeRegExp = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const siblings = await Inquiry.find({ 'Quotation #': { $regex: `^${escapeRegExp(baseId)}-` } });
@@ -2788,6 +3042,16 @@ app.post('/duplicate_inquiry', async (req, res) => {
     const newQuote = `${baseId}-${nextSuffix}`;
 
     const duplicated = { ...original, 'Quotation #': newQuote };
+    delete duplicated._id;
+    delete duplicated.__v;
+    duplicated['Parent Quotation #'] = baseId;
+    ['GF Push State', 'GF Push Token', 'GF Push Started At', 'GF Push Error', 'GF Push Response', 'Pushed To GF By'].forEach(k => delete duplicated[k]);
+    duplicated['WH Locked By'] = '';
+    ['trucking', 'warehouse'].forEach(scope => {
+      duplicated[scope + 'CostSaved'] = 'false'; duplicated[scope + 'CostSent'] = 'false';
+      duplicated[scope + 'CostDraft'] = 'true'; duplicated[scope + 'PriceSaved'] = 'false';
+    });
+    duplicated['Cost Sent'] = 'false';
     duplicated['Base Rate'] = '';
     duplicated['Chassis'] = '';
     duplicated['Pre-Pull'] = '';
@@ -2844,8 +3108,8 @@ app.post('/duplicate_inquiry', async (req, res) => {
     duplicated['warehouseManagerConfirmed'] = 'false';
 
     // ✅ GF FIX: never inherit the source inquiry's GoFreight linkage. Before this, a
-    // duplicated inquiry silently carried the source's 'GF Ref', so its first 🚀 push
-    // skipped the ref prompt and sent pricing into the WRONG GF quotation (the source's).
+    // new carrier starts with its own local fields. Route push status is inherited from
+    // the durable ledger on read; GF Ref can still resolve through the route/family.
     duplicated['GF Ref'] = '';
     duplicated['Pushed To GF'] = 'false';
     duplicated['Pushed To GF At'] = '';
@@ -2860,9 +3124,10 @@ app.post('/duplicate_inquiry', async (req, res) => {
     const newInquiry = new Inquiry(duplicated);
     await newInquiry.save();
 
-    io.emit('inquiryUpdated', { quotationId: newQuote });
-    res.json({ success: true, data: newInquiry });
+    broadcastInquiry(newQuote, duplicated);
+    res.json({ success: true, data: maskInquiryDocs([JSON.parse(JSON.stringify(newInquiry))], role)[0] });
   } catch (err) {
+    if (err.code === 11000) return conflict(res, 'Another user just added an option. Refresh and try again.');
     console.error('[ERROR] Failed to duplicate inquiry:', err);
     res.status(500).json({ success: false, message: err.message });
   }
@@ -2892,6 +3157,7 @@ app.post('/delete_inquiry', async (req, res) => {
   }
 
 try {
+    if (!USE_MOCK && !dbReady(res)) return;
     // ✅ Mock mode branch (same pattern as /inquiries/update)
     if (USE_MOCK || !conn || conn.readyState !== 1 || !Inquiry) {
       const targetId = String(quoteId).trim();
@@ -2901,6 +3167,8 @@ try {
         return res.status(404).json({ success: false, message: 'Quotation # not found (mock)' });
       }
 
+      if (!requireInquiryAccess(req, res, target)) return;
+      if (gfBusy(target)) return conflict(res);
       const locked =
         isTruthy(target['truckingCostSent']) || isTruthy(target['warehouseCostSent']) ||
         isTruthy(target['truckingSalesConfirmed']) || isTruthy(target['truckingManagerConfirmed']) ||
@@ -2919,7 +3187,7 @@ try {
       }
 
       console.log(`[DEBUG] Deleted inquiry (mock): ${quoteId}`);
-      io.emit('inquiryUpdated', { quotationId: quoteId });
+      broadcastInquiry(quoteId, target);
       return res.json({ success: true });
     }
 
@@ -2929,6 +3197,8 @@ try {
       return res.status(404).json({ success: false, message: 'Quotation # not found' });
     }
 
+    if (!requireInquiryAccess(req, res, doc)) return;
+    if (gfBusy(doc)) return conflict(res);
     // ✅ Only block delete when Sourcing has sent (checked ✅) or Sales/Manager confirmed
     const locked =
       isTruthy(doc['truckingCostSent']) || isTruthy(doc['warehouseCostSent']) ||
@@ -2939,10 +3209,11 @@ try {
       return res.status(403).json({ success: false, message: 'Cannot delete: row is locked (cost sent or price confirmed).' });
     }
 
-    const result = await Inquiry.deleteOne({ 'Quotation #': quoteId });
+    const result = await Inquiry.deleteOne(revisionFilter(doc));
+    if (!result.deletedCount) return conflict(res);
 
     console.log(`[DEBUG] Deleted inquiry: ${quoteId}`);
-    io.emit('inquiryUpdated', { quotationId: quoteId });
+    broadcastInquiry(quoteId, doc);
     return res.json({ success: true });
 
   } catch (error) {
@@ -3038,6 +3309,7 @@ function portalRateLimited(req) {
 
 app.post('/public/inquiries', async (req, res) => {
   try {
+    if (!USE_MOCK && !dbReady(res)) return;
     const raw = req.body || {};
 
     // ===== Anti-spam guard (this endpoint is public) =====
@@ -3411,11 +3683,7 @@ app.use((req, res, next) => {
   //   3 Sent           — parent-level only: Confirmed AND 'Pushed To GF'==='true'
   // NOTE: deliberately stricter than /api/kpi (which counts legacy 'Selected' as confirmed);
   // the home-page KPI may show more "Confirmed" than this list — expected.
-  function qlistValidConfirm(d) {
-    const flag = qlistTrue(d.truckingSalesConfirmed) || qlistTrue(d.truckingManagerConfirmed) ||
-                 qlistTrue(d.warehouseSalesConfirmed) || qlistTrue(d.warehouseManagerConfirmed);
-    return flag && String(d['Adjusted Price'] == null ? '' : d['Adjusted Price']).trim() !== '';
-  }
+  function qlistValidConfirm(d) { return hasConfirmedQuotePrice(d); }
   function qlistDocRank(d) {
     if (qlistValidConfirm(d)) return 2;
     if (qlistTrue(d.truckingCostSent) || qlistTrue(d.warehouseCostSent) || qlistTrue(d['Selected'])) return 1;
@@ -3459,25 +3727,26 @@ app.use((req, res, next) => {
       const filter = { _id: { $gte: boundary } };
       if ((role === 'sales' || role === 'ops_view') && salesGroup) filter.salesGroup = { $in: groupList(salesGroup) };
 
+      if ((role === 'sales' || role === 'ops_view') && !salesGroup) return res.json({ groups: [], total: 0, truncated: false, role });
       const qRaw = String(req.query.q || '').trim();
       if (qRaw) {
+        delete filter._id;
         const parsed = qlistParse(qRaw);
-        if (parsed) {
-          filter['Quotation #'] = { $regex: '^' + qlistEsc(parsed.base) };
-        } else {
-          filter.$or = [
-            { 'To ZIP': { $regex: '^' + qlistEsc(qRaw) } },
-            { 'Customer ID': { $regex: '^' + qlistEsc(qRaw), $options: 'i' } }
-          ];
-        }
+        filter.$or = [
+          { 'To ZIP': { $regex: '^' + qlistEsc(qRaw) } },
+          { 'Customer ID': { $regex: '^' + qlistEsc(qRaw), $options: 'i' } }
+        ];
+        if (parsed) filter.$or.push({ 'Quotation #': { $regex: '^' + qlistEsc(parsed.base) } });
       }
       const customer = String(req.query.customer || '').trim();
       if (customer) filter['Customer ID'] = { $regex: '^' + qlistEsc(customer), $options: 'i' };
       const salesFilter = String(req.query.sales || '').trim();
 
-      const docs = await Inquiry.find(filter, QLIST_PROJECTION)
+      let docs = await Inquiry.find(filter, QLIST_PROJECTION)
         .sort({ _id: -1 }).limit(QLIST_MAX_DOCS + 1).lean();
+      docs = await overlayGfRoutes(docs);
       console.log('[READ] /api/quotation-list rows=' + docs.length);   // ✅ MEMWATCH
+      docs = maskInquiryDocs(docs, role);
       const truncated = docs.length > QLIST_MAX_DOCS;
       if (truncated) docs.length = QLIST_MAX_DOCS;
 
@@ -3520,7 +3789,7 @@ app.use((req, res, next) => {
 
           // GP picks only VALID confirmations (flag + non-empty Adjusted Price) — this also
           // neutralizes the auto-written "0.00%" Adjusted GP that appears when the price is empty.
-          const confirmed = L.candidates.filter(c => qlistValidConfirm(c) && (qlistTrue(c.truckingSalesConfirmed) || qlistTrue(c.truckingManagerConfirmed)));
+          const confirmed = L.candidates.filter(c => hasConfirmedQuotePrice(c, 'TRUCK'));
           let gp = null, gpSource = 'none', adjPrice = null, suppliers = [];
           for (const c of confirmed) {
             const g = qlistGP(c);
@@ -3557,7 +3826,8 @@ app.use((req, res, next) => {
         if (b.lines.size === 0) continue;
 
         const statusFilter = String(req.query.status || '').trim();
-        const pushed = anchor ? qlistTrue(anchor['Pushed To GF']) : false;
+        const confirmedDocs = Array.from(b.lines.values()).flatMap(l => l.candidates).filter(qlistValidConfirm);
+        const pushed = b.lines.size > 0 && Array.from(b.lines.values()).every(l => l.candidates.some(d => qlistTrue(d['Pushed To GF'])));
         let parentStatus = QLIST_STATUS[parentRank];
         if (parentStatus === 'Confirmed' && pushed) parentStatus = 'Sent';   // rank 3 is parent-level only
         if (statusFilter === 'unpushed') {
@@ -3619,20 +3889,35 @@ app.use((req, res, next) => {
       }
       const value = (req.body || {}).value === true || String((req.body || {}).value) === 'true';
 
-      const doc = await Inquiry.findOne({ 'Quotation #': p.base }, { salesGroup: 1 }).lean();
-      if (!doc) return res.status(404).json({ error: 'Quotation ' + p.base + ' not found.' });
-      if (role === 'sales' && !groupList(salesGroup).includes(String(doc.salesGroup || '').trim())) {
-        return res.status(403).json({ error: 'This quotation belongs to another sales group.' });
+      const docs = (await Inquiry.find({ 'Quotation #': { $regex: '^' + qlistEsc(p.base) } }).lean()).filter(d => qlistParse(d['Quotation #'])?.base === p.base);
+      if (!docs.length) return res.status(404).json({ error: 'Quotation family not found.' });
+      if (!docs.every(d => canAccessInquiry(req, d))) return res.status(403).json({ error: 'This quotation belongs to another sales group.' });
+      if (docs.some(gfBusy)) return conflict(res, 'Reconcile pending GoFreight pushes first.');
+      const lineKeys = new Set(docs.map(d => qlistParse(d['Quotation #']).line));
+      if (value && !Array.from(lineKeys).every(line => docs.some(d => qlistParse(d['Quotation #']).line === line && qlistValidConfirm(d)))) return conflict(res, 'Each route must have a confirmed price before marking the group sent.');
+      const targets = docs;
+      for (const key of lineKeys) {
+        const state = await gfRouteState(key);
+        if (['pending', 'uncertain'].includes(state?.state)) return conflict(res, 'Reconcile pending GoFreight pushes first.');
+        if (!value && state?.state === 'succeeded') return conflict(res, 'This route is already sent. Clearing its flag could create duplicate charges and is not allowed.');
       }
-
-      await Inquiry.updateOne(
-        { 'Quotation #': p.base },
-        { $set: {
-            'Pushed To GF': value ? 'true' : 'false',
-            'Pushed To GF At': new Date().toISOString(),
-            'Pushed To GF By': username
-        } }
-      );
+      const session = await conn.startSession();
+      try {
+        await session.withTransaction(async () => {
+          if (value) for (const key of lineKeys) {
+            await gfLedger().updateOne({ _id: key, state: { $in: ['ready', 'succeeded'] } }, {
+              $set: { state: 'succeeded', by: username, completedAt: new Date().toISOString(), source: 'manual' }
+            }, { upsert: true, session });
+          }
+          for (const doc of targets) {
+            const result = await Inquiry.updateOne(revisionFilter(doc), { $set: {
+              'Pushed To GF': value ? 'true' : 'false', 'Pushed To GF At': new Date().toISOString(), 'Pushed To GF By': username
+            }, $inc: { __v: 1 } }, { session });
+            if (!(result.matchedCount ?? result.n)) throw new Error('Quotation changed during update. Refresh and retry.');
+          }
+        });
+      } finally { await session.endSession(); }
+      targets.forEach(doc => broadcastInquiry(doc['Quotation #'], doc));
       return res.json({ success: true, base: p.base, value });
     } catch (err) {
       console.error('❌ QLIST mark error:', err);
@@ -3699,7 +3984,7 @@ app.use((req, res, next) => {
         }
       }
 
-      const blocked = docs.filter(d => delqLineLocked(d) || !delqLineEmpty(d));
+      const blocked = docs.filter(d => gfBusy(d) || delqLineLocked(d) || !delqLineEmpty(d));
       if (blocked.length) {
         const names = blocked.map(d => String(d['Quotation #'] || '').trim()).join(', ');
         return res.status(409).json({
@@ -3709,10 +3994,17 @@ app.use((req, res, next) => {
       }
 
       const ids = docs.map(d => d['Quotation #']);
-      const result = await Inquiry.deleteMany({ 'Quotation #': { $in: ids } });
+      const session = await conn.startSession();
+      let result;
+      try {
+        await session.withTransaction(async () => {
+          result = await Inquiry.deleteMany({ $or: docs.map(revisionFilter) }, { session });
+          if (result.deletedCount !== docs.length) throw new Error('Quotation changed during deletion. Refresh and try again.');
+        });
+      } finally { await session.endSession(); }
 
       console.log('[DELGROUP] base=' + base + ' lines=' + ids.length + ' deleted=' + result.deletedCount + ' by=' + username + '/' + role);
-      io.emit('inquiryUpdated', { quotationId: base });
+      docs.forEach(d => broadcastInquiry(d['Quotation #'], d));
       return res.json({ success: true, deleted: result.deletedCount });
     } catch (err) {
       console.error('❌ DELGROUP error:', err);

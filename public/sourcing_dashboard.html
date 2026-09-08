@@ -1656,6 +1656,50 @@
 }
 
   </style>
+<script>
+
+// Keep one reload in flight; queue remote changes until all edits have been saved.
+window._ttsEditVersion = 0;
+window._ttsDirtyFields = new Map();
+window.ttsTrackEdit = function (el) {
+  const q = el.getAttribute('data-quote');
+  const f = el.getAttribute('data-field');
+  if (!q || !f) return;
+  window._ttsEditVersion++;
+  window._ttsDirtyFields.set(q + '\n' + f, { q, f, value: el.value });
+  window._dirtyEditing = true;
+};
+window.ttsAcceptSave = function (payload, result) {
+  const blocked = new Set((result.blocked || []).map(b => b.field));
+  for (const [key, entry] of window._ttsDirtyFields) {
+    if (entry.q === payload['Quotation #'] && !blocked.has(entry.f) && Object.prototype.hasOwnProperty.call(payload, entry.f) && String(payload[entry.f]) === String(entry.value)) window._ttsDirtyFields.delete(key);
+  }
+  window._dirtyEditing = window._ttsDirtyFields.size > 0;
+};
+window.ttsRestoreEdits = function () {
+  for (const input of document.querySelectorAll('input[data-quote][data-field]')) {
+    const entry = window._ttsDirtyFields.get(input.getAttribute('data-quote') + '\n' + input.getAttribute('data-field'));
+    if (entry) input.value = entry.value;
+  }
+};
+window.ttsInstallRefresh = function (load) {
+  let pending = false, timer = null, running = false, last = 0;
+  async function run() {
+    timer = null;
+    if (!pending || running) return;
+    if (document.hidden || window._dirtyEditing || document.querySelector('.whm-overlay') || document.querySelector('.whm') || Date.now() < (window._selfUpdateUntil || 0)) {
+      timer = setTimeout(run, 1000); return;
+    }
+    pending = false; running = true; last = Date.now();
+    try { await load(); } finally { running = false; if (pending && !timer) timer = setTimeout(run, 3000); }
+  }
+  return function () {
+    pending = true;
+    if (!timer && !running) timer = setTimeout(run, Math.max(0, 3000 - (Date.now() - last)));
+  };
+};
+
+</script>
 </head>
 
 <body class="bg-gray-50 text-sm">
@@ -1717,7 +1761,7 @@
         window._authRedirecting = false;
         window.handleAuthError = function (res) {
           const expired =
-            res.status === 401 || res.status === 403 ||
+            res.status === 401 ||
             (res.redirected && /index\.html|login/i.test(res.url || ''));
           if (!expired) return false;
           if (!window._authRedirecting) {
@@ -1954,6 +1998,8 @@
             console.error('Update failed:', text);
             return { ok: false, text };
           }
+          const saveResult = JSON.parse(text || '{}');
+          if (saveResult.partial || saveResult.success === false) return { ok: false, text: 'Some fields were not saved: ' + (saveResult.blocked || []).map(b => b.field).join(', ') };
           // ✅ FIX (Phase B integrity): merge the server's authoritative updated doc into
           //    the local caches, so a later LOCAL re-render (add/delete row) shows what
           //    was just saved (flushed drafts, sent-cost flags, computed prices). Under
@@ -1969,6 +2015,12 @@
               if (it) Object.assign(it, doc);
             }
           } catch (e) { /* cache merely stays stale — same as pre-fix behavior */ }
+          for (const [key, value] of Object.entries(draftCache)) {
+            const [q, scope, field] = key.split('__');
+            if (q === payload['Quotation #'] && Object.prototype.hasOwnProperty.call(payload, field) && String(payload[field]) === String(value)) delete draftCache[key];
+          }
+          window._ttsActionSaved ||= new Map();
+          window._ttsActionSaved.set(payload['Quotation #'], (window._ttsActionSaved.get(payload['Quotation #']) || 0) + 1);
           return { ok: true, text };
         }
 
@@ -1984,11 +2036,14 @@
           // ✅ Persist scope-level saved flag so UI state survives re-render/reload
           if (sTrim === 'TRUCK') payload['truckingCostSaved'] = 'true';
           if (sTrim === 'WH') payload['warehouseCostSaved'] = 'true';
+          const prefix = sTrim === 'TRUCK' ? 'trucking' : 'warehouse';
+          payload[prefix + 'CostDraft'] = 'true';
+          payload[prefix + 'CostSent'] = 'false';
 
           const inputs = Array.from(document.querySelectorAll(`input[data-scope="${sTrim}"]`))
             .filter(el => String(el.getAttribute('data-quote') || '').trim() === qTrim);
 
-          if (!inputs.length) {
+          if (!inputs.length && sTrim !== 'WH') {
             const msg = `❌ SAVE failed: cannot find inputs for quote=${qTrim}, scope=${sTrim}`;
             console.error(msg);
             alert(msg);
@@ -2012,7 +2067,11 @@
 
             const v = String(el.value ?? '').trim();
             // ✅ do not send empty strings (avoid overwriting)
-            if (v === '') continue;
+            if (v === '') {
+              const cached = allInquiriesCache.find(x => String(x['Quotation #']) === qTrim);
+              if (String(cached?.[f] ?? '').trim() === '') continue;
+              (payload.__clearFields ||= []).push(f);
+            }
             payload[f] = v;
           }
 
@@ -2032,7 +2091,7 @@
             .filter(el => String(el.getAttribute('data-quote') || '').trim() === qTrim);
 
           const hasValue = inputs.some(el => String(el.value || '').trim() !== '');
-          if (!hasValue) return true;
+          if (!hasValue && !Object.keys(draftCache).some(k => k.startsWith(qTrim + '__' + sTrim + '__'))) return true;
 
           const fields = sTrim === 'TRUCK'
             ? ['Base Rate', 'Chassis', 'Pre-Pull', 'Yard Storage', 'Driver Waiting', 'Over Weight', 'Chassis Split', 'Toll', 'Reefer Fee', 'Bond Fee', 'Drop Fee', 'Carrier']
@@ -2057,7 +2116,7 @@
               const q = String(parts[0] || '').trim();
               const s = String(parts[1] || '').trim();
               const v = String(draftCache[key] ?? '').trim();
-              if (!q || !s || v === '') continue;     // empty draft = nothing to persist (matches saveFields skipping empty)
+              if (!q || !s) continue;     // empty draft = nothing to persist (matches saveFields skipping empty)
               pairs.add(q + '||' + s);
             }
 
@@ -2111,6 +2170,9 @@
             const map = new Map();
             inputs.forEach(el => { const f = el.getAttribute('data-field'); if (f) map.set(f, el.value); });
             costFields.forEach(f => { if (map.has(f)) payload[f] = map.get(f); });
+            const cached = allInquiriesCache.find(x => String(x['Quotation #']) === qTrim);
+            const clears = costFields.filter(f => map.has(f) && String(map.get(f)).trim() === '' && String(cached?.[f] ?? '').trim() !== '');
+            if (clears.length) payload.__clearFields = clears;
           }
 
           const r = await postUpdate(payload);
@@ -2160,6 +2222,7 @@
           const q = String(quote || '').trim();
 
           return rows.find(r => {
+            if (r.dataset.quote === q) return true;
             const inputs = Array.from(r.querySelectorAll(`input[data-scope="${scope}"]`));
             return inputs.some(el => String(el.getAttribute('data-quote') || '').trim() === q);
           }) || null;
@@ -2272,6 +2335,47 @@
           return `${p}-Z`;
         }
 
+
+      // Row actions share one in-flight guard. Failed requests retain entered values.
+      const actionBusy = new Set();
+      function guardActions(td, quote, scope) {
+        for (const control of td.querySelectorAll('button, input[type="checkbox"]')) {
+          const event = control.type === 'checkbox' ? 'onchange' : 'onclick';
+          const handler = control[event];
+          if (!handler || handler.constructor.name !== 'AsyncFunction') continue;
+          control[event] = async function (e) {
+            if (actionBusy.has(quote)) { if (event === 'onchange') control.checked = !control.checked; return; }
+            actionBusy.add(quote);
+            const row = control.closest('.row-truck-val, .row-wh-val');
+            const controls = row ? Array.from(row.querySelectorAll('button, input, select, textarea')) : [control];
+            const disabled = controls.map(el => [el, el.disabled]);
+            const before = window._ttsActionSaved?.get(quote) || 0;
+            const priorChecked = event === 'onchange' ? !control.checked : null;
+            controls.forEach(el => el.disabled = true);
+            try { await handler.call(this, e); }
+            catch (err) {
+              if (priorChecked !== null) control.checked = priorChecked;
+              alert('Action failed. Your unsaved input is still available. ' + err.message);
+            } finally {
+              disabled.forEach(([el, was]) => { if (el.isConnected) el.disabled = was; });
+              actionBusy.delete(quote);
+              if (row?.isConnected && (window._ttsActionSaved?.get(quote) || 0) !== before) syncActionRow(quote, scope);
+            }
+          };
+        }
+      }
+
+      function syncActionRow(quote, scope) {
+        const item = allInquiriesCache.find(x => String(x['Quotation #']) === quote);
+        const row = findRowByQuoteScope(quote, scope);
+        if (!row || !item) return;
+        const sub = row.classList.contains('sub-row');
+        const main = row.dataset.mainKey || item['Parent Quotation #'] || quote;
+        const next = scope === 'TRUCK' ? renderTruckRow(item, quote, sub, main, row.dataset.displayNo)
+          : renderWhRow(item, quote, sub, main);
+        row.replaceWith(next);
+      }
+
         function actionCellTruck(item, quote, mainKey, groupLocked) {
           const td = document.createElement('div');   // ✅ CARD LAYOUT: was <td>
           td.className = 'cell cell-action border px-2 text-center';
@@ -2313,7 +2417,7 @@
             //    truckingCostSent was never persisted back to false. That mismatch
             //    (Sent=true + Draft=true at once) is what let Sourcing show "sent" while
             //    Manager showed "NOT SENT" for the same line. Now both flags move together.
-            await setFlags(quote, { [costSavedField]: 'true', 'truckingCostDraft': 'true', 'truckingCostSent': 'false' });
+
             lockRow(quote, 'TRUCK');
 
             // ✅ Uncheck the checkbox (since saving resets sent status)
@@ -2414,7 +2518,7 @@
               const savedDoc = j && j.data;
               if (!savedDoc || !String(savedDoc['Quotation #'] || '').trim()) throw new Error('no doc in response');
               allInquiriesCache.push(savedDoc);
-              filteredData.push(savedDoc);
+              if (filteredData !== allInquiriesCache) filteredData.push(savedDoc);
               renderPage();
             } catch (e) {
               console.warn('[ADD] local insert fallback to full reload:', e);
@@ -2485,7 +2589,8 @@ ${qDel}`)) return;
           wrap.appendChild(delBtn);
 
           td.appendChild(wrap);
-          return td;
+          guardActions(td, quote, 'TRUCK');
+            return td;
         }
 
         function actionCellWH(item, quote, mainKey, groupLocked) {
@@ -2506,7 +2611,10 @@ ${qDel}`)) return;
           editBtn.innerHTML = iconSVG('edit');
           editBtn.title = 'Edit Cost';
           editBtn.disabled = hardLocked;
-          editBtn.onclick = () => unlockRow(quote, 'WH');
+          editBtn.onclick = () => {
+            if (window.WHModal) WHModal.open({ item, role: window.userRole, onSaved: () => loadInquiries() });
+            else alert('Warehouse details could not load. Please refresh the page.');
+          };
           wrap.appendChild(editBtn);
 
           // 💾 SAVE (Sourcing 保存 Cost)
@@ -2525,14 +2633,14 @@ ${qDel}`)) return;
 
             // ✅ FIX (2026-08-27): same fix as TRUCK — keep warehouseCostSent in sync with
             //    the draft flag so Save can't leave the two states contradicting each other.
-            await setFlags(quote, { [costSavedField]: 'true', 'warehouseCostDraft': 'true', 'warehouseCostSent': 'false' });
+
             lockRow(quote, 'WH');
 
             // ✅ Uncheck the checkbox
             const chkEl = wrap.querySelector('input[type="checkbox"]');
             if (chkEl) chkEl.checked = false;
 
-            await autosaveScopeIfHasAnyValue(String(quote || '').trim(), 'WH');
+
 
             markRowSaved(quote, 'WH');
 
@@ -2625,7 +2733,7 @@ ${qDel}`)) return;
               const savedDoc = j && j.data;
               if (!savedDoc || !String(savedDoc['Quotation #'] || '').trim()) throw new Error('no doc in response');
               allInquiriesCache.push(savedDoc);
-              filteredData.push(savedDoc);
+              if (filteredData !== allInquiriesCache) filteredData.push(savedDoc);
               renderPage();
             } catch (e) {
               console.warn('[ADD][WH] local insert fallback to full reload:', e);
@@ -2700,7 +2808,8 @@ ${qDel}`)) return;
 
           td.appendChild(wrap);
 
-          return td;
+          guardActions(td, quote, 'WH');
+            return td;
         }
 
         function naturalQuotationSort(a, b) {
@@ -2987,6 +3096,7 @@ ${qDel}`)) return;
             : (isSub ? (q.replace(/-\d+$/, displaySuffix)) : q);
           const r4 = document.createElement('div');   // ✅ CARD LAYOUT
           r4.className = 'row-truck-val';
+          Object.assign(r4.dataset, {quote, scope: 'TRUCK', mainKey, displayNo: displayNo || ''});
           if (isSub) r4.classList.add('sub-row');
 
           // ===== Status (match SALES) =====
@@ -3003,7 +3113,7 @@ ${qDel}`)) return;
 
           if (costSaved && !costSent && !confirmed) r4.classList.add('cost-saved');
 
-          const lockedTruck = lockState(item, 'TRUCK');
+          const lockedTruck = lockState(item, 'TRUCK') || costSaved || costSent;
 
 
           r4.appendChild(tdCell(displayQ, 'cell-tag text-center'));
@@ -3094,6 +3204,7 @@ ${qDel}`)) return;
 
           const r6 = document.createElement('div');   // ✅ CARD LAYOUT
           r6.className = 'row-wh-val';
+          Object.assign(r6.dataset, {quote, scope: 'WH', mainKey});
           if (isSub) r6.classList.add('sub-row');
 
           // ===== Status (match SALES) =====
@@ -3112,7 +3223,7 @@ ${qDel}`)) return;
 
           if (costSaved && !costSent && !confirmed) r6.classList.add('cost-saved');
 
-          const lockedWH = lockState(item, 'WH');
+          const lockedWH = lockState(item, 'WH') || costSaved || costSent;
 
           // ✅ FIX: First column — quotation # (was missing, causing column shift)
           r6.appendChild(tdCell(displayQ, 'cell-tag text-center'));

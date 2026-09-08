@@ -352,9 +352,9 @@ function buildLpQuoteTable(d) {
   let rows = '', lastSec = null, printed = 0, zi = 0;   // ✅ POLISH
   lpRows.forEach(r => {
     const quoted = val(d, 'LP ' + r.i + ' Price');
-    const desc = r.custom ? val(d, 'LP ' + r.i + ' Desc') : r.description;
+    const desc = val(d, 'LP ' + r.i + ' Desc') || (r.custom ? '' : String(r.description || ''));
     if (r.custom && desc.trim() === '') return;
-    const priceText = quoted !== '' ? money(quoted) : (String(r.listPrice).trim() !== '' ? esc(r.listPrice) : '\u2014');
+    const priceText = quoted !== '' ? (/^-?\d+(?:\.\d+)?$/.test(quoted) ? money(quoted) : esc(quoted)) : (String(r.listPrice || '').trim() && !/^-?\d+(?:\.\d+)?$/.test(String(r.listPrice).trim()) ? esc(r.listPrice) : '\u2014');
     const sec = String(r.section || '');
     if (sec !== lastSec) {
       lastSec = sec;
@@ -385,7 +385,9 @@ function buildWarehouseTable(d) {
   const lp = buildLpQuoteTable(d);   // ✅ LPQUOTE: List-Price format wins when a snapshot exists
   if (lp) return lp;
   let rows = '';
+  const hasSelection = Object.keys(d).some(k => k.endsWith(' OnQuote'));
   for (const [base, descText] of WH_ROWS) {
+    if (hasSelection && !['Inbound', 'Outbound', 'Pallet Fee', 'Storage', 'Cross Dock'].includes(base) && String(d[base + ' OnQuote'] || '').toLowerCase() !== 'true') continue;
     const p = val(d, base + ' Price');
     if (p === '') continue;
     let unit = val(d, base + ' Unit');

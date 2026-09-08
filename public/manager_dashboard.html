@@ -1779,7 +1779,7 @@
 .row-truck-val.new-empty,     .row-wh-val.new-empty     { border-color: #86efac !important; background: #ffffff !important; }
 .row-truck-val.cost-received, .row-wh-val.cost-received { border-color: #fcd34d !important; }
 .row-truck-val.editing-row,   .row-wh-val.editing-row   { border-color: #f59e0b !important; }
-.row-truck-val.saved-price,   .row-wh-val.saved-price   { border-color: #93c5fd !important; background: #ffffff !important; }
+.row-truck-val.saved-price,   .row-wh-val.saved-price   { border-color: #93c5fd !important; background: #eff6ff !important; }
 .row-truck-val.row-confirmed, .row-wh-val.row-confirmed { border-color: #60a5fa !important; }
 
 /* chips inherit the line's state colour */
@@ -1922,6 +1922,51 @@
 }
 
   </style>
+<script>
+
+// Keep one reload in flight; queue remote changes until all edits have been saved.
+window._ttsEditVersion = 0;
+window._ttsDirtyFields = new Map();
+window.ttsTrackEdit = function (el) {
+  const q = el.getAttribute('data-quote');
+  const f = el.getAttribute('data-field');
+  if (!q || !f) return;
+  window._ttsEditVersion++;
+  window._ttsDirtyFields.set(q + '\n' + f, { q, f, value: el.value });
+  window._dirtyEditing = true;
+};
+window.ttsAcceptSave = function (payload, result) {
+  const blocked = new Set((result.blocked || []).map(b => b.field));
+  for (const [key, entry] of window._ttsDirtyFields) {
+    if (entry.q === payload['Quotation #'] && !blocked.has(entry.f) && Object.prototype.hasOwnProperty.call(payload, entry.f) && String(payload[entry.f]) === String(entry.value)) window._ttsDirtyFields.delete(key);
+  }
+  window._dirtyEditing = window._ttsDirtyFields.size > 0;
+};
+window.ttsRestoreEdits = function () {
+  for (const input of document.querySelectorAll('input[data-quote][data-field]')) {
+    const entry = window._ttsDirtyFields.get(input.getAttribute('data-quote') + '\n' + input.getAttribute('data-field'));
+    if (entry) input.value = entry.value;
+  }
+};
+window.ttsInstallRefresh = function (load) {
+  let pending = false, timer = null, running = false, last = 0;
+  async function run() {
+    timer = null;
+    if (!pending || running) return;
+    if (document.hidden || window._dirtyEditing || document.querySelector('.whm-overlay') || document.querySelector('.whm') || Date.now() < (window._selfUpdateUntil || 0)) {
+      timer = setTimeout(run, 1000); return;
+    }
+    pending = false; running = true; last = Date.now();
+    try { await load(); } finally { running = false; if (pending && !timer) timer = setTimeout(run, 3000); }
+  }
+  return function () {
+    pending = true;
+    if (!timer && !running) timer = setTimeout(run, Math.max(0, 3000 - (Date.now() - last)));
+  };
+};
+
+</script>
+<style>.status-pill[data-state="EDITING"] { background: #fef3c7; color: #92400e; }</style>
 </head>
 
 <body class="bg-gray-50 text-sm">
@@ -2208,7 +2253,7 @@
       window._authRedirecting = false;
       window.handleAuthError = function (res) {
         const expired =
-          res.status === 401 || res.status === 403 ||
+          res.status === 401 ||
           (res.redirected && /index\.html|login/i.test(res.url || ''));
         if (!expired) return false;
         if (!window._authRedirecting) {
@@ -2414,12 +2459,22 @@
           alert('❌ Save failed: ' + (typeof j === 'string' ? j : (j.message || res.status)));
           return { ok: false, data: j };
         }
+        const saveResult = j || {};
+        if (saveResult.partial || saveResult.success === false) { alert('Some fields were not saved: ' + (saveResult.blocked || []).map(b => b.field).join(', ')); return { ok: false, data: saveResult }; }
         // ✅ FIX (Method C): refresh the suppress window AFTER the response too.
         //    The pre-request window above only covers 2s from fetch start; if the server
         //    takes longer, our own inquiryUpdated echo lands outside it and triggers a
         //    full reload right after the save. Re-arming here keeps the echo suppressed.
         window._selfUpdateUntil = Date.now() + 2000;
-        window._dirtyEditing = false;   // ✅ FIX: edits persisted — allow socket reloads again
+        window.ttsAcceptSave(payload, saveResult);
+        if (saveResult.data) {
+          const cached = (window.filteredData || []).find(x => String(x['Quotation #']) === String(payload['Quotation #']));
+          if (cached) Object.assign(cached, saveResult.data);
+        }
+        window._ttsActionSaved ||= new Map();
+          window._ttsActionSaved.set(payload['Quotation #'], (window._ttsActionSaved.get(payload['Quotation #']) || 0) + 1);
+
+            window.ttsScheduleRefresh?.();
         return { ok: true, data: j };
       }
 
@@ -2430,13 +2485,13 @@
       // this guard always see "everything empty" for any LP-Quote row, even one the modal shows
       // has real Cost/Price/GP, and permanently block Save/Confirm on it. This checks the cached
       // doc for any non-empty 'LP n Price' as an alternate, equally valid sign the row is priced.
-      function hasLpPricing(quote) {
+      function hasWarehousePricing(quote) {
         try {
           const cached = (filteredData || []).find(
             x => String(x['Quotation #'] || '').trim() === String(quote || '').trim()
           );
           if (!cached) return false;
-          return Object.keys(cached).some(k => /^LP \d+ Price$/.test(k) && String(cached[k] ?? '').trim() !== '');
+          return Object.keys(cached).some(k => (/ Price$/.test(k) && !['Adjusted Price', 'Chassis Price', 'Pre-Pull Price', 'Yard Storage Price', 'Driver Waiting Price', 'Over Weight Price', 'Chassis Split Price', 'Toll Price', 'Reefer Fee Price', 'Bond Fee Price', 'Drop Fee Price'].includes(k)) && String(cached[k] ?? '').trim() !== '' && Number.isFinite(Number(cached[k])));
         } catch (e) { return false; }
       }
 
@@ -2449,7 +2504,6 @@
         const map = new Map();
         inputs.forEach(el => map.set(el.getAttribute('data-field'), el.value));
         fields.forEach(f => { if (map.has(f)) payload[f] = map.get(f); });
-
         // ✅ FIX (intentional clear): list fields the user explicitly emptied —
         //    cached original value was non-empty AND the input is now empty.
         //    The server lets ONLY these write '' through its empty-string guard,
@@ -2474,7 +2528,7 @@
         // to persist truckingPriceSaved/warehousePriceSaved with no price data.
         // ✅ FIX (LP-Quote blind spot): a WH row priced via the List-Price modal counts too.
         const hasValue = fields.some(f => map.has(f) && String(map.get(f)).trim() !== '') ||
-          (scope === 'WH' && hasLpPricing(quote));
+          (scope === 'WH' && hasWarehousePricing(quote));
         if (!hasValue) {
           alert('⚠️ Nothing to save — all price fields are empty. Please enter the price and try again.');
           return { ok: false, data: null };
@@ -2499,11 +2553,15 @@
         const map = new Map();
         inputs.forEach(el => { const f = el.getAttribute('data-field'); if (f) map.set(f, el.value); });
         fields.forEach(f => { if (map.has(f)) payload[f] = map.get(f); });
+        const prior = (window.filteredData || []).find(x => String(x['Quotation #']) === String(quote));
+        const clears = fields.filter(f => map.has(f) && String(map.get(f)).trim() === '' && String(prior?.[f] ?? '').trim() !== '');
+        if (clears.length) payload.__clearFields = clears;
+
 
         // ✅ FIX: refuse flag-only confirm-saves (same guard as saveFields)
         // ✅ FIX (LP-Quote blind spot): a WH row priced via the List-Price modal counts too.
         const hasValue = fields.some(f => map.has(f) && String(map.get(f)).trim() !== '') ||
-          (scope === 'WH' && hasLpPricing(quote));
+          (scope === 'WH' && hasWarehousePricing(quote));
         if (!hasValue) {
           alert('⚠️ Nothing to save — all price fields are empty. Please enter the price and try again.');
           return { ok: false, data: null };
@@ -2582,13 +2640,61 @@
       // ✅ GF GROUP: lines of the same route (same quotation base before the '-N' carrier
       // suffix, e.g. 005385B and 005385B-1) quote alternative carriers for ONE route — only
       // one of them should ever be pushed to GF. Once any line in the group is pushed, ALL
-      // the group's rockets go gray; unchecking (unlock-for-edit) resets the flag group-wide.
+      // the group's rockets go gray; unlocking preserves the delivery record.
+      window.ttsGfRouteDone = function (quote) {
+        const key = String(quote).split('-')[0];
+        (window.filteredData || []).forEach(d => {
+          if (String(d['Quotation #']).split('-')[0] === key) {
+            d['Pushed To GF'] = 'true'; d['GF Push State'] = 'succeeded';
+          }
+        });
+        document.querySelectorAll('button.btn-push-gf[data-quote]').forEach(btn => {
+          if (String(btn.dataset.quote).split('-')[0] === key) {
+            btn.classList.add('done'); btn.title = 'This route was already sent to GoFreight.';
+          }
+        });
+      };
       function gfGroupPushedLines(quote) {
         const base = String(quote || '').split('-')[0].trim();
         return (filteredData || []).filter(x => {
           const q = String(x['Quotation #'] || '').trim();
           return q.split('-')[0] === base && String(x['Pushed To GF'] || '').toLowerCase() === 'true';
         });
+      }
+
+
+      // Row actions share one in-flight guard. Failed requests retain entered values.
+      const actionBusy = new Set();
+      function guardActions(td, quote, scope) {
+        for (const control of td.querySelectorAll('button, input[type="checkbox"]')) {
+          const event = control.type === 'checkbox' ? 'onchange' : 'onclick';
+          const handler = control[event];
+          if (!handler || handler.constructor.name !== 'AsyncFunction') continue;
+          control[event] = async function (e) {
+            if (actionBusy.has(quote)) { if (event === 'onchange') control.checked = !control.checked; return; }
+            actionBusy.add(quote);
+            const row = control.closest('.row-truck-val, .row-wh-val');
+            const controls = row ? Array.from(row.querySelectorAll('button, input, select, textarea')) : [control];
+            const disabled = controls.map(el => [el, el.disabled]);
+            const before = window._ttsActionSaved?.get(quote) || 0;
+            const priorChecked = event === 'onchange' ? !control.checked : null;
+            controls.forEach(el => el.disabled = true);
+            try { await handler.call(this, e); }
+            catch (err) {
+              if (priorChecked !== null) control.checked = priorChecked;
+              alert('Action failed. Your unsaved input is still available. ' + err.message);
+            } finally {
+              disabled.forEach(([el, was]) => { if (el.isConnected) el.disabled = was; });
+              actionBusy.delete(quote);
+              if (row?.isConnected && (window._ttsActionSaved?.get(quote) || 0) !== before) syncActionRow(quote, scope);
+            }
+          };
+        }
+      }
+
+      function syncActionRow(quote, scope) {
+        const item = (window.filteredData || []).find(x => String(x['Quotation #']) === quote);
+        if (item) refreshRowFromDoc(item, scope);
       }
 
       function actionCell(item, quote, scope) {
@@ -2622,7 +2728,14 @@
           //    Covers both TRUCK and WH (shared handler). Cleared by postUpdate() on the
           //    next successful save (existing behavior).
           window._dirtyEditing = true;
+          window._ttsEditVersion++;
 
+          if (scope === 'WH') {
+            window._dirtyEditing = window._ttsDirtyFields.size > 0;
+            if (window.WHModal) WHModal.open({ item, role: window.userRole, onSaved: () => loadInquiries() });
+            else alert('Warehouse details could not load. Please refresh the page.');
+            return;
+          }
           lockRow(quote, scope, false);
 
           const tr = document.querySelector(`.row-truck-val[data-quote="${quote}"][data-scope="${scope}"], .row-wh-val[data-quote="${quote}"][data-scope="${scope}"]`);   // ✅ CARD LAYOUT: tag-agnostic
@@ -2630,6 +2743,8 @@
             // ✅ Rule 1: editing row should look like COST received (yellow)
             tr.classList.remove('saved-price', 'row-confirmed', 'new-empty');
             tr.classList.add('editing-row');
+                const pill = tr.querySelector('.status-pill');
+                if (pill) { pill.textContent = 'EDITING'; pill.dataset.state = 'EDITING'; }
           }
 
           document.querySelectorAll(`input[data-quote="${quote}"][data-scope="${scope}"]`).forEach(el => {
@@ -2641,6 +2756,7 @@
         saveBtn.className = 'action-button';
         saveBtn.innerHTML = iconSVG('save');
         saveBtn.title = 'Save';
+        saveBtn.disabled = mgrConfirmed || salesConfirmed;
         saveBtn.onclick = async () => {
           const fields = scope === 'WH'
             ? ['Vendor', 'Note', 'Order Processing Price', 'Inbound Price', 'Sorting Price', 'Palletizing Price', 'Pallet Fee Price', 'Storage Price', 'Outbound Price']
@@ -2657,6 +2773,7 @@
             tr.classList.remove('editing-row');
             tr.classList.add('saved-price');
             tr.classList.remove('row-confirmed', 'cost-received', 'new-inquiry', 'new-empty');
+            applyRowState(tr, item, scope);
           }
 
           // ✅ update local cache so paging/search keeps latest values
@@ -2713,17 +2830,9 @@
           if (salesOnly && !want) {
             const salesField = scope === 'WH' ? 'warehouseSalesConfirmed' : 'truckingSalesConfirmed';
             const mgrField = scope === 'WH' ? 'warehouseManagerConfirmed' : 'truckingManagerConfirmed';
-            const ok1 = await setConfirm(quote, salesField, false);
-            const ok2 = await setConfirm(quote, mgrField, false);
-            if (!ok1.ok || !ok2.ok) {
-              alert('❌ Failed to overwrite Sales confirmation.');
-              chk.checked = true;
-              chk.disabled = false;   // ✅ FIX (in-flight guard): re-enable on failure
-              return;
-            }
-            // ✅ FIX (local refresh): ok2's response doc reflects BOTH writes — refresh
-            //    just this row from it instead of a full reload
-            await refreshRowFromDoc(ok2 && ok2.data && ok2.data.data);
+            const result = await postUpdate({ 'Quotation #': quote, 'Saved': 'true', [salesField]: 'false', [mgrField]: 'false' });
+            if (!result.ok) { chk.checked = true; chk.disabled = false; return; }
+            await refreshRowFromDoc(result.data?.data, scope);
             return;
           }
 
@@ -2750,7 +2859,7 @@
             // ✅ FIX (local refresh): re-render this row from the server's response doc —
             //    color, checkmark, locks and fresh closures all land together ~1s after
             //    the click. Replaces the previous "instant paint + full reload" approach.
-            await refreshRowFromDoc(r.data && r.data.data);
+            await refreshRowFromDoc(r.data && r.data.data, scope);
             return;
           }
 
@@ -2775,21 +2884,11 @@
               chk.disabled = false;   // ✅ FIX (in-flight guard): re-enable on failure
               return;
             }
-            // ✅ GF GROUP: unlock-for-edit also resets the route group's push flags, so the
-            // 🚀 rockets come back active once the row is re-confirmed. (Re-pushing appends a
-            // NEW charge group in GF — the old block must be deleted manually on the GF page.)
-            if (scope === 'TRUCK') {
-              try {
-                for (const p of gfGroupPushedLines(quote)) {
-                  const pq = String(p['Quotation #'] || '').trim();
-                  const rr = await postUpdate({ 'Quotation #': pq, 'Saved': 'true', 'Pushed To GF': 'false' });
-                  if (rr.ok) p['Pushed To GF'] = 'false';   // keep local cache in sync
-                }
-              } catch (eGF) { console.warn('GF push-flag reset failed:', eGF); }
-            }
+            // Unlocking a price never clears the route's GoFreight delivery record.
+
             // ✅ FIX (local refresh): re-render this row from the response doc — the
             //    unchecked/unlocked state appears ~1s after the click, no full reload
-            await refreshRowFromDoc(r.data && r.data.data);
+            await refreshRowFromDoc(r.data && r.data.data, scope);
             return;
           }
 
@@ -2824,6 +2923,7 @@
             const pushGFBtn = document.createElement('button');
             pushGFBtn.type = 'button';
             pushGFBtn.className = 'action-button btn-push-gf';
+            pushGFBtn.dataset.quote = quote;
             pushGFBtn.textContent = '🚀';
             pushGFBtn.title = 'Push to GoFreight';
             if (String(item['Pushed To GF'] || '').toLowerCase() === 'true') {
@@ -2832,12 +2932,12 @@
             } else if (gfGroupPushedLines(quote).length) {
               // ✅ GF GROUP: a sibling carrier option of this route was already pushed
               pushGFBtn.classList.add('done');
-              pushGFBtn.title = 'Another carrier option of this route was already pushed to GoFreight. Uncheck to edit & re-push.';
+              pushGFBtn.title = 'This route was already sent to GoFreight. Other carriers cannot add another charge group.';
             }
 
             pushGFBtn.onclick = async () => {
               if (pushGFBtn.classList.contains('done')) {
-                alert(pushGFBtn.title || 'This line was already pushed to GoFreight.');
+                alert(pushGFBtn.title || 'This route was already pushed to GoFreight.');
                 return;
               }
 
@@ -2920,8 +3020,9 @@
                   return;
                 }
 
-                if (text.trim() === 'Already pushed') {
-                  alert('This line was already pushed to GoFreight.');
+                window.ttsGfRouteDone(quote);
+              if (text.trim() === 'Already pushed') {
+                  alert('This route was already pushed to GoFreight.');
                 } else {
                   pushGFBtn.classList.add('done');
                   pushGFBtn.title = 'Already pushed to GoFreight';
@@ -2935,11 +3036,34 @@
             };
 
             wrap.appendChild(pushGFBtn);
+            if (['pending', 'uncertain'].includes(String(item['GF Push State'] || ''))) {
+              const verifyBtn = document.createElement('button');
+              verifyBtn.className = 'action-button'; verifyBtn.textContent = 'Verify GF';
+              verifyBtn.title = 'Resolve a push only after checking this quotation in GoFreight';
+              verifyBtn.onclick = async () => {
+                const answer = prompt('First check this quotation in GoFreight.\nType SENT if the charge group exists, or NOT SENT if you confirmed that it does not.');
+                const value = String(answer || '').trim().toUpperCase();
+                if (!['SENT', 'NOT SENT'].includes(value)) return;
+                const note = prompt('Enter a short note describing what you checked in GoFreight:');
+                if (!note || note.trim().length < 5) return;
+                verifyBtn.disabled = true;
+                try {
+                  const response = await fetch('/api/reconcile-gf-push', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ 'Quotation #': quote, resolution: value === 'SENT' ? 'confirmed_sent' : 'confirmed_not_sent', note: note.trim() }) });
+                  const result = await response.json();
+                  if (!response.ok) { alert(result.message || 'Unable to update the push status.'); return; }
+                  await loadInquiries();
+                } catch (err) { alert('Unable to update the push status. Please retry.'); }
+                finally { verifyBtn.disabled = false; }
+              };
+              wrap.appendChild(verifyBtn);
+            }
+
           }
         }
 
         td.appendChild(wrap);
-        return td;
+        guardActions(td, quote, scope);
+            return td;
       }
 
       function naturalQuotationSort(a, b) {
@@ -3245,7 +3369,7 @@
         tr.dataset.scope = 'TRUCK';
 
         // ✅ Lock if either Sales OR Manager has confirmed — Manager must press Edit to modify
-        const locked = isTruthy(item['truckingManagerConfirmed']) || isTruthy(item['truckingSalesConfirmed']);
+        const locked = isTruthy(item['truckingPriceSaved']) || isTruthy(item['truckingManagerConfirmed']) || isTruthy(item['truckingSalesConfirmed']);
         const parentInternal = String(item['Parent Quotation #'] || '').trim();
         const parentDoc = parentInternal
           ? (window.filteredData || []).find(x => String(x['Quotation #'] || '').trim() === parentInternal)
@@ -3363,7 +3487,7 @@
         tr.dataset.scope = 'WH';
 
         // ✅ Lock if either Sales OR Manager has confirmed — Manager must press Edit to modify
-        const locked = isTruthy(item['warehouseManagerConfirmed']) || isTruthy(item['warehouseSalesConfirmed']);
+        const locked = isTruthy(item['warehousePriceSaved']) || isTruthy(item['warehouseManagerConfirmed']) || isTruthy(item['warehouseSalesConfirmed']);
 
         tr.appendChild(tdCell(displayQuote, isSub ? 'text-center font-semibold' : ''));
         // ===== WH summary (3 numbers) + Details button -> shared modal =====
@@ -3508,6 +3632,8 @@
           // ✅ MEMWATCH: a search goes to the server (?q=) so only the matching families are
           //    returned, instead of pulling the full window and filtering in the browser.
           const _q = String(window.searchTerm || '').trim();
+          const loadId = window._ttsLoadId = (window._ttsLoadId || 0) + 1;
+          const editVersion = window._ttsEditVersion;
           const res = await fetch('/inquiries' + (_q ? '?q=' + encodeURIComponent(_q) : ''), { credentials: 'same-origin' });
           if (window.handleAuthError(res)) return;   // ✅ AUTH
           const raw = await res.text();
@@ -3527,6 +3653,7 @@
             alert('🚨 Inquiry data invalid (not array).');
             return;
           }
+          if (loadId !== window._ttsLoadId || editVersion !== window._ttsEditVersion) { window.ttsScheduleRefresh?.(); return; }
           window.filteredData = applySearchFilter(data, window.searchTerm);
 
           const parseMDY = (s) => {
@@ -3541,7 +3668,7 @@
             return String(b['Quotation #'] || '').localeCompare(String(a['Quotation #'] || ''), undefined, { numeric: true, sensitivity: 'base' });
           });
 
-          renderPage();
+          renderPage(); window.ttsRestoreEdits();
         } catch (err) {
           console.error('Failed to load inquiries:', err);
           alert('🚨 Load failed.');
@@ -3556,17 +3683,18 @@
       //    click instead of waiting ~3s for a full reload, and the disabled-grey
       //    period vanishes. Falls back to a full reload if the doc is missing or
       //    the row isn't in the cache — worst case equals the old behavior.
-      async function refreshRowFromDoc(doc) {
-        try {
-          const q = String((doc && doc['Quotation #']) || '').trim();
-          const list = window.filteredData || [];
-          const idx = q ? list.findIndex(x => String(x['Quotation #'] || '').trim() === q) : -1;
-          if (idx < 0) { await loadInquiries(); return; }
-          list[idx] = doc;
-          renderPage();
-        } catch (e) {
-          console.warn('refreshRowFromDoc fallback to full reload:', e);
-          await loadInquiries();
+      async function refreshRowFromDoc(doc, scope) {
+        if (!doc) return;
+        const q = String(doc['Quotation #'] || '').trim();
+        const item = (window.filteredData || []).find(x => String(x['Quotation #']) === q);
+        if (!item) return;
+        Object.assign(item, doc);
+        for (const row of document.querySelectorAll('.row-truck-val, .row-wh-val')) {
+          if (row.dataset.quote !== q || (scope && row.dataset.scope !== scope)) continue;
+          const next = row.dataset.scope === 'TRUCK'
+            ? renderTruckRow(item, q, row.classList.contains('sub-row'))
+            : renderWhRow(item, q, row.classList.contains('sub-row'));
+          row.replaceWith(next);
         }
       }
 
@@ -3593,47 +3721,25 @@
         window._dirtyEditing = false;
         document.addEventListener('input', (e) => {
           const t = e.target;
-          if (t && t.tagName === 'INPUT' && t.hasAttribute('data-quote')) window._dirtyEditing = true;
+          if (t && t.tagName === 'INPUT' && t.hasAttribute('data-quote')) window.ttsTrackEdit(t);
         });
 
         // ✅ Socket.io real-time updates (match Sales behavior)
         try {
           const socket = io();
-          socket.on('inquiryUpdated', async () => {
-            if (window._selfUpdateUntil && Date.now() < window._selfUpdateUntil) {
-              console.log('[socket] skipping reload (self-update window)');
-              return;
-            }
-            // ✅ FIX: Skip reload while the user has unsaved edits (prevents other users'
-            // saves from wiping in-progress typing — root cause of the lost-rates issue)
-            if (window._dirtyEditing) {
-              console.log('[socket] skipping reload (unsaved edits in progress)');
-              return;
-            }
-            // ✅ MEMWATCH: coalesce socket-triggered reloads. Several tabs/users each reloading the
-            //    full list on every 'inquiryUpdated' is what spikes server memory; one reload per
-            //    3 s per tab is plenty for a shared dashboard.
-            const nowTs = Date.now();
-            if (window._lastReloadAt && nowTs - window._lastReloadAt < 3000) {
-              if (!window._reloadPending) {
-                window._reloadPending = true;
-                setTimeout(async () => { window._reloadPending = false; window._lastReloadAt = Date.now(); await loadInquiries(); }, 3000 - (nowTs - window._lastReloadAt));
-              }
-              return;
-            }
-            window._lastReloadAt = nowTs;
-            await loadInquiries();
-          });
+          const scheduleRefresh = window.ttsInstallRefresh(() => window.loadInquiries());
+          socket.on('inquiryUpdated', scheduleRefresh);
+          window.ttsScheduleRefresh = scheduleRefresh;
         } catch (e) {
           console.warn('socket disabled', e);
         }
 
         document.getElementById('prevPage')?.addEventListener('click', () => {
-          if (window.currentPage > 1) { window.currentPage--; renderPage(); }
+          if (window.currentPage > 1) { window.currentPage--; renderPage(); window.ttsRestoreEdits(); }
         });
         document.getElementById('nextPage')?.addEventListener('click', () => {
           const maxPage = Math.ceil((window.filteredData.length || 0) / window.pageSize) || 1;
-          if (window.currentPage < maxPage) { window.currentPage++; renderPage(); }
+          if (window.currentPage < maxPage) { window.currentPage++; renderPage(); window.ttsRestoreEdits(); }
         });
         document.getElementById('exitBtn')?.addEventListener('click', () => window.location.href = '/logout');
 

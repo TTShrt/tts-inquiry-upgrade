@@ -353,13 +353,14 @@ async function loadRecent(q) {
     const res = await fetch(url, { credentials: 'same-origin' });
     if (authGate(res)) return;
     const data = await res.json();
+    if (!res.ok) throw new Error(data.error || data.message || 'Unable to load archived quotations.');
     const box = document.getElementById('recentBox');
     if (!box) return;
     const recs = (data.records || []);
     box.innerHTML = recs.length
       ? recs.map(r => '<div class="rec-line" style="cursor:pointer;" onclick="openSnap(\'' + esc(r.quoteNo) + '\')" title="View archived quotation"><b style="color:var(--primary);">' + esc(r.quoteNo) + '</b> &middot; ' + esc((r.customer && r.customer.company) || '') + ' &middot; ' + esc(r.pageTitle) + ' &middot; ' + esc(r.username) + ' &middot; ' + esc(String(r.createdAt || '').slice(0, 10)) + (r.adjustedCount ? ' &middot; <span style="color:var(--warn);">' + r.adjustedCount + ' adj.</span>' : '') + (r.gfQuoteNo ? ' &middot; GF: ' + esc(r.gfQuoteNo) : '') + '</div>').join('')
       : '<span style="font-size:.75rem;color:var(--muted);">' + (q ? 'No records match.' : 'No downloads yet.') + '</span>';
-  } catch (e) { /* non-blocking */ }
+  } catch (e) { const box = document.getElementById('recentBox'); if (box) box.textContent = e.message; }
 }
 function searchRecs() { loadRecent((document.getElementById('recSearch') || { value: '' }).value.trim()); }   // ✅ LPSEARCH
 
@@ -450,8 +451,10 @@ function harvestPrintSections() {
 
 // ✅ REVISE: archive happens HERE (first print = TTSQT number; later prints/revisions = Updated-N)
 async function doPrintArchive() {
+  if (window.__archiveBusy) return;
   const ctx = window.__printCtx || { mode: 'readonly' };
   if (ctx.mode === 'readonly') { window.print(); return; }
+  window.__archiveBusy = true;
   try {
     const body = {
       pageKey: ctx.pageKey,
@@ -477,6 +480,7 @@ async function doPrintArchive() {
     loadRecent();
     setTimeout(() => window.print(), 80);
   } catch (e) { showBanner('Archiving failed: ' + e.message); }
+  finally { window.__archiveBusy = false; }
 }
 
 // ✅ LPSEARCH: reprint the archive exactly as recorded (page meta fetched for layout/notes)

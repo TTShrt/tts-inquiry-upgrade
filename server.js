@@ -53,6 +53,16 @@ const PORT = process.env.PORT || 3000;
 
 // Entry security: roles still come from the existing users table; identity comes from a revocable session.
 configureProxy(app, process.env);
+
+// ✅ BWFIX (2026-10): gzip all HTTP responses (JSON + HTML/JS/CSS). /inquiries returns full docs
+// with hundreds of long, repetitive field names — gzip typically shrinks that 85–95%.
+// Guarded require: if the package is missing on Render, the server still boots (uncompressed)
+// instead of crashing. Socket.io is attached to the http server, not Express — unaffected.
+let compression = null;
+try { compression = require('compression'); }
+catch (_) { console.warn('[BOOT] compression package not installed — responses are uncompressed'); }
+if (compression) app.use(compression());
+
 const entrySecurity = createEntrySecurity({
   env: process.env, fetch, mock: USE_MOCK, getUsers: () => users,
   getCollection: () => conn && conn.readyState === 1 ? conn.collection('web_sessions') : null
@@ -146,13 +156,14 @@ app.get('/sales_home.html', requireAnyRole(['sales', 'ops_view']), (req, res) =>
   res.sendFile(path.join(__dirname, 'public', 'sales_home.html')));
 
 app.use(express.static(path.join(__dirname, 'public'), {
-  etag: false,
-  lastModified: false,
+  // ✅ BWFIX (2026-10): was etag:false + no-store, which forced a FULL re-download of every
+  // static file on every page load. 'no-cache' still makes the browser check with the server
+  // every time (so a new deploy is picked up immediately), but an unchanged file now returns a
+  // tiny 304 "Not Modified" instead of the whole file.
+  etag: true,
+  lastModified: true,
   setHeaders: (res, filePath) => {
-    // ✅ Force browser to always check for latest version
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+    res.setHeader('Cache-Control', 'no-cache');
   }
 }));
 

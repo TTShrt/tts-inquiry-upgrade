@@ -221,6 +221,17 @@
     .wh-svc-chk input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary); }
     @media (max-width: 640px) { .wh-common-grid { grid-template-columns: 1fr; } .wh-cf-svc, .wh-cf-note { grid-column: span 1; } }
   </style>
+  <!-- Google tag: Google Ads (AW-753988612) + GA4 (G-ZL338R0SE5) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-753988612"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'AW-753988612');
+    gtag('config', 'G-ZL338R0SE5');
+    // Google Ads conversion action "Quote form submitted" (fires only after a successful submit)
+    const QUOTE_CONVERSION = 'AW-753988612/REPLACE_WITH_NEW_LABEL';
+  </script>
   <!-- Cloudflare Turnstile (bot protection) -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
@@ -708,6 +719,8 @@
           return;
         }
         setResult('ok', `✅ Request received!\nReference ID: ${j.portalRef || ''}\nAssigned Sales: ${j.assignedSales || ''}`);
+        gtag('event', 'conversion', { send_to: QUOTE_CONVERSION, value: 1.0, currency: 'USD', transaction_id: j.portalRef });
+        gtag('event', 'generate_lead', { value: 1.0, currency: 'USD' });
         form.reset();
         needWH.checked = false;
         whBlock.style.display = 'none';

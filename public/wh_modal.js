@@ -77,6 +77,18 @@
     var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, ''));
     return isFinite(n) ? n : 0;
   }
+  // ✅ LPGP / LPONQ: whether a List-Price row is on the quotation — counts toward totals/GP and
+  //    prints. Mirrors server lpRowIncluded(). The row's tick ('LP i OnQuote') decides; when it was
+  //    never set the default is: ticked in list mode, and in cost mode ticked only when Sourcing
+  //    costed the row (cost "0" counts). A price > 0 is always required.
+  function lpTicked(onQuote, costed, listMode) {
+    var v = String(onQuote == null ? '' : onQuote).toLowerCase().trim();
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+    return !!listMode || !!costed;
+  }
+  function lpCosted(c) { return String(c == null ? '' : c).trim() !== ''; }
+  function lpRowIncluded(priced, costed, onQuote, listMode) { return !!priced && lpTicked(onQuote, !!costed, listMode); }
   function selIdx(item) {
     var s = parseInt(item['Selected Supplier'], 10);
     return (s >= 1 && s <= SUP) ? s : 1;
@@ -107,9 +119,12 @@
     // ✅ LPQUOTE: dynamic List-Price rows count into the WH totals (mirrors server computeWarehouseTotals)
     var lpArr = [];
     try { lpArr = JSON.parse(String(item['LP Rows'] || '[]')); if (!Array.isArray(lpArr)) lpArr = []; } catch (eT) { lpArr = []; }
+    var lpList = isTruthy(item['LP Use List']);   // ✅ LPMODE
     lpArr.forEach(function (r) {
       var c = item['LP ' + r.i + ' Cost S' + sel];
       c = selectedCost(item, 'LP ' + r.i, 'template', sel);
+      if (r.custom && String(item['LP ' + r.i + ' Desc'] == null ? '' : item['LP ' + r.i + ' Desc']).trim() === '') return;   // ✅ LPONQ: custom line needs a description
+      if (!lpRowIncluded(num(item['LP ' + r.i + ' Price']) > 0, lpCosted(c), item['LP ' + r.i + ' OnQuote'], lpList)) return;   // ✅ LPGP / LPONQ
       cost += num(c);
       price += num(item['LP ' + r.i + ' Price']);
     });
@@ -131,6 +146,14 @@
       '.whm-hint{font-size:11.5px;color:#95a3b8;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}',
       '.whm-lptoggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#5b6b82;cursor:pointer;user-select:none;white-space:nowrap}.whm-lptoggle input{accent-color:#2457d6;cursor:pointer}',
       '.whm-x{cursor:pointer;color:#95a3b8;font-size:22px;line-height:1;border:none;background:none;padding:0 2px}.whm-x:hover{color:#172033}',
+      /* ✅ LPMODE: the quoting-mode switch — big, bordered, fills cobalt when List Price is on */
+      '.whm-mode{flex:none;display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:2px solid #2457d6;border-radius:999px;background:#eef2ff;color:#2457d6;font-size:12.5px;font-weight:700;cursor:pointer;user-select:none;white-space:nowrap;line-height:1}',
+      '.whm-hd .whm-meta{min-width:0;overflow:hidden;text-overflow:ellipsis}',   /* ✅ LPMODE: meta shrinks before anything overflows */
+      '@media (max-width:1100px){.whm-mode em{display:none}}',
+      '.whm-mode input{width:15px;height:15px;margin:0;accent-color:#2457d6;cursor:pointer}',
+      '.whm-mode em{font-style:normal;font-weight:500;color:#5b6b82}',
+      '.whm-mode.on{background:#2457d6;color:#fff}.whm-mode.on em{color:#dbe4ff}',
+      '.whm-mode.ro{opacity:.75;cursor:default}.whm-mode.ro input{cursor:default}',
       '.whm-common{display:flex;gap:18px;align-items:stretch;padding:12px 20px;border-bottom:1px solid #e3e8ef;background:#f5f7fa}',
       '.whm-cleft{flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px;align-content:start;min-width:0}',
       '.whm-svc{grid-column:span 2}',
@@ -178,6 +201,7 @@
       '.whm-cell[data-field]{border-color:#e3e8ef;background:#fff;color:#172033}',
       '.whm-perd{height:26px;font-size:11px;border:1px solid #e3e8ef;border-radius:6px;width:100%;font-family:inherit;color:#172033;background:#fff;padding:0 4px}',
       '.whm-oqcol{text-align:center}.whm-oq{cursor:pointer;width:14px;height:14px;accent-color:#2fbf8f}',
+      '.whm-lpoq{cursor:pointer;width:15px;height:15px;accent-color:#2457d6}',   /* ✅ LPONQ */
       '.whm-exist{color:#95a3b8;font-style:italic}',
       '.whm-table td.whm-pcol{text-align:right;padding-right:16px;padding-left:8px}',
       '.whm-pw{position:relative;display:inline-block}',
@@ -251,6 +275,7 @@
     var sel = selIdx(item);
     function get(f) { return (f in draft) ? draft[f] : (item[f] == null ? '' : item[f]); }
     function set(f, v) { draft[f] = v; }
+    var systemPriceKeys = {};   // ✅ LPMODE: 'LP n Price' keys filled by the open-time auto price (not a Sales edit)
 
     var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]); }); };
 
@@ -296,6 +321,7 @@
         '<div class="whm-hd">' +
           '<span class="whm-title">Warehouse cost &amp; price</span>' +
           '<span class="whm-meta">Quote <b>' + esc(quote) + '</b>' + (get('Customer ID') ? ' for <b>' + esc(get('Customer ID')) + '</b>' : '') + (get('Requested By') ? ' \u2014 ' + esc(get('Requested By')) : '') + '</span>' +
+          (lpMode ? '<label class="whm-mode" data-modewrap title="ON: TTS\u2019s own warehouse \u2014 the quotation prints the TTS List Price for every priced row; Sourcing does not need to enter any cost. OFF: the quotation prints only the rows Sourcing has costed."><input type="checkbox" data-uselist ' + (isTruthy(get('LP Use List')) ? 'checked' : '') + (canEditPrice ? '' : ' disabled') + '> <span>Use TTS List Price</span><em data-modestate></em></label>' : '') +   // ✅ LPMODE
           '<span class="whm-hint">' + (canEditCost ? 'Fill each supplier\u2019s cost. Sales picks the supplier and sees the auto price.' : 'Cost is read-only. Pick a supplier; price is auto-derived (25% GP) and you can override it.') + '</span>' +
           (lpMode ? '<label class="whm-lptoggle" title="Show the TTS List Price under each Price as a reference"><input type="checkbox" data-showlp> Show TTS list price</label>' : '') +
           '<button class="whm-x" data-close aria-label="Close">\u00d7</button></div>' +
@@ -333,11 +359,13 @@
             (lpMode ? '<col style="width:46%">' : '<col style="width:26px"><col style="width:150px"><col style="width:88px"><col style="width:70px">') +
             supCols.map(function (w) { return '<col class="whm-supc" data-w="' + w + '" style="width:' + (w === sel ? 118 : 96) + 'px">'; }).join('') +
             (showPrice ? '<col style="width:118px"><col style="width:58px">' : '') +
+            (showPrice && lpMode ? '<col style="width:44px">' : '') +   // ✅ LPONQ
           '</colgroup>' +
           '<thead><tr>' +
             (lpMode ? '<th class="l whm-svc-h">Service</th>' : '<th class="whm-oqcol" title="Include this row in the quote sheet">\uD83D\uDCC4</th><th class="l whm-svc-h">Service</th><th class="l whm-qcol">Qty / detail</th><th>Unit</th>') +
             headCols +
             (showPrice ? '<th class="r whm-pcol">Price</th><th class="r whm-gpcol">GP</th>' : '') +
+            (showPrice && lpMode ? '<th class="whm-oqcol" title="Ticked rows go on the quotation sheet (a price is still required). TTS List Price mode: every row starts ticked. Sourcing-cost mode: rows with a cost start ticked; tick others to add them, untick to leave a row off.">\uD83D\uDCC4</th>' : '') +   // ✅ LPONQ
           '</tr></thead>' +
           '<tbody data-rows></tbody>' +
         '</table></div>' +
@@ -467,7 +495,7 @@
           gi++; lastSec = sec;
           h += '<tr class="whm-grp" data-g="lp' + gi + '"><td class="l"><span class="whm-chev">\u25be</span>' + esc(sec || 'Services') + '</td>' +
             '<td colspan="' + supCols.length + '"></td>' +
-            (showPrice ? '<td class="r" data-gsub="lp' + gi + '"></td><td></td>' : '') + '</tr>';
+            (showPrice ? '<td class="r" data-gsub="lp' + gi + '"></td><td></td><td></td>' : '') + '</tr>';
         }
         var fld = 'LP ' + r.i;
         h += '<tr data-row data-g="lp' + gi + '" data-field="' + esc(fld) + '" data-kind="lp">';
@@ -482,6 +510,7 @@
           h += '<td class="whm-pcol"><span class="whm-pw"><i class="whm-man" title="Manually set \u2014 will not be overwritten by the auto price"></i><input class="whm-cell" data-price="' + esc(fld) + '" value="' + esc(get(fld + ' Price')) + '" placeholder="" ' + (canEditPrice ? '' : 'disabled') + '></span>' +
             ((!r.custom && String(r.listPrice).trim() !== '') ? '<div class="whm-lpref">List ' + esc(r.listPrice) + '</div>' : '') + '</td>';
           h += '<td class="r whm-gpcol"><span class="whm-gp" data-gp="' + esc(fld) + '">\u2014</span></td>';
+          h += '<td class="whm-oqcol"><input type="checkbox" class="whm-lpoq" data-onquote="' + esc(fld) + '" ' + (lpTicked(get(fld + ' OnQuote'), lpCosted(get(fld + ' Cost S' + sel)), isTruthy(get('LP Use List'))) ? 'checked' : '') + (canEditPrice ? '' : ' disabled') + '></td>';   // ✅ LPONQ
         }
         h += '</tr>';
       });
@@ -573,7 +602,35 @@
         setSendUI(want); flashSaved(want ? '\u2713 sent to Sales' : '\u2713 unsent');
       });
     }
+    // ✅ LPMODE: quoting mode switch. ON = TTS's own warehouse: the quote sheet prints the TTS
+    //    List Price for every priced row and Sourcing need not enter any cost; the SERVER fills
+    //    every empty non-custom price with its list price when the switch is saved (never
+    //    overwriting an entered price), and the cells below are refreshed from its reply.
+    //    OFF = Sourcing-cost mode: the quote sheet prints only rows Sourcing has costed. Prices
+    //    are left as they are when switching off.
+    function setModeUI(on) {
+      var wrap = ov.querySelector('[data-modewrap]'); if (!wrap) return;
+      wrap.classList.toggle('on', !!on);
+      var st = wrap.querySelector('[data-modestate]');
+      if (st) st.textContent = on ? 'TTS warehouse \u2014 no Sourcing cost needed' : 'quote = Sourcing cost';
+    }
+    function refreshLpTicks() {   // ✅ LPONQ: a never-set tick follows the mode / the selected supplier's cost
+      var listOn = isTruthy(get('LP Use List'));
+      ov.querySelectorAll('.whm-lpoq').forEach(function (cb) {
+        var f = cb.getAttribute('data-onquote');
+        var cEl = ov.querySelector('.whm-cell[data-cost="' + cssEsc(f) + '"][data-w="' + sel + '"]');
+        cb.checked = lpTicked(get(f + ' OnQuote'), lpCosted(cEl ? cEl.value : get(f + ' Cost S' + sel)), listOn);
+      });
+    }
+    function refreshLpPricesFromItem() {
+      ov.querySelectorAll('tr[data-row][data-kind="lp"] .whm-cell[data-price]').forEach(function (pEl) {
+        if (String(pEl.value).trim() !== '') return;                 // never touch what the user typed
+        var v = item[pEl.getAttribute('data-price') + ' Price'];
+        if (v != null && String(v).trim() !== '') pEl.value = String(v);
+      });
+    }
     function initLpToggle() {
+      setModeUI(isTruthy(get('LP Use List')));
       var cb = ov.querySelector('[data-showlp]'); if (!cb) return;
       var root = ov.querySelector('.whm');
       var on = false; try { on = localStorage.getItem('whm_show_lp') === '1'; } catch (e0) {}
@@ -589,17 +646,31 @@
       var tc = 0, tp = 0;
       var explicitSelection = Object.keys(mergedItem()).some(function (k) { return k.endsWith(' OnQuote'); });
       function counts(tr) { return lpMode || tr.getAttribute('data-kind') === 'legacy' || !explicitSelection || isTruthy(get(tr.getAttribute('data-field') + ' OnQuote')); }
+      // ✅ LPGP / LPONQ: a List-Price row is excluded from GP / totals / subtotals unless it is on
+      //    the quotation (see lpRowIncluded). Non-LP rows are never excluded.
+      //    Sourcing cannot see prices, so for it a row counts as soon as its cost is entered and
+      //    the row is (or defaults to) ticked.
+      function lpOffFor(tr) {
+        if (tr.getAttribute('data-kind') !== 'lp') return false;
+        var fldQ = tr.getAttribute('data-field');
+        var dEl = tr.querySelector('[data-lpdesc]'); if (dEl && String(dEl.value).trim() === '') return true;   // custom line needs a description
+        var cEl = tr.querySelector('.whm-cell[data-cost][data-w="' + sel + '"]'), pEl = tr.querySelector('.whm-cell[data-price]');
+        var costed = lpCosted(cEl ? cEl.value : ''), listOn = isTruthy(get('LP Use List'));
+        if (!showPrice) return !(costed && lpTicked(get(fldQ + ' OnQuote'), costed, listOn));
+        return !lpRowIncluded(num(pEl ? pEl.value : get(fldQ + ' Price')) > 0, costed, get(fldQ + ' OnQuote'), listOn);
+      }
       ov.querySelectorAll('tr[data-row]').forEach(function (tr) {
         var fld = tr.getAttribute('data-field'), kind = tr.getAttribute('data-kind');
         var c = curSelectedCostFor(fld, kind);
         var pEl = tr.querySelector('.whm-cell[data-price]');
         var p = pEl ? num(pEl.value) : 0;
+        var lpOff = lpOffFor(tr);
         var gpEl = tr.querySelector('[data-gp]');
         if (gpEl) {
-          if (p > 0 && (c || p)) { var g = (p - c) / p * 100; gpEl.textContent = Math.round(g) + '%'; gpEl.style.color = g >= 0 ? '#15803d' : '#b91c1c'; }
+          if (!lpOff && p > 0 && (c || p)) { var g = (p - c) / p * 100; gpEl.textContent = Math.round(g) + '%'; gpEl.style.color = g >= 0 ? '#15803d' : '#b91c1c'; }
           else { gpEl.textContent = '\u2014'; gpEl.style.color = '#9aa1ab'; }
         }
-        if (counts(tr) && (c || p)) { tc += c; tp += p; }
+        if (!lpOff && counts(tr) && (c || p)) { tc += c; tp += p; }
       });
       // group subtotals (price)
       GROUPS.forEach(function (g, gi) {
@@ -613,7 +684,7 @@
       ov.querySelectorAll('[data-gsub^="lp"]').forEach(function (cell2) {
         var gi2 = cell2.getAttribute('data-gsub'), sub2 = 0;
         ov.querySelectorAll('tr[data-row][data-g="' + gi2 + '"]').forEach(function (tr2) {
-          var pEl2 = tr2.querySelector('.whm-cell[data-price]'); if (pEl2) sub2 += num(pEl2.value);
+          var pEl2 = tr2.querySelector('.whm-cell[data-price]'); if (pEl2 && !lpOffFor(tr2)) sub2 += num(pEl2.value);   // ✅ LPGP
         });
         cell2.textContent = sub2 ? money(sub2) : '';
       });
@@ -642,6 +713,8 @@
     function renderSupStrip() {
       // ✅ REDESIGN: per-supplier totals now live in the column headers (no separate strip).
       //    Rule (per Lina 2026-08-27): only OnQuote-checked rows count; LP-snapshot rows all count.
+      //    ✅ LPONQ: this is a supplier-COMPARISON figure (which vendor is cheapest), so it ignores
+      //    the per-row quote ticks on purpose — the footer Cost / WH Cost Total do honour them.
       var totals = {}, hasAny = {};
       supCols.forEach(function (w) { totals[w] = 0; hasAny[w] = false; });
       ov.querySelectorAll('tr[data-row]').forEach(function (tr) {
@@ -687,6 +760,10 @@
       ov.querySelectorAll('.whm-sname').forEach(function (s) { s.disabled = !canEditCost || frozen; });
       ov.querySelectorAll('.whm-cell[data-cost],.whm-cell[data-costbare]').forEach(function (c) { c.disabled = !canEditCost || frozen; });
       ov.querySelectorAll('.whm-cell[data-price]').forEach(function (p) { p.disabled = !canEditPrice || frozen; });
+      ov.querySelectorAll('.whm-lpoq').forEach(function (q) { q.disabled = !canEditPrice || frozen; });   // ✅ LPONQ
+      // ✅ LPMODE: the mode is fixed once the WH quote is confirmed by anyone (server blocks it too)
+      var whConfirmedAny = isTruthy(item.warehouseSalesConfirmed) || isTruthy(item.warehouseManagerConfirmed);
+      ov.querySelectorAll('[data-uselist]').forEach(function (m) { m.disabled = !canEditPrice || frozen || whConfirmedAny; m.closest('[data-modewrap]').classList.toggle('ro', m.disabled); });
       ov.querySelectorAll('[data-svcsub]').forEach(function (cb) { cb.disabled = !canEditCommon || frozen; });
       var st = ov.querySelector('[data-lockstate]');
       if (st) st.textContent = locked ? ('\uD83D\uDD12 Locked by ' + (lb === 'manager' ? 'Manager' : 'Sales')) : '';
@@ -710,7 +787,7 @@
       if (el.hasAttribute('data-lpdesc')) { set('LP ' + el.getAttribute('data-lpdesc') + ' Desc', el.value); return ['LP ' + el.getAttribute('data-lpdesc') + ' Desc']; }   // ✅ LPQUOTE
       if (el.hasAttribute('data-cost')) { set(el.getAttribute('data-cost') + ' Cost S' + el.getAttribute('data-w'), el.value); return [el.getAttribute('data-cost') + ' Cost S' + el.getAttribute('data-w')]; }
       if (el.hasAttribute('data-costbare')) { set(el.getAttribute('data-costbare'), el.value); return [el.getAttribute('data-costbare')]; }
-      if (el.hasAttribute('data-price')) { set(el.getAttribute('data-price') + ' Price', el.value); return [el.getAttribute('data-price') + ' Price']; }
+      if (el.hasAttribute('data-price')) { var pk = el.getAttribute('data-price') + ' Price'; if (String(el.value) !== String(get(pk))) delete systemPriceKeys[pk]; set(pk, el.value); return [pk]; }   // ✅ LPMODE: a real (changed) value is Sales' price
       if (el.hasAttribute('data-sname')) { set('Supplier ' + el.getAttribute('data-sname') + ' Name', el.value); return ['Supplier ' + el.getAttribute('data-sname') + ' Name']; }
       return [];
     }
@@ -744,7 +821,7 @@
       } else {
         // Sales/Manager: only a real PRICE edit commits the quote and locks Sourcing.
         // Picking a supplier, editing the Note or common info must NOT lock Sourcing.
-        var touchedPrice = Object.keys(fields).some(function (k) { return / Price$/.test(k); });
+        var touchedPrice = Object.keys(fields).some(function (k) { return / Price$/.test(k) && !systemPriceKeys[k]; });   // ✅ LPMODE: system auto prices don't lock Sourcing
         if (touchedPrice) payload['warehousePriceSaved'] = 'true';
       }
       for (var k in fields) payload[k] = fields[k];
@@ -858,7 +935,14 @@
     /* ---- events ---- */
     ov.addEventListener('change', function (e) {
       var r = e.target.closest('input[name="whm-selwh"]');
-      if (r) { sel = +r.value; set('Selected Supplier', String(sel)); applySel(); var autoKeys = applyAutoLp() || []; recalc(); autosave(['Selected Supplier'].concat(autoKeys)); return; }
+      if (r) {
+        sel = +r.value; set('Selected Supplier', String(sel)); applySel();
+        // ✅ LPMODE: cost-driven auto prices only in cost mode and only while the WH quote is unconfirmed; they are system values
+        var autoKeys = (lpMode && (isTruthy(get('LP Use List')) || isTruthy(item.warehouseSalesConfirmed) || isTruthy(item.warehouseManagerConfirmed))) ? [] : (applyAutoLp() || []);
+        autoKeys.forEach(function (k) { systemPriceKeys[k] = true; });
+        if (lpMode) refreshLpTicks();   // ✅ LPONQ: never-set ticks follow the selected supplier's cost
+        recalc(); autosave(['Selected Supplier'].concat(autoKeys)); return;
+      }
       if (e.target.matches('[data-svc]')) {
         // ✅ SUBTYPE: service type single-select (mirrors the inquiry form)
         if (e.target.checked) ov.querySelectorAll('[data-svc]').forEach(function (pc) { if (pc !== e.target) pc.checked = false; });
@@ -898,6 +982,34 @@
           return;
         }
         rebuildServiceSubtypes(); autosave(['Service Subtypes']); return;
+      }
+      if (e.target.matches('[data-uselist]')) {   // ✅ LPMODE
+        var modeCb = e.target, on = modeCb.checked;
+        set('LP Use List', on ? 'true' : 'false');
+        var clearedKeys = [];
+        if (on) {   // cost-derived SYSTEM prices are not Sales' choice: clear them so the server refills from the list.
+          //    A price still equal to its cost-derived auto value (data-auto) is a system price too, even if saved in an earlier session.
+          ov.querySelectorAll('tr[data-row][data-kind="lp"] .whm-cell[data-price]').forEach(function (sEl) {
+            var k = sEl.getAttribute('data-price') + ' Price', v = String(sEl.value).trim();
+            if (v === '') return;
+            if (!systemPriceKeys[k] && v !== (sEl.getAttribute('data-auto') || '')) return;
+            systemPriceKeys[k] = true;   // stays a system key: the list price the server puts back is a system value too
+            sEl.value = ''; set(k, ''); clearedKeys.push(k);
+          });
+        }
+        setModeUI(on); refreshLpTicks(); recalc();
+        clearTimeout(saveTimer); flashSaved('Saving\u2026'); modeCb.disabled = true;
+        postUpdate(draft).then(function (ok) {
+          modeCb.disabled = false; applyLockUI();
+          if (!ok) {   // roll back: mode flag and any cleared prices return to their saved values
+            delete draft['LP Use List'];
+            clearedKeys.forEach(function (k) { delete draft[k]; var el = ov.querySelector('.whm-cell[data-price="' + cssEsc(k.replace(/ Price$/, '')) + '"]'); if (el) el.value = item[k] == null ? '' : String(item[k]); });
+            modeCb.checked = isTruthy(item['LP Use List']); setModeUI(modeCb.checked); refreshLpTicks(); recalc(); return;
+          }
+          if (on) refreshLpPricesFromItem();                           // server-filled list prices
+          recalc(); flashSaved('\u2713 saved');
+        });
+        return;
       }
       if (e.target.matches('[data-onquote]')) {
         var oqKey = e.target.getAttribute('data-onquote') + ' OnQuote';
@@ -971,7 +1083,7 @@
     initSend();
     // seed data-auto for rows whose saved price already equals the auto value (so later
     // supplier/cost changes may still update them); prices differing from auto are treated
-    // as manual and left alone. No draft/save is triggered here.
+    // as manual and left alone. This block itself triggers no draft/save.
     (function seedAuto() {
       if (!lpMode) return;
       ov.querySelectorAll('tr[data-row][data-kind="lp"]').forEach(function (tr) {
@@ -980,6 +1092,16 @@
         var auto = lpAutoFrom(n); if (String(pEl.value).trim() === auto) pEl.setAttribute('data-auto', auto);
       });
     })();
+    // ✅ LPMODE: in cost mode nothing is prefilled any more, so when Sales/Manager opens the modal
+    //    every still-empty price on a costed row gets the cost-driven auto price right away
+    //    (applyAutoLp never touches a non-empty price). It is saved, but as a SYSTEM value: those
+    //    keys are excluded from the "Sales saved a price" lock (warehousePriceSaved) until Sales
+    //    actually edits a price.
+    if (lpMode && canEditPrice && !isTruthy(get('LP Use List')) && !isTruthy(item.warehouseSalesConfirmed) && !isTruthy(item.warehouseManagerConfirmed)) {
+      var openAutoKeys = applyAutoLp() || [];
+      openAutoKeys.forEach(function (k) { systemPriceKeys[k] = true; });
+      if (openAutoKeys.length) autosave(openAutoKeys);
+    }
     recalc();
   };
 })();

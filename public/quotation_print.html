@@ -347,14 +347,38 @@ function buildLpQuoteTable(d) {
   let lpRows = [];
   try { lpRows = JSON.parse(String(d['LP Rows'] || '[]')); if (!Array.isArray(lpRows)) lpRows = []; } catch (e) { lpRows = []; }
   if (!lpRows.length) return '';
-  const hasMin = lpRows.some(r => String(r.minChg || '').trim() !== '');   // ✅ STYLE: hide MIN.CHG when the whole page has none
-  const grpSpan = hasMin ? 6 : 5;
-  let rows = '', lastSec = null, printed = 0, zi = 0;   // ✅ POLISH
+  // ✅ LPMODE / LPONQ: which rows print (mirrors server lpRowIncluded / wh_modal.js):
+  //   the row's tick ('LP i OnQuote') decides; when never set, the default is ticked in TTS List
+  //   Price mode ('LP Use List'), and in Sourcing-cost mode ticked only when Sourcing costed the
+  //   row ('LP i Sourced' from the server, cost 0 counts). A price is always required; text-priced
+  //   list rows (Free / Quote by case) print only in list mode. Custom lines also need a
+  //   description. A row whose price is empty or 0 is skipped instead of printing "\u2014".
+  //   Section headers print only when the section has at least one printed row.
+  const listMode = val(d, 'LP Use List') === 'true';
+  const ticked = (v, costed) => { v = v.toLowerCase(); return v === 'true' ? true : v === 'false' ? false : (listMode || costed); };
+  const isNum = s => /^-?\d+(?:\.\d+)?$/.test(String(s).trim());
+  const printable = [];
   lpRows.forEach(r => {
     const quoted = val(d, 'LP ' + r.i + ' Price');
     const desc = val(d, 'LP ' + r.i + ' Desc') || (r.custom ? '' : String(r.description || ''));
     if (r.custom && desc.trim() === '') return;
-    const priceText = quoted !== '' ? (/^-?\d+(?:\.\d+)?$/.test(quoted) ? money(quoted) : esc(quoted)) : (String(r.listPrice || '').trim() && !/^-?\d+(?:\.\d+)?$/.test(String(r.listPrice).trim()) ? esc(r.listPrice) : '\u2014');
+    const listText = String(r.listPrice || '').trim();
+    const textPriced = !r.custom && quoted === '' && listText !== '' && !isNum(listText);
+    const quotedNum = parseFloat(quoted.replace(/[^0-9.\-]/g, ''));   // same parse as the totals ("$80", "1,200" are numbers)
+    const hasPrice = isFinite(quotedNum) && quotedNum > 0;              // a number > 0 (0 / text = no price)
+    let priceText;
+    if (hasPrice) priceText = quotedNum.toFixed(2);
+    else if (textPriced) priceText = esc(listText);
+    else return;                                                   // no price at all -> never print
+    if (!ticked(val(d, 'LP ' + r.i + ' OnQuote'), val(d, 'LP ' + r.i + ' Sourced') === 'true')) return;
+    if (!listMode && !hasPrice) return;                            // text-priced rows: list mode only
+    printable.push({ r, desc, priceText });
+  });
+  if (!printable.length) return '';
+  const hasMin = printable.some(x => String(x.r.minChg || '').trim() !== '');   // ✅ STYLE: hide MIN.CHG when the printed rows have none
+  const grpSpan = hasMin ? 6 : 5;
+  let rows = '', lastSec = null, printed = 0, zi = 0;   // ✅ POLISH
+  printable.forEach(({ r, desc, priceText }) => {
     const sec = String(r.section || '');
     if (sec !== lastSec) {
       lastSec = sec;
@@ -374,7 +398,6 @@ function buildLpQuoteTable(d) {
       + '<td class="rmk" contenteditable="true">' + esc(r.notes || '') + (qty ? (r.notes ? ' \u00b7 ' : '') + 'EST. QTY: ' + esc(qty) : '') + '</td></tr>';
     printed++;
   });
-  if (!printed) return '';
   const sub = String(d['Service Subtypes'] || '').split(/[;,]/)[0].trim();
   return '<h3 class="lane" contenteditable="true">' + ic('wh') + 'WAREHOUSE \u2014 ' + esc(sub || 'Services') + '</h3>'
     + '<table class="rt' + (printed > 28 ? ' dense' : '') + '"><tr><th style="width:42%">SERVICE DESCRIPTION</th><th style="width:6%">CUR.</th><th style="width:10%">PRICE</th><th style="width:12%">UNIT</th>' + (hasMin ? '<th style="width:8%">MIN. CHG</th>' : '') + '<th>PRICING NOTES</th></tr>' + rows + '</table>'
@@ -382,8 +405,11 @@ function buildLpQuoteTable(d) {
 }
 
 function buildWarehouseTable(d) {
-  const lp = buildLpQuoteTable(d);   // ✅ LPQUOTE: List-Price format wins when a snapshot exists
-  if (lp) return lp;
+  // ✅ LPQUOTE / LPONQ: with a List-Price snapshot the quote IS the snapshot — print it, or nothing
+  //    (never fall back to the fixed-bucket table, e.g. when Sales unticked every row).
+  let hasSnapshot = false;
+  try { hasSnapshot = JSON.parse(String(d['LP Rows'] || '[]')).length > 0; } catch (e) { hasSnapshot = false; }
+  if (hasSnapshot) return buildLpQuoteTable(d);
   let rows = '';
   const hasSelection = Object.keys(d).some(k => k.endsWith(' OnQuote'));
   for (const [base, descText] of WH_ROWS) {

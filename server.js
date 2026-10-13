@@ -363,9 +363,10 @@ function maskInquiryDocs(items, role) {
         // ✅ LPQUOTE: dynamic List-Price row costs/prices obey the same draft mask
         if (String(doc['warehouseCostDraft'] || '').toLowerCase().trim() === 'true') {
           const lpN2 = lpRowCount(doc);
+          const lpList = isTruthy(doc['LP Use List']);   // ✅ LPMODE: TTS List Price quotes need no Sourcing cost — Sales' prices stay visible
           for (let i = 1; i <= lpN2; i++) {
             doc['LP ' + i + ' Cost'] = '';
-            doc['LP ' + i + ' Price'] = '';
+            if (!lpList) doc['LP ' + i + ' Price'] = '';
             for (let s2 = 1; s2 <= WH_SUPPLIER_COUNT; s2++) doc['LP ' + i + ' Cost S' + s2] = '';
           }
         }
@@ -375,7 +376,7 @@ function maskInquiryDocs(items, role) {
 function hasConfirmedQuotePrice(doc, scope) {
   const truck = (isTruthy(doc.truckingSalesConfirmed) || isTruthy(doc.truckingManagerConfirmed)) && !isTruthy(doc.truckingCostDraft) && String(doc['Adjusted Price'] ?? '').trim() !== '';
   const whPrice = String(doc['WH Price Total'] ?? '').trim() !== '' || WH_ALL_BUCKETS.some(b => String(doc[b + ' Price'] ?? '').trim() !== '') || Object.keys(doc).some(k => /^LP \d+ Price$/.test(k) && String(doc[k] ?? '').trim() !== '');
-  const wh = (isTruthy(doc.warehouseSalesConfirmed) || isTruthy(doc.warehouseManagerConfirmed)) && !isTruthy(doc.warehouseCostDraft) && whPrice;
+  const wh = (isTruthy(doc.warehouseSalesConfirmed) || isTruthy(doc.warehouseManagerConfirmed)) && (!isTruthy(doc.warehouseCostDraft) || isTruthy(doc['LP Use List'])) && whPrice;   // ✅ LPMODE: List-Price quotes ignore the Sourcing draft flag
   return scope === 'TRUCK' ? truck : scope === 'WH' ? wh : truck || wh;
 }
 function canAccessInquiry(req, doc) {
@@ -949,6 +950,21 @@ function syncSelectedSupplierCost(doc) {
   }
 }
 
+// ✅ LPONQ: single rule for whether a List-Price row is on the quotation (used by totals, the
+//    export guard and — mirrored — by wh_modal.js and quotation_print.html).
+//    The row's tick ('LP i OnQuote') decides; when it was never set, the default is: ticked in
+//    list mode, and in cost mode ticked only when Sourcing costed the row (cost "0" counts).
+//    A price > 0 is always required.
+function lpTicked(onQuote, costed, listMode) {
+  const v = String(onQuote == null ? '' : onQuote).toLowerCase().trim();
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  return !!listMode || !!costed;
+}
+function lpRowIncluded(priced, costed, onQuote, listMode) {
+  return !!priced && lpTicked(onQuote, costed, listMode);
+}
+
 // Compute WH cost/price totals across all buckets (template selected-cost + legacy single-cost).
 function computeWarehouseTotals(doc) {
   const num = v => {
@@ -963,7 +979,20 @@ function computeWarehouseTotals(doc) {
   }
   // ✅ LPQUOTE: dynamic List-Price rows count into the WH totals
   const lpN = lpRowCount(doc);
-  for (let i = 1; i <= lpN; i++) { cost += num(doc['LP ' + i + ' Cost']); price += num(doc['LP ' + i + ' Price']); }
+  // ✅ LPGP / LPONQ: a List-Price row counts (and prints) when it is ticked on the quote and its
+  //    price is > 0 — see lpRowIncluded for the per-mode default. Cost is whatever was entered
+  //    on the counted rows. (mirrors wh_modal.js lpRowIncluded)
+  const lpList = isTruthy(doc['LP Use List']);
+  let lpDefs = [];
+  try { lpDefs = JSON.parse(String(doc['LP Rows'] || '[]')); if (!Array.isArray(lpDefs)) lpDefs = []; } catch (eLpDef) { lpDefs = []; }
+  for (let i = 1; i <= lpN; i++) {
+    const def = lpDefs.find(r => r && r.i === i) || {};
+    if (def.custom && String(doc['LP ' + i + ' Desc'] == null ? '' : doc['LP ' + i + ' Desc']).trim() === '') continue;   // custom line needs a description
+    const lc = String(doc['LP ' + i + ' Cost'] == null ? '' : doc['LP ' + i + ' Cost']).trim();
+    const lp = num(doc['LP ' + i + ' Price']);
+    if (!lpRowIncluded(lp > 0, lc !== '', doc['LP ' + i + ' OnQuote'], lpList)) continue;
+    cost += num(lc); price += lp;
+  }
   const c = cost ? String(Math.round(cost * 100) / 100) : '';
   const p = price ? String(Math.round(price * 100) / 100) : '';
   const isMongoDoc = typeof doc.set === 'function' && typeof doc.markModified === 'function';
@@ -1299,7 +1328,8 @@ app.get('/api/kpi', async (req, res) => {
       warehouseSalesConfirmed: 1, warehouseManagerConfirmed: 1,
       truckingCostSent: 1, warehouseCostSent: 1,
       truckingCostSaved: 1, warehouseCostSaved: 1, 'Submitted To Sourcing': 1,
-      'Adjusted Price': 1, 'WH Price Total': 1, truckingCostDraft: 1, warehouseCostDraft: 1
+      'Adjusted Price': 1, 'WH Price Total': 1, truckingCostDraft: 1, warehouseCostDraft: 1,
+      'LP Use List': 1   // ✅ LPMODE: hasConfirmedQuotePrice needs it (List-Price quotes ignore the WH draft flag)
     };
 
     // Get all main lines (no dash-suffix = main quotation)
@@ -1863,7 +1893,7 @@ app.get('/api/quotation-print', async (req, res) => {
 
     const isTrueStr = v => String(v || '').toLowerCase().trim() === 'true';
     const truckDraft = isTrueStr(doc['truckingCostDraft']);
-    const whDraft = isTrueStr(doc['warehouseCostDraft']);
+    const whDraft = isTrueStr(doc['warehouseCostDraft']) && !isTruthy(doc['LP Use List']);   // ✅ LPMODE: a List-Price quote is never held back by a Sourcing draft
 
     // Whitelisted identity fields (no cost / GP / supplier data)
     const out = {};
@@ -1893,16 +1923,24 @@ app.get('/api/quotation-print', async (req, res) => {
       // ✅ LPQUOTE: dynamic List-Price rows go on the export too
       if (doc['LP Rows'] != null) out['LP Rows'] = doc['LP Rows'];
       if (doc['LP Page Key'] != null) out['LP Page Key'] = doc['LP Page Key'];
+      if (doc['LP Use List'] != null) out['LP Use List'] = doc['LP Use List'];   // ✅ LPMODE: 'true' = quote the TTS List Price; otherwise quote Sourcing-costed rows only
       // ✅ LPQUOTE: warehouse quotes print the service page's policy notes from the Excel master
       if (out['LP Page Key']) {
         const lpPg = await conn.collection('list_prices').findOne({ pageKey: out['LP Page Key'] }, { projection: { pageNote: 1 } });
         if (lpPg && lpPg.pageNote) out['LP Page Note'] = lpPg.pageNote;
       }
       const lpN = lpRowCount(doc);
+      // ✅ LPSOURCED: boolean-only flag telling the print page which rows Sourcing costed
+      //    (selected supplier's cost, legacy bare 'LP i Cost' as fallback). No cost value leaves the server.
+      let lpSel = parseInt(doc['Selected Supplier'], 10);
+      if (!(lpSel >= 1 && lpSel <= WH_SUPPLIER_COUNT)) lpSel = 1;
       for (let i = 1; i <= lpN; i++) {
         if (doc['LP ' + i + ' Price'] != null) out['LP ' + i + ' Price'] = doc['LP ' + i + ' Price'];
         if (doc['LP ' + i + ' Qty'] != null) out['LP ' + i + ' Qty'] = doc['LP ' + i + ' Qty'];
         if (doc['LP ' + i + ' Desc'] != null) out['LP ' + i + ' Desc'] = doc['LP ' + i + ' Desc'];
+        if (doc['LP ' + i + ' OnQuote'] != null) out['LP ' + i + ' OnQuote'] = doc['LP ' + i + ' OnQuote'];   // ✅ LPONQ: Sales' per-row "on quote" tick
+        const lpSelCost = doc['LP ' + i + ' Cost S' + lpSel] != null ? doc['LP ' + i + ' Cost S' + lpSel] : doc['LP ' + i + ' Cost'];
+        out['LP ' + i + ' Sourced'] = String(lpSelCost == null ? '' : lpSelCost).trim() !== '' ? 'true' : 'false';
       }
       WH_ALL_BUCKETS.forEach(b => {
         if (doc[b + ' Price'] != null) out[b + ' Price'] = doc[b + ' Price'];
@@ -1916,8 +1954,14 @@ app.get('/api/quotation-print', async (req, res) => {
     // Nothing exportable at all → tell the user why instead of printing an empty sheet
     const hasMain = String(out['Adjusted Price'] || out['Price'] || '').trim() !== '';
     const hasSelection = Object.keys(out).some(k => k.endsWith(' OnQuote'));
-    const hasWh = WH_ALL_BUCKETS.some(b => (!hasSelection || WH_LEGACY_BUCKETS.includes(b) || isTruthy(out[b + ' OnQuote'])) && String(out[b + ' Price'] || '').trim() !== '');
-    const hasLp = Object.keys(out).some(k => /^LP \d+ Price$/.test(k) && String(out[k]).trim() !== '');   // ✅ LPQUOTE
+    let lpRowsOut = [];
+    try { lpRowsOut = JSON.parse(String(out['LP Rows'] || '[]')); if (!Array.isArray(lpRowsOut)) lpRowsOut = []; } catch (eLpOut) { lpRowsOut = []; }
+    // ✅ LPONQ: with a List-Price snapshot the fixed buckets never print (quotation_print.html), so they cannot make the sheet exportable
+    const hasWh = !lpRowsOut.length && WH_ALL_BUCKETS.some(b => (!hasSelection || WH_LEGACY_BUCKETS.includes(b) || isTruthy(out[b + ' OnQuote'])) && String(out[b + ' Price'] || '').trim() !== '');
+    // ✅ LPQUOTE / LPMODE / LPONQ: mirrors quotation_print.html — a row that is on the quote
+    //    (lpRowIncluded) with a price > 0 makes the sheet printable.
+    const lpNum = v => { const x = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isFinite(x) && x > 0; };
+    const hasLp = lpRowsOut.some(r => !(r.custom && String(out['LP ' + r.i + ' Desc'] || '').trim() === '') && lpRowIncluded(lpNum(out['LP ' + r.i + ' Price']), isTruthy(out['LP ' + r.i + ' Sourced']), out['LP ' + r.i + ' OnQuote'], isTruthy(out['LP Use List'])));
     if (!hasMain && !hasWh && !hasLp) {
       return res.status(409).json({ error: 'No prices have been sent to Sales for this quotation yet. Please complete pricing in the system first. \u4EF7\u683C\u5C1A\u672A\u53D1\u9001\u7ED9 Sales\uFF0C\u6682\u65E0\u6CD5\u5BFC\u51FA\u62A5\u4EF7\u5355\u3002' });
     }
@@ -2198,9 +2242,11 @@ app.post('/api/lp-quote-init', async (req, res) => {
     rows.push({ i: rows.length + 1, section: 'Others', description: '', unit: '', listPrice: '', minChg: '', notes: '', custom: true });
     rows.push({ i: rows.length + 1, section: 'Others', description: '', unit: '', listPrice: '', minChg: '', notes: '', custom: true });
 
-    // Persist snapshot + prefill Sales price with the numeric master price (empty stays empty)
+    // Persist snapshot. ✅ LPMODE: Sales price is prefilled with the numeric master price ONLY when
+    // this inquiry is set to quote the TTS List Price ('LP Use List' = true); in the default
+    // cost mode the price stays empty so the cost-driven auto price (÷0.75) can fill it.
     const set = { 'LP Rows': JSON.stringify(rows), 'LP Page Key': pageKey, 'Service Subtypes': sub };
-    rows.forEach(r => {
+    if (isTruthy(doc['LP Use List'])) rows.forEach(r => {
       if (!r.custom && /^\d+(\.\d+)?$/.test(String(r.listPrice)) && (force || String(doc['LP ' + r.i + ' Price'] || '').trim() === '')) {
         set['LP ' + r.i + ' Price'] = String(r.listPrice);
       }
@@ -2415,6 +2461,7 @@ app.post('/inquiries/update', async (req, res) => {
         // Sales updates PRICE + saved flags + sales-confirm flags, and limited inquiry edits (before cost)
         return (
           /^LP \d+ (Price|Desc)$/.test(field) ||   // ✅ LPQUOTE: sales sets dynamic-row prices / custom descriptions ('LP n Qty' already matches the Qty rule)
+          field === 'LP Use List' ||                // ✅ LPMODE: Sales chooses List-Price vs Sourcing-cost quoting
           inList(field, TRUCK_PRICE_FIELDS) ||
           inList(field, WH_PRICE_FIELDS) ||
           inList(field, PRICE_SAVED_FLAGS) ||
@@ -2430,6 +2477,7 @@ app.post('/inquiries/update', async (req, res) => {
       if (role === 'manager') {
         return (
           /^LP \d+ (Price|Desc)$/.test(field) ||   // ✅ LPQUOTE
+          field === 'LP Use List' ||                // ✅ LPMODE
           inList(field, TRUCK_PRICE_FIELDS) ||
           inList(field, WH_PRICE_FIELDS) ||
           inList(field, PRICE_SAVED_FLAGS) ||
@@ -2553,6 +2601,8 @@ app.post('/inquiries/update', async (req, res) => {
         const whLockedBy = String(existing['WH Locked By'] || '').toLowerCase().trim();
         if (whLockedBy && (
               (/ Price$/.test(k) && fieldScope(k) === 'WH') ||
+              k === 'LP Use List' ||                 // ✅ LPMODE: the quoting mode is part of the locked quote
+              /^LP \d+ OnQuote$/.test(k) ||          // ✅ LPONQ: so is which rows are on it
               / Cost S\d+$/.test(k) ||
               /^Supplier \d+ Name$/.test(k) ||
               k === 'Selected Supplier'
@@ -2577,9 +2627,17 @@ app.post('/inquiries/update', async (req, res) => {
       // Confirming while still draft would hide the locked price from Sales AND disable
       // Sourcing's "Send to Sales" (deadlock). Only blocks setting a confirm flag to true;
       // unchecking (value falsy) stays allowed so a stuck row can still be unlocked.
+      // ✅ LPMODE: once the warehouse quote is confirmed its mode is fixed (switching it off would
+      //    re-arm the Sourcing-draft gate on a confirmed quote).
+      if (k === 'LP Use List' && isWhConfirmed(existing)) {
+        blocked.push({ field: k, reason: 'wh-scope-locked' });
+        continue;
+      }
       if (/Confirmed$/.test(k) && isTruthy(v)) {
         const confScope = k.startsWith('warehouse') ? 'warehouse' : 'trucking';
-        if (isTruthy(existing[confScope + 'CostDraft'])) {
+        // ✅ LPMODE: a TTS List-Price warehouse quote never goes through Sourcing's "Send", so a
+        //    stale warehouse draft flag must not block confirming it.
+        if (isTruthy(existing[confScope + 'CostDraft']) && !(confScope === 'warehouse' && isTruthy(existing['LP Use List']))) {
           blocked.push({ field: k, reason: 'cannot-confirm-while-draft' });
           continue;
         }
@@ -2655,6 +2713,21 @@ app.post('/inquiries/update', async (req, res) => {
     // Auto for other items (preserve manual overrides based on prevSnapshot)
     applyTruckingAutoPrices(prevSnapshot, existing);
     applyWarehouseAutoPrices(prevSnapshot, existing);
+    // ✅ LPMODE: the moment 'LP Use List' is switched ON, fill every EMPTY price on a non-custom
+    //    List-Price row with its numeric list price. Done here (not in the browser) because Sales'
+    //    screen may be showing masked prices while a Sourcing draft is unsent — the server sees
+    //    the real values, so nothing already entered is ever overwritten.
+    if ('LP Use List' in patch && isTruthy(patch['LP Use List']) && !isTruthy(prevSnapshot['LP Use List'])) {
+      let lpRowsNow = [];
+      try { lpRowsNow = JSON.parse(String(existing['LP Rows'] || '[]')); if (!Array.isArray(lpRowsNow)) lpRowsNow = []; } catch (eLpFill) { lpRowsNow = []; }
+      lpRowsNow.forEach(r => {
+        if (r.custom || !/^\d+(\.\d+)?$/.test(String(r.listPrice || '').trim())) return;
+        const pk = 'LP ' + r.i + ' Price';
+        if (String(existing[pk] == null ? '' : existing[pk]).trim() !== '') return;
+        existing[pk] = String(r.listPrice).trim();
+        if (isMongoDoc) existing.set(pk, existing[pk]);
+      });
+    }
     computeWarehouseTotals(existing);
 
     // ========= Save =========
@@ -3762,7 +3835,8 @@ app.use((req, res, next) => {
     truckingCostSent: 1, warehouseCostSent: 1,
     truckingCostSaved: 1, warehouseCostSaved: 1,
     'Selected': 1, 'Pushed To GF': 1, 'Pushed To GF At': 1, 'Pushed To GF By': 1,
-    truckingCostDraft: 1, warehouseCostDraft: 1
+    truckingCostDraft: 1, warehouseCostDraft: 1,
+    'LP Use List': 1   // ✅ LPMODE: hasConfirmedQuotePrice needs it (List-Price quotes ignore the WH draft flag)
   };
 
   app.get('/api/quotation-list', async (req, res) => {

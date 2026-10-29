@@ -267,6 +267,12 @@ const users = [
     salesGroup: 'TEAM2'
   },
   {
+    username: 'Nancy Li',
+    passwordHash: 'scrypt$47d0d38abe5d6637855172c4fcac5e63$fb3f69222d3060a0adaeed59c977f048e3ec7fac3c32400518b15a5f496201fae05481fd824d43e57d50c7e95aca2dd981886c389387249698e4ad4615d2a711',
+    role: 'sales',
+    salesGroup: 'TEAM2'
+  },
+  {
     username: 'OPM TEAM2',
     passwordHash: 'scrypt$e588caf8cfab177d31beabd376bc48d8$b9dd86bd5f02100d74bb39a757087e2028a909dea5621f8bb3509f2e500194c4879b69e5c0bea68bc7601b36adc255ed228740672bf3dcc3c4629fe3f8b53e46',
     role: 'sales',
@@ -307,6 +313,7 @@ const USER_EMAILS = {
   'Lina Lee': 'linal@totalsolutionus.com',
   'Adam Chen': 'salescn@totalsolutionus.com',
   'Ellen Lin': 'sqcn@totalsolutionus.com',
+  'Nancy Li': 'salescn@totalsolutionus.com',
   'Niurka Guzman': 'salesus@totalsolutionus.com',
   'Aurora Peng': 'sa@totalsolutionus.com'
 };
